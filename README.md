@@ -1,3 +1,35 @@
+# Usage
+
+## Installation
+
+To install the packages:
+
+```
+npm install
+```
+
+You need to also install the js-api module, if you have it installed locally, you can do it by passing the local path to it's git repo:
+
+```
+npm install /PATH/TO/js-api/
+```
+
+## Compilation
+
+To compile the project:
+
+```
+tsc
+```
+
+## Testing
+
+To run the tests:
+
+``` 
+npm test
+```
+
 # Technologies
 
 ### Testing
