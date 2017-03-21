@@ -22,6 +22,12 @@ To compile the project:
 tsc
 ```
 
+To create a Standalone (using Browserify):
+
+```
+browserify lib/manager.js --standalone adjago > build/adjago.js
+```
+
 ## Testing
 
 To run the tests:
