@@ -14,14 +14,14 @@ export class Manager {
         this.defaultClient.basePath = "http://localhost:9000";
     }
 
-    createUser(userName: String) {
+    createUser(userName: String, completion: (user: ScalpsCoreRestApi.User) => void) {
         var api = new ScalpsCoreRestApi.UsersApi();
 
         var callback = function(error, data, response) {
             if (error) {
                 console.error(error);
             } else {
-                console.log('API called successfully. Returned data: ' + data);
+                completion(data);
             }
         };
         api.createUser(userName, callback);

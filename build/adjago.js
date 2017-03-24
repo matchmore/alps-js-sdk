@@ -1924,7 +1924,7 @@ var Manager = (function () {
         this.defaultClient.authentications['api-key'].apiKey = this.apiKey;
         this.defaultClient.basePath = "http://localhost:9000";
     };
-    Manager.prototype.createUser = function (userName) {
+    Manager.prototype.createUser = function (userName, completion) {
         var api = new ScalpsCoreRestApi.UsersApi();
         var callback = function (error, data, response) {
             if (error) {
@@ -1932,6 +1932,7 @@ var Manager = (function () {
             }
             else {
                 console.log('API called successfully. Returned data: ' + data);
+                completion(data);
             }
         };
         api.createUser(userName, callback);
