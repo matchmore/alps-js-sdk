@@ -22,5 +22,14 @@ describe('Manager', function () {
             var mgr = new manager.Manager(apiKey);
 			mgr.createUser(testName, completion)
         });
+        it('should allow to be used as a promise', function () {
+			var testName = "test";
+			var completion =  function(user) {}
+            var mgr = new manager.Manager(apiKey);
+			return mgr.createUser(testName, completion).then(function(user){
+				chai.expect(user).to.have.property('name');
+				chai.expect(user).to.have.property('userId');
+			});
+        });
     });
 });

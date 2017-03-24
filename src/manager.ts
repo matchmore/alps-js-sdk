@@ -14,16 +14,19 @@ export class Manager {
         this.defaultClient.basePath = "http://localhost:9000";
     }
 
-    createUser(userName: String, completion: (user: ScalpsCoreRestApi.User) => void) {
-        var api = new ScalpsCoreRestApi.UsersApi();
-
-        var callback = function(error, data, response) {
-            if (error) {
-                console.error(error);
-            } else {
-                completion(data);
-            }
-        };
-        api.createUser(userName, callback);
+    createUser(userName: String, completion: (user: ScalpsCoreRestApi.User) => void): Promise<ScalpsCoreRestApi.User> {
+        let p = new Promise((resolve, reject) => {
+            var api = new ScalpsCoreRestApi.UsersApi();
+            var callback = function(error, data, response) {
+                if (error) {
+                    reject("An error has occured while creating user '" + userName + "' :" + error)
+                } else {
+                    completion(data);
+                    resolve(data);
+                }
+            };
+            api.createUser(userName, callback);
+        });
+        return p;
     }
 }
