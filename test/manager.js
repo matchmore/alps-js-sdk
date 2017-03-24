@@ -30,5 +30,13 @@ describe('Manager', function () {
 				chai.expect(user).to.have.property('userId');
 			});
         });
+        it('should add the newly created user to users', function () {
+			var testName = "test";
+            var mgr = new manager.Manager(apiKey);
+			return mgr.createUser(testName).then(function(user){
+				chai.expect(mgr).to.have.property('users');
+				chai.expect(mgr.users).to.include(user);
+			});
+        });
     });
 });
