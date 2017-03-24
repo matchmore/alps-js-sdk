@@ -11,8 +11,8 @@ describe('Manager', function () {
         });
     });
 
-    describe('#createUser', function () {
-        it('should create the user', function (done) {
+    describe('createUser()', function () {
+        it('should create and send an user back', function (done) {
 			var testName = "test";
 			var completion =  function(user) {
 				chai.expect(user).to.have.property('name');
