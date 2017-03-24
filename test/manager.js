@@ -24,9 +24,8 @@ describe('Manager', function () {
         });
         it('should allow to be used as a promise', function () {
 			var testName = "test";
-			var completion =  function(user) {}
             var mgr = new manager.Manager(apiKey);
-			return mgr.createUser(testName, completion).then(function(user){
+			return mgr.createUser(testName).then(function(user){
 				chai.expect(user).to.have.property('name');
 				chai.expect(user).to.have.property('userId');
 			});
