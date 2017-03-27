@@ -4,7 +4,8 @@ export class Manager {
     defaultClient: ScalpsCoreRestApi.ApiClient;
 
     // Store all the objects created by the manager:
-    users: ScalpsCoreRestApi.User[];
+    public users: ScalpsCoreRestApi.User[];
+    public defaultUser: ScalpsCoreRestApi.User;
 
     constructor(public apiKey: string) {
         this.init();
@@ -16,6 +17,7 @@ export class Manager {
         // Hack the api location (to use localhost)
         this.defaultClient.basePath = "http://localhost:9000";
         this.users = [];
+        this.defaultUser = {};
     }
 
     createUser(userName: String, completion?: (user: ScalpsCoreRestApi.User) => void): Promise<ScalpsCoreRestApi.User> {
@@ -26,12 +28,16 @@ export class Manager {
                 if (error) {
                     reject("An error has occured while creating user '" + userName + "' :" + error)
                 } else {
-                    users.push(data);
-                    if (completion) completion(data);
+                    //users.push(data);
                     resolve(data);
                 }
             };
             api.createUser(userName, callback);
+        });
+        p.then((user) => {
+            this.users.push(user);
+            this.defaultUser = this.users[0];
+            if (completion) completion(user);
         });
         return p;
     }

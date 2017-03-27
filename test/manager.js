@@ -22,6 +22,16 @@ describe('Manager', function () {
             var mgr = new manager.Manager(apiKey);
 			mgr.createUser(testName, completion)
         });
+        it('should define the "defaultUser"', function (done) {
+			var testName = "test";
+			var completion =  function(user) {
+				chai.expect(mgr).to.have.property('defaultUser');
+				chai.expect(mgr.defaultUser).to.equal(user);
+				done();
+			}
+            var mgr = new manager.Manager(apiKey);
+			mgr.createUser(testName, completion)
+        });
         it('should allow to be used as a promise', function () {
 			var testName = "test";
             var mgr = new manager.Manager(apiKey);
