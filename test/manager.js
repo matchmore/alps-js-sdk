@@ -1,7 +1,10 @@
 var assert = require('assert');
 var chai = require('chai');
+var chaiAsPromised = require("chai-as-promised");
 var manager = require('../lib/manager');
 var apiKey = "ea0df90a-db0a-11e5-bd35-3bd106df139b";
+chai.should();
+chai.use(chaiAsPromised);
 
 var sampleUser = {"name": "test"};
 var sampleDevice = {
@@ -14,21 +17,26 @@ var sampleDevice = {
 	"horizontalAccuracy" : 1.0,
 	"verticalAccuracy" : 1.0
 };
-var samplePublication = {};
+var samplePublication = {
+	"topic": "sampletopic",
+	"range": 300,
+	"duration": 60,
+	"properties": {"data1": "value1", "data2" : "value2"}
+};
 
 describe('Manager', function () {
     describe('#instanciation', function () {
         it('should allow being instanciated with an apiKey', function () {
             var mgr = new manager.Manager(apiKey);
-            chai.expect(mgr).to.have.property('apiKey');
+            mgr.should.have.property('apiKey');
         });
     });
 
     describe('createUser()', function () {
         it('should create and send an user back', function (done) {
 			var completion =  function(user) {
-				chai.expect(user).to.have.property('name');
-				chai.expect(user).to.have.property('userId');
+				user.should.have.property('name');
+				user.should.have.property('userId');
 				done();
 			};
             var mgr = new manager.Manager(apiKey);
@@ -36,8 +44,8 @@ describe('Manager', function () {
         });
         it('should define the "defaultUser"', function (done) {
 			var completion =  function(user) {
-				chai.expect(mgr).to.have.property('defaultUser');
-				chai.expect(mgr.defaultUser).to.equal(user);
+				mgr.should.have.property('defaultUser');
+				mgr.defaultUser.should.equal(user);
 				done();
 			};
             var mgr = new manager.Manager(apiKey);
@@ -45,10 +53,11 @@ describe('Manager', function () {
         });
         it('should allow to be used as a promise', function () {
             var mgr = new manager.Manager(apiKey);
-			return mgr.createUser(sampleUser.name).then(function(user){
-				chai.expect(user).to.have.property('name');
-				chai.expect(user).to.have.property('userId');
-			});
+			const promise = mgr.createUser(sampleUser.name);
+			return Promise.all([
+				promise.should.eventually.have.property("name").and.should.eventually.equal(sampleUser.name),
+				promise.should.eventually.have.property("userId")
+			]);
         });
         it('should add the newly created user to users', function () {
             var mgr = new manager.Manager(apiKey);
@@ -85,8 +94,8 @@ describe('Manager', function () {
 			};
 
 			var completionDevice =  function(device) {
-				chai.expect(mgr).to.have.property('defaultDevice');
-				chai.expect(mgr.defaultDevice).to.equal(device);
+				mgr.should.have.property('defaultDevice');
+				mgr.defaultDevice.should.equal(device);
 				done();
 			};
             var mgr = new manager.Manager(apiKey);
@@ -96,9 +105,9 @@ describe('Manager', function () {
             var mgr = new manager.Manager(apiKey);
 			return mgr.createUser(sampleUser.name).then((user)=>{
 				mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
-					chai.expect(device).to.have.property('name');
-					chai.expect(device).to.have.property('deviceId');
-					chai.expect(device).to.have.property('location');
+					device.should.have.property('name');
+					device.should.have.property('deviceId');
+					device.should.have.property('location');
 				});
 			});
         });
@@ -106,20 +115,32 @@ describe('Manager', function () {
             var mgr = new manager.Manager(apiKey);
 			return mgr.createUser(sampleUser.name).then((user)=>{
 				mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
-				chai.expect(mgr).to.have.property('devices');
-				chai.expect(mgr.devices).to.include(device);
+				mgr.should.have.property('devices');
+				mgr.devices.should.include(device);
 				});
 			});
         });
-        it('should belong to the first user', function () {
-			var createdUser = {};
+    });
+    describe('createPublication()', function () {
+        it('should create and send a publication back', function () {
             var mgr = new manager.Manager(apiKey);
-			return mgr.createUser(sampleUser.name).then((user)=>{
-				createdUser = user;
-				mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
-					chai.expect(mgr.devices.userId).to.equal(createdUser.userId);
+			let publication =  mgr.createUser(sampleUser.name).then((user) => {
+				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
+					
+					return mgr.createPublication(samplePublication.topic, samplePublication.range, samplePublication.duration, samplePublication.properties).then((publication)=>{
+						return publication;
+					});
 				});
 			});
+			return Promise.all([
+				publication.should.eventually.have.property("topic").and.should.eventually.equal(samplePublication.topic),
+				/*
+				mgr.devices.userId.should.equal(publication.userId);
+				mgr.devices.userId.should.equal(publication.deviceId);
+				samplePublication.topic.should.equal(publication.deviceId);
+				 */
+				]
+			)
         });
     });
 });
