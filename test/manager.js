@@ -50,6 +50,21 @@ describe('Manager', function () {
         });
     });
     describe('createDevice()', function () {
+        it('should not allow to be called before createUser', function () {
+			var deviceName = "test";
+			var platform = "iOS";
+			var deviceToken = "f4eea68c-a349-4dbe-a395-c935abc7f6f2";
+			var latitude = 0;
+			var longitude = 0;
+			var altitude = 0;
+			var horizontalAccuracy = 1.0;
+			var verticalAccuracy = 1.0;
+
+			var completionDevice =  function(device) {
+			}
+            var mgr = new manager.Manager(apiKey);
+			chai.expect(() => {mgr.createDevice(deviceName, platform, deviceToken, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completionDevice)}).to.throw(Error);
+        });
         it('should create and send a device back', function (done) {
 			var userName = "testUser";
 			var deviceName = "test";
@@ -74,7 +89,7 @@ describe('Manager', function () {
             var mgr = new manager.Manager(apiKey);
 			mgr.createUser(userName, completionUser);
         });
-        it('should define the "defaultUser"', function (done) {
+        it('should define the "defaultDevice"', function (done) {
 			var userName = "testUser";
 			var deviceName = "test";
 			var platform = "iOS";
@@ -131,6 +146,25 @@ describe('Manager', function () {
 				mgr.createDevice(deviceName, platform, deviceToken, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy).then((device) => {
 				chai.expect(mgr).to.have.property('devices');
 				chai.expect(mgr.devices).to.include(device);
+				});
+			});
+        });
+        it('should belong to the first user', function () {
+			var userName = "testUser";
+			var deviceName = "test";
+			var platform = "iOS";
+			var deviceToken = "f4eea68c-a349-4dbe-a395-c935abc7f6f2";
+			var latitude = 0;
+			var longitude = 0;
+			var altitude = 0;
+			var horizontalAccuracy = 1.0;
+			var verticalAccuracy = 1.0;
+			var createdUser = {};
+            var mgr = new manager.Manager(apiKey);
+			return mgr.createUser(userName).then((user)=>{
+				createdUser = user;
+				mgr.createDevice(deviceName, platform, deviceToken, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy).then((device) => {
+					chai.expect(mgr.devices.userId).to.equal(createdUser.userId);
 				});
 			});
         });

@@ -4,8 +4,8 @@ export class Manager {
     defaultClient: ScalpsCoreRestApi.ApiClient;
 
     // Store all the objects created by the manager:
-    public users: ScalpsCoreRestApi.User[];
-    public devices: ScalpsCoreRestApi.Device[];
+    public users: ScalpsCoreRestApi.User[] = [];
+    public devices: ScalpsCoreRestApi.Device[] = [];
     public defaultUser: ScalpsCoreRestApi.User;
     public defaultDevice: ScalpsCoreRestApi.Device;
 
@@ -18,10 +18,6 @@ export class Manager {
         this.defaultClient.authentications['api-key'].apiKey = this.apiKey;
         // Hack the api location (to use localhost)
         this.defaultClient.basePath = "http://localhost:9000";
-        this.users = [];
-        this.devices = [];
-        this.defaultUser = {};
-        this.defaultDevice = {};
     }
 
     public createUser(userName: String, completion?: (user: ScalpsCoreRestApi.User) => void): Promise<ScalpsCoreRestApi.User> {
@@ -49,26 +45,30 @@ export class Manager {
         horizontalAccuracy: Number, verticalAccuracy: Number,
         completion?: (user: ScalpsCoreRestApi.Device) => void): Promise<ScalpsCoreRestApi.Device> {
 
-        let p = new Promise((resolve, reject) => {
-            var api = new ScalpsCoreRestApi.DeviceApi();
-            var callback = function(error, data, response) {
-                if (error) {
-                    reject("An error has occured while creating device '" + deviceName + "' :" + error)
-                } else {
-                    resolve(data);
-                }
-            };
-            var opts = {
-                'horizontalAccuracy': horizontalAccuracy,
-                'verticalAccuracy': verticalAccuracy
-            };
-            api.createDevice(this.defaultUser.userId, deviceName, platform, deviceToken, latitude, longitude, altitude, opts, callback);
-        });
-        p.then((device) => {
-            this.devices.push(device);
-            this.defaultDevice = this.devices[0];
-            if (completion) completion(device);
-        });
-        return p;
+        if (this.defaultUser) {
+            let p = new Promise((resolve, reject) => {
+                var api = new ScalpsCoreRestApi.DeviceApi();
+                var callback = function(error, data, response) {
+                    if (error) {
+                        reject("An error has occured while creating device '" + deviceName + "' :" + error)
+                    } else {
+                        resolve(data);
+                    }
+                };
+                var opts = {
+                    'horizontalAccuracy': horizontalAccuracy,
+                    'verticalAccuracy': verticalAccuracy
+                };
+                api.createDevice(this.defaultUser.userId, deviceName, platform, deviceToken, latitude, longitude, altitude, opts, callback);
+            });
+            p.then((device) => {
+                this.devices.push(device);
+                this.defaultDevice = this.devices[0];
+                if (completion) completion(device);
+            });
+            return p;
+        } else {
+            throw Error("There is no default user available, please call createUser before createDevice");
+        }
     }
 }
