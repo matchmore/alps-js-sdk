@@ -20,7 +20,7 @@ describe('Manager', function () {
 				done();
 			}
             var mgr = new manager.Manager(apiKey);
-			mgr.createUser(testName, completion)
+			mgr.createUser(testName, completion);
         });
         it('should define the "defaultUser"', function (done) {
 			var testName = "test";
@@ -30,7 +30,7 @@ describe('Manager', function () {
 				done();
 			}
             var mgr = new manager.Manager(apiKey);
-			mgr.createUser(testName, completion)
+			mgr.createUser(testName, completion);
         });
         it('should allow to be used as a promise', function () {
 			var testName = "test";
@@ -46,6 +46,92 @@ describe('Manager', function () {
 			return mgr.createUser(testName).then(function(user){
 				chai.expect(mgr).to.have.property('users');
 				chai.expect(mgr.users).to.include(user);
+			});
+        });
+    });
+    describe('createDevice()', function () {
+        it('should create and send a device back', function (done) {
+			var userName = "testUser";
+			var deviceName = "test";
+			var platform = "iOS";
+			var deviceToken = "f4eea68c-a349-4dbe-a395-c935abc7f6f2";
+			var latitude = 0;
+			var longitude = 0;
+			var altitude = 0;
+			var horizontalAccuracy = 1.0;
+			var verticalAccuracy = 1.0;
+
+			var completionUser = function(user){
+				mgr.createDevice(deviceName, platform, deviceToken, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completionDevice);
+			}
+
+			var completionDevice =  function(device) {
+				chai.expect(device).to.have.property('name');
+				chai.expect(device).to.have.property('deviceId');
+				chai.expect(device).to.have.property('location');
+				done();
+			}
+            var mgr = new manager.Manager(apiKey);
+			mgr.createUser(userName, completionUser);
+        });
+        it('should define the "defaultUser"', function (done) {
+			var userName = "testUser";
+			var deviceName = "test";
+			var platform = "iOS";
+			var deviceToken = "f4eea68c-a349-4dbe-a395-c935abc7f6f2";
+			var latitude = 0;
+			var longitude = 0;
+			var altitude = 0;
+			var horizontalAccuracy = 1.0;
+			var verticalAccuracy = 1.0;
+
+			var completionUser = function(user){
+				mgr.createDevice(deviceName, platform, deviceToken, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completionDevice);
+			}
+
+			var completionDevice =  function(device) {
+				chai.expect(mgr).to.have.property('defaultDevice');
+				chai.expect(mgr.defaultDevice).to.equal(device);
+				done();
+			}
+            var mgr = new manager.Manager(apiKey);
+			mgr.createUser(userName, completionUser);
+        });
+        it('should allow to be used as a promise', function () {
+			var userName = "testUser";
+			var deviceName = "test";
+			var platform = "iOS";
+			var deviceToken = "f4eea68c-a349-4dbe-a395-c935abc7f6f2";
+			var latitude = 0;
+			var longitude = 0;
+			var altitude = 0;
+			var horizontalAccuracy = 1.0;
+			var verticalAccuracy = 1.0;
+            var mgr = new manager.Manager(apiKey);
+			return mgr.createUser(userName).then((user)=>{
+				mgr.createDevice(deviceName, platform, deviceToken, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy).then((device) => {
+					chai.expect(device).to.have.property('name');
+					chai.expect(device).to.have.property('deviceId');
+					chai.expect(device).to.have.property('location');
+			  });
+			});
+        });
+        it('should add the newly created device to devices', function () {
+			var userName = "testUser";
+			var deviceName = "test";
+			var platform = "iOS";
+			var deviceToken = "f4eea68c-a349-4dbe-a395-c935abc7f6f2";
+			var latitude = 0;
+			var longitude = 0;
+			var altitude = 0;
+			var horizontalAccuracy = 1.0;
+			var verticalAccuracy = 1.0;
+            var mgr = new manager.Manager(apiKey);
+			return mgr.createUser(userName).then((user)=>{
+				mgr.createDevice(deviceName, platform, deviceToken, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy).then((device) => {
+				chai.expect(mgr).to.have.property('devices');
+				chai.expect(mgr.devices).to.include(device);
+				});
 			});
         });
     });
