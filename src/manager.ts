@@ -7,6 +7,7 @@ export class Manager {
     public users: ScalpsCoreRestApi.User[] = [];
     public devices: ScalpsCoreRestApi.Device[] = [];
     public publications: ScalpsCoreRestApi.Publication[] = [];
+    public subscriptions: ScalpsCoreRestApi.Subscription[] = [];
     public defaultUser: ScalpsCoreRestApi.User;
     public defaultDevice: ScalpsCoreRestApi.Device;
 
@@ -94,6 +95,30 @@ export class Manager {
             return p;
         } else {
             throw Error("There is no default user or device available, please call createUser and createDevice before createPublication");
+        }
+    }
+
+    public createSubscription(topic: String, selector: String, range: Number, duration: Number, completion?: (publication: ScalpsCoreRestApi.Subscription) => void): Promise<ScalpsCoreRestApi.Subscription> {
+
+        if (this.defaultUser && this.defaultDevice) {
+            let p = new Promise((resolve, reject) => {
+                var api = new ScalpsCoreRestApi.SubscriptionApi();
+                var callback = function(error, data, response) {
+                    if (error) {
+                        reject("An error has occured while creating subscription '" + topic + "' :" + error)
+                    } else {
+                        resolve(data);
+                    }
+                };
+                api.createSubscription(this.defaultUser.userId, this.defaultDevice.deviceId, topic, selector, range, duration, callback);
+            });
+            p.then((subscription) => {
+                this.subscriptions.push(subscription);
+                if (completion) completion(subscription);
+            });
+            return p;
+        } else {
+            throw Error("There is no default user or device available, please call createUser and createDevice before createSubscription");
         }
     }
 }

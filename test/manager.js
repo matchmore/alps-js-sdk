@@ -21,7 +21,13 @@ var samplePublication = {
 	"topic": "sampletopic",
 	"range": 300,
 	"duration": 60,
-	"properties": {"data1": "value1", "data2" : "value2"}
+	"properties": {"data1": "'value1'", "data2" : "'value2'"}
+};
+var sampleSubscription = {
+	"topic": "sampletopic",
+	"selector": "data1='value1'",
+	"range": 300,
+	"duration": 60
 };
 
 describe('Manager', function () {
@@ -141,7 +147,6 @@ describe('Manager', function () {
             var mgr = new manager.Manager(apiKey);
 			return mgr.createUser(sampleUser.name).then((user) => {
 				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
-					
 					return mgr.createPublication(samplePublication.topic, samplePublication.range, samplePublication.duration, samplePublication.properties).then((publication)=>{
 						mgr.should.have.property('publications');
 						mgr.publications.should.include(publication);
@@ -153,6 +158,39 @@ describe('Manager', function () {
 			var completionDevice =  function(device) {
 				var mgr = new manager.Manager(apiKey);
 				chai.expect(() => {mgr.createPublication(samplePublication.topic, samplePublication.range, samplePublication.duration, samplePublication.properties);}).to.throw(Error);
+			};
+        });
+    });
+    describe('createSubscription()', function () {
+        it('should create and send a subscription back', function () {
+            var mgr = new manager.Manager(apiKey);
+			let subscription =  mgr.createUser(sampleUser.name).then((user) => {
+				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
+					return mgr.createSubscription(sampleSubscription.topic, sampleSubscription.selector, sampleSubscription.range, sampleSubscription.duration).then((subscription)=>{
+						return subscription;
+					});
+				});
+			});
+			return Promise.all([
+				subscription.should.eventually.have.property("topic").and.should.eventually.equal(sampleSubscription.topic),
+				]
+			)
+        });
+        it('should add the newly created subscription to subscriptions', function () {
+            var mgr = new manager.Manager(apiKey);
+			return mgr.createUser(sampleUser.name).then((user) => {
+				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
+					return mgr.createSubscription(sampleSubscription.topic, sampleSubscription.selector, sampleSubscription.range, sampleSubscription.duration).then((subscription)=>{
+						mgr.should.have.property('subscriptions');
+						mgr.subscriptions.should.include(subscription);
+					});
+				});
+			});
+        });
+        it('should not allow to be called before createUser and createDevice', function () {
+			var completionDevice =  function(device) {
+				var mgr = new manager.Manager(apiKey);
+				chai.expect(() => {mgr.createSubscription(sampleSubscription.topic, sampleSubscription.selector, sampleSubscription.range, sampleSubscription.duration);}).to.throw(Error);
 			};
         });
     });
