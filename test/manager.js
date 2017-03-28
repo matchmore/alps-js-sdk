@@ -212,7 +212,8 @@ describe('Manager', function () {
 				});
 			});
 			return Promise.all([
-				location.should.eventually.have.property("location"),
+				location.should.eventually.have.property("latitude"),
+				location.should.eventually.have.property("longitude"),
 			]
 							  );
         });

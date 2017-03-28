@@ -30,7 +30,8 @@ export class Manager {
                 if (error) {
                     reject("An error has occured while creating user '" + userName + "' :" + error)
                 } else {
-                    resolve(data);
+                    // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
+                    resolve(JSON.parse(response.text));
                 }
             };
             api.createUser(userName, callback);
@@ -55,7 +56,8 @@ export class Manager {
                     if (error) {
                         reject("An error has occured while creating device '" + deviceName + "' :" + error)
                     } else {
-                        resolve(data);
+                        // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
+                        resolve(JSON.parse(response.text));
                     }
                 };
                 var opts = {
@@ -84,7 +86,8 @@ export class Manager {
                     if (error) {
                         reject("An error has occured while creating publication '" + topic + "' :" + error)
                     } else {
-                        resolve(data);
+                        // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
+                        resolve(JSON.parse(response.text));
                     }
                 };
                 api.createPublication(this.defaultUser.userId, this.defaultDevice.deviceId, topic, range, duration, properties, callback);
@@ -108,7 +111,8 @@ export class Manager {
                     if (error) {
                         reject("An error has occured while creating subscription '" + topic + "' :" + error)
                     } else {
-                        resolve(data);
+                        // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
+                        resolve(JSON.parse(response.text));
                     }
                 };
                 api.createSubscription(this.defaultUser.userId, this.defaultDevice.deviceId, topic, selector, range, duration, callback);
@@ -123,7 +127,7 @@ export class Manager {
         }
     }
 
-    public updateLocation(latitude: Number, longitude: Number, altitude: Number, horizontalAccuracy: Number, verticalAccuracy: Number, completion?: (location: ScalpsCoreRestApi.Location) => void): Promise<ScalpsCoreRestApi.Location> {
+    public updateLocation(latitude: Number, longitude: Number, altitude: Number, horizontalAccuracy: Number, verticalAccuracy: Number, completion?: (location: ScalpsCoreRestApi.DeviceLocation) => void): Promise<ScalpsCoreRestApi.DeviceLocation> {
 
         if (this.defaultUser && this.defaultDevice) {
             let p = new Promise((resolve, reject) => {
@@ -132,7 +136,8 @@ export class Manager {
                     if (error) {
                         reject("An error has occured while creating location ['" + latitude + "','" + longitude + "']  :" + error)
                     } else {
-                        resolve(data);
+                        // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
+                        resolve(JSON.parse(response.text));
                     }
                 };
                 var opts = {
@@ -147,7 +152,7 @@ export class Manager {
             });
             return p;
         } else {
-            throw Error("There is no default user or device available, please call createUser and createDevice beupdateLocation");
+            throw Error("There is no default user or device available, please call createUser and createDevice before updateLocation");
         }
     }
 }
