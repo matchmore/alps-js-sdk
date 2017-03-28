@@ -134,13 +134,20 @@ describe('Manager', function () {
 			});
 			return Promise.all([
 				publication.should.eventually.have.property("topic").and.should.eventually.equal(samplePublication.topic),
-				/*
-				mgr.devices.userId.should.equal(publication.userId);
-				mgr.devices.userId.should.equal(publication.deviceId);
-				samplePublication.topic.should.equal(publication.deviceId);
-				 */
 				]
 			)
+        });
+        it('should add the newly created publication to publications', function () {
+            var mgr = new manager.Manager(apiKey);
+			return mgr.createUser(sampleUser.name).then((user) => {
+				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
+					
+					return mgr.createPublication(samplePublication.topic, samplePublication.range, samplePublication.duration, samplePublication.properties).then((publication)=>{
+						mgr.should.have.property('publications');
+						mgr.publications.should.include(publication);
+					});
+				});
+			});
         });
     });
 });
