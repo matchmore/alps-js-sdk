@@ -29,6 +29,13 @@ var sampleSubscription = {
 	"range": 300,
 	"duration": 60
 };
+var sampleLocation = {
+	"latitude": 0,
+	"longitude": 0,
+	"altitude": 0,
+	"horizontalAccuracy" : 1.0,
+	"verticalAccuracy" : 1.0
+}
 
 describe('Manager', function () {
     describe('#instanciation', function () {
@@ -194,4 +201,37 @@ describe('Manager', function () {
 			};
         });
     });
+    describe('updateLocation()', function () {
+        it('should create and send a location back', function () {
+            var mgr = new manager.Manager(apiKey);
+			let location =  mgr.createUser(sampleUser.name).then((user) => {
+				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
+					return mgr.updateLocation(sampleLocation.latitude, sampleLocation.longitude, sampleLocation.altitude, sampleLocation.horizontalAccuracy, sampleLocation.verticalAccuracy).then((location)=>{
+						return location;
+					});
+				});
+			});
+			return Promise.all([
+				location.should.eventually.have.property("location"),
+			]
+							  );
+        });
+        it('should add the newly created location to locations', function () {
+            var mgr = new manager.Manager(apiKey);
+			return mgr.createUser(sampleUser.name).then((user) => {
+				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
+					return mgr.updateLocation(sampleLocation.latitude, sampleLocation.longitude, sampleLocation.altitude, sampleLocation.horizontalAccuracy, sampleLocation.verticalAccuracy).then((location)=>{
+						mgr.should.have.property('locations');
+						mgr.locations.should.include(location);
+					});
+				});
+			});
+        });
+        it('should not allow to be called before createUser and createDevice', function () {
+			var completionDevice =  function(device) {
+				var mgr = new manager.Manager(apiKey);
+				chai.expect(() => {mgr.updateLocation(sampleLocation.latitude, sampleLocation.longitude, sampleLocation.altitude, sampleLocation.horizontalAccuracy, sampleLocation.verticalAccuracy);}).to.throw(Error);
+			};
+        });
+	});
 });

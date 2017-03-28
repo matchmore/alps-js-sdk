@@ -8,6 +8,7 @@ export class Manager {
     public devices: ScalpsCoreRestApi.Device[] = [];
     public publications: ScalpsCoreRestApi.Publication[] = [];
     public subscriptions: ScalpsCoreRestApi.Subscription[] = [];
+    public locations: ScalpsCoreRestApi.Location[] = [];
     public defaultUser: ScalpsCoreRestApi.User;
     public defaultDevice: ScalpsCoreRestApi.Device;
 
@@ -98,7 +99,7 @@ export class Manager {
         }
     }
 
-    public createSubscription(topic: String, selector: String, range: Number, duration: Number, completion?: (publication: ScalpsCoreRestApi.Subscription) => void): Promise<ScalpsCoreRestApi.Subscription> {
+    public createSubscription(topic: String, selector: String, range: Number, duration: Number, completion?: (subscription: ScalpsCoreRestApi.Subscription) => void): Promise<ScalpsCoreRestApi.Subscription> {
 
         if (this.defaultUser && this.defaultDevice) {
             let p = new Promise((resolve, reject) => {
@@ -119,6 +120,34 @@ export class Manager {
             return p;
         } else {
             throw Error("There is no default user or device available, please call createUser and createDevice before createSubscription");
+        }
+    }
+
+    public updateLocation(latitude: Number, longitude: Number, altitude: Number, horizontalAccuracy: Number, verticalAccuracy: Number, completion?: (location: ScalpsCoreRestApi.Location) => void): Promise<ScalpsCoreRestApi.Location> {
+
+        if (this.defaultUser && this.defaultDevice) {
+            let p = new Promise((resolve, reject) => {
+                var api = new ScalpsCoreRestApi.LocationApi();
+                var callback = function(error, data, response) {
+                    if (error) {
+                        reject("An error has occured while creating location ['" + latitude + "','" + longitude + "']  :" + error)
+                    } else {
+                        resolve(data);
+                    }
+                };
+                var opts = {
+                    'horizontalAccuracy': horizontalAccuracy,
+                    'verticalAccuracy': verticalAccuracy
+                };
+                api.createLocation(this.defaultUser.userId, this.defaultDevice.deviceId, latitude, longitude, altitude, opts, callback);
+            });
+            p.then((location) => {
+                this.locations.push(location);
+                if (completion) completion(location);
+            });
+            return p;
+        } else {
+            throw Error("There is no default user or device available, please call createUser and createDevice beupdateLocation");
         }
     }
 }
