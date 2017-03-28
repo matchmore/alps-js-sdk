@@ -149,5 +149,11 @@ describe('Manager', function () {
 				});
 			});
         });
+        it('should not allow to be called before createUser and createDevice', function () {
+			var completionDevice =  function(device) {
+				var mgr = new manager.Manager(apiKey);
+				chai.expect(() => {mgr.createPublication(samplePublication.topic, samplePublication.range, samplePublication.duration, samplePublication.properties);}).to.throw(Error);
+			};
+        });
     });
 });
