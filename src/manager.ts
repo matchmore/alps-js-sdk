@@ -155,4 +155,29 @@ export class Manager {
             throw Error("There is no default user or device available, please call createUser and createDevice before updateLocation");
         }
     }
+
+    public getAllMatches(completion?: (match: ScalpsCoreRestApi.Match) => void) {
+        if (this.defaultUser && this.defaultDevice) {
+            let p = new Promise((resolve, reject) => {
+                var api = new ScalpsCoreRestApi.DeviceApi();
+                var callback = function(error, data, response) {
+                    if (error) {
+                        reject("An error has occured while fetching matches: " + error)
+                    } else {
+                        // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
+                        resolve(JSON.parse(response.text));
+                    }
+                };
+                api.getMatches(this.defaultUser.userId, this.defaultDevice.deviceId, callback);
+            });
+            p.then((location) => {
+				/*
+                this.locations.push(location);
+                if (completion) completion(location);*/
+            });
+            return p;
+        } else {
+            throw Error("There is no default user or device available, please call createUser and createDevice before getAllMatches");
+        }
+    }
 }

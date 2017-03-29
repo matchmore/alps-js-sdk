@@ -214,6 +214,7 @@ describe('Manager', function () {
 			return Promise.all([
 				location.should.eventually.have.property("latitude"),
 				location.should.eventually.have.property("longitude"),
+				location.should.eventually.have.property("altitude"),
 			]
 							  );
         });
@@ -233,6 +234,23 @@ describe('Manager', function () {
 				var mgr = new manager.Manager(apiKey);
 				chai.expect(() => {mgr.updateLocation(sampleLocation.latitude, sampleLocation.longitude, sampleLocation.altitude, sampleLocation.horizontalAccuracy, sampleLocation.verticalAccuracy);}).to.throw(Error);
 			};
+        });
+	});
+    describe('getAllMatches()', function () {
+        it('should not allow to be called before createUser and createDevice', function () {
+			var mgr = new manager.Manager(apiKey);
+			chai.expect(() => {mgr.getAllMatches();}).to.throw(Error);
+        });
+        it('should get an empty array when no matches are available', function () {
+            var mgr = new manager.Manager(apiKey);
+			return mgr.createUser(sampleUser.name).then((user) => {
+				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
+					return mgr.getAllMatches().then((matches)=>{
+						matches.should.be.instanceof(Array);
+						matches.should.eql([]);
+					});
+				});
+			});
         });
 	});
 });
