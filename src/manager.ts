@@ -156,7 +156,7 @@ export class Manager {
         }
     }
 
-    public getAllMatches(completion?: (match: ScalpsCoreRestApi.Match) => void) {
+    public getAllMatches(completion?: (matches: ScalpsCoreRestApi.Match[]) => void) {
         if (this.defaultUser && this.defaultDevice) {
             let p = new Promise((resolve, reject) => {
                 var api = new ScalpsCoreRestApi.DeviceApi();
@@ -179,5 +179,21 @@ export class Manager {
         } else {
             throw Error("There is no default user or device available, please call createUser and createDevice before getAllMatches");
         }
+    }
+
+    public getAllPublicationsForDevice(userId: String, deviceId: String, completion?: (publications: ScalpsCoreRestApi.Publication[]) => void) {
+        let p = new Promise((resolve, reject) => {
+            var api = new ScalpsCoreRestApi.DeviceApi();
+            var callback = function(error, data, response) {
+                if (error) {
+                    reject("An error has occured while fetching publications: " + error)
+                } else {
+                    // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
+                    resolve(JSON.parse(response.text));
+                }
+            };
+            api.getPublications(userId, deviceId, callback);
+        });
+        return p;
     }
 }
