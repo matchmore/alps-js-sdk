@@ -12,15 +12,15 @@ export class Manager {
     public defaultUser: ScalpsCoreRestApi.User;
     public defaultDevice: ScalpsCoreRestApi.Device;
 
-    constructor(public apiKey: string) {
-        this.init();
+    constructor(public apiKey: string, apiUrlOverride?: string) {
+        this.init(apiUrlOverride);
     }
 
-    init() {
+    init(apiUrlOverride?: string) {
         this.defaultClient = ScalpsCoreRestApi.ApiClient.instance;
         this.defaultClient.authentications['api-key'].apiKey = this.apiKey;
         // Hack the api location (to use localhost)
-        this.defaultClient.basePath = "http://localhost:9000";
+        if (apiUrlOverride) this.defaultClient.basePath = apiUrlOverride;
     }
 
     public createUser(userName: String, completion?: (user: ScalpsCoreRestApi.User) => void): Promise<ScalpsCoreRestApi.User> {

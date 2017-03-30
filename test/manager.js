@@ -2,10 +2,14 @@ var assert = require('assert');
 var chai = require('chai');
 var chaiAsPromised = require("chai-as-promised");
 var manager = require('../lib/manager');
-var apiKey = "ea0df90a-db0a-11e5-bd35-3bd106df139b";
 chai.should();
 chai.use(chaiAsPromised);
 
+// CONFIGURATION
+const apiKey = "ea0df90a-db0a-11e5-bd35-3bd106df139b";
+const apiLocation  = "http://localhost:9000";
+
+// STUB OBJECTS
 var sampleUser = {"name": "test"};
 var sampleDevice = {
 	"deviceName" : "test",
@@ -35,12 +39,12 @@ var sampleLocation = {
 	"altitude": 0,
 	"horizontalAccuracy" : 1.0,
 	"verticalAccuracy" : 1.0
-}
+};
 
 describe('Manager', function () {
     describe('#instanciation', function () {
         it('should allow being instanciated with an apiKey', function () {
-            var mgr = new manager.Manager(apiKey);
+            var mgr = new manager.Manager(apiKey, apiLocation);
             mgr.should.have.property('apiKey');
         });
     });
@@ -52,7 +56,7 @@ describe('Manager', function () {
 				user.should.have.property('userId');
 				done();
 			};
-            var mgr = new manager.Manager(apiKey);
+            var mgr = new manager.Manager(apiKey, apiLocation);
 			mgr.createUser(sampleUser.name, completion);
         });
         it('should define the "defaultUser"', function (done) {
@@ -61,11 +65,11 @@ describe('Manager', function () {
 				mgr.defaultUser.should.equal(user);
 				done();
 			};
-            var mgr = new manager.Manager(apiKey);
+            var mgr = new manager.Manager(apiKey, apiLocation);
 			mgr.createUser(sampleUser.name, completion);
         });
         it('should allow to be used as a promise', function () {
-            var mgr = new manager.Manager(apiKey);
+            var mgr = new manager.Manager(apiKey, apiLocation);
 			const promise = mgr.createUser(sampleUser.name);
 			return Promise.all([
 				promise.should.eventually.have.property("name").and.should.eventually.equal(sampleUser.name),
@@ -73,7 +77,7 @@ describe('Manager', function () {
 			]);
         });
         it('should add the newly created user to users', function () {
-            var mgr = new manager.Manager(apiKey);
+            var mgr = new manager.Manager(apiKey, apiLocation);
 			return mgr.createUser(sampleUser.name).then(function(user){
 				chai.expect(mgr).to.have.property('users');
 				chai.expect(mgr.users).to.include(user);
@@ -83,7 +87,7 @@ describe('Manager', function () {
     describe('createDevice()', function () {
         it('should not allow to be called before createUser', function () {
 			var completionDevice =  function(device) {
-			  var mgr = new manager.Manager(apiKey);
+			  var mgr = new manager.Manager(apiKey, apiLocation);
 			  chai.expect(() => {mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy, completionDevice);}).to.throw(Error);
 			};
         });
@@ -98,7 +102,7 @@ describe('Manager', function () {
 				chai.expect(device).to.have.property('location');
 				done();
 			};
-            var mgr = new manager.Manager(apiKey);
+            var mgr = new manager.Manager(apiKey, apiLocation);
 			mgr.createUser(sampleUser.name, completionUser);
         });
         it('should define the "defaultDevice"', function (done) {
@@ -111,11 +115,11 @@ describe('Manager', function () {
 				mgr.defaultDevice.should.equal(device);
 				done();
 			};
-            var mgr = new manager.Manager(apiKey);
+            var mgr = new manager.Manager(apiKey, apiLocation);
 			mgr.createUser(sampleUser.name, completionUser);
         });
         it('should allow to be used as a promise', function () {
-            var mgr = new manager.Manager(apiKey);
+            var mgr = new manager.Manager(apiKey, apiLocation);
 			return mgr.createUser(sampleUser.name).then((user)=>{
 				mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
 					device.should.have.property('name');
@@ -125,7 +129,7 @@ describe('Manager', function () {
 			});
         });
         it('should add the newly created device to devices', function () {
-            var mgr = new manager.Manager(apiKey);
+            var mgr = new manager.Manager(apiKey, apiLocation);
 			return mgr.createUser(sampleUser.name).then((user)=>{
 				mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
 				mgr.should.have.property('devices');
@@ -136,10 +140,9 @@ describe('Manager', function () {
     });
     describe('createPublication()', function () {
         it('should create and send a publication back', function () {
-            var mgr = new manager.Manager(apiKey);
+            var mgr = new manager.Manager(apiKey, apiLocation);
 			let publication =  mgr.createUser(sampleUser.name).then((user) => {
 				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
-					
 					return mgr.createPublication(samplePublication.topic, samplePublication.range, samplePublication.duration, samplePublication.properties).then((publication)=>{
 						return publication;
 					});
@@ -147,11 +150,10 @@ describe('Manager', function () {
 			});
 			return Promise.all([
 				publication.should.eventually.have.property("topic").and.should.eventually.equal(samplePublication.topic),
-				]
-			)
+				]);
         });
         it('should add the newly created publication to publications', function () {
-            var mgr = new manager.Manager(apiKey);
+            var mgr = new manager.Manager(apiKey, apiLocation);
 			return mgr.createUser(sampleUser.name).then((user) => {
 				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
 					return mgr.createPublication(samplePublication.topic, samplePublication.range, samplePublication.duration, samplePublication.properties).then((publication)=>{
@@ -163,14 +165,14 @@ describe('Manager', function () {
         });
         it('should not allow to be called before createUser and createDevice', function () {
 			var completionDevice =  function(device) {
-				var mgr = new manager.Manager(apiKey);
+				var mgr = new manager.Manager(apiKey, apiLocation);
 				chai.expect(() => {mgr.createPublication(samplePublication.topic, samplePublication.range, samplePublication.duration, samplePublication.properties);}).to.throw(Error);
 			};
         });
     });
     describe('createSubscription()', function () {
         it('should create and send a subscription back', function () {
-            var mgr = new manager.Manager(apiKey);
+            var mgr = new manager.Manager(apiKey, apiLocation);
 			let subscription =  mgr.createUser(sampleUser.name).then((user) => {
 				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
 					return mgr.createSubscription(sampleSubscription.topic, sampleSubscription.selector, sampleSubscription.range, sampleSubscription.duration).then((subscription)=>{
@@ -180,11 +182,10 @@ describe('Manager', function () {
 			});
 			return Promise.all([
 				subscription.should.eventually.have.property("topic").and.should.eventually.equal(sampleSubscription.topic),
-				]
-			)
+				]);
         });
         it('should add the newly created subscription to subscriptions', function () {
-            var mgr = new manager.Manager(apiKey);
+            var mgr = new manager.Manager(apiKey, apiLocation);
 			return mgr.createUser(sampleUser.name).then((user) => {
 				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
 					return mgr.createSubscription(sampleSubscription.topic, sampleSubscription.selector, sampleSubscription.range, sampleSubscription.duration).then((subscription)=>{
@@ -196,14 +197,14 @@ describe('Manager', function () {
         });
         it('should not allow to be called before createUser and createDevice', function () {
 			var completionDevice =  function(device) {
-				var mgr = new manager.Manager(apiKey);
+				var mgr = new manager.Manager(apiKey, apiLocation);
 				chai.expect(() => {mgr.createSubscription(sampleSubscription.topic, sampleSubscription.selector, sampleSubscription.range, sampleSubscription.duration);}).to.throw(Error);
 			};
         });
     });
     describe('updateLocation()', function () {
         it('should create and send a location back', function () {
-            var mgr = new manager.Manager(apiKey);
+            var mgr = new manager.Manager(apiKey, apiLocation);
 			let location =  mgr.createUser(sampleUser.name).then((user) => {
 				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
 					return mgr.updateLocation(sampleLocation.latitude, sampleLocation.longitude, sampleLocation.altitude, sampleLocation.horizontalAccuracy, sampleLocation.verticalAccuracy).then((location)=>{
@@ -215,11 +216,10 @@ describe('Manager', function () {
 				location.should.eventually.have.property("latitude"),
 				location.should.eventually.have.property("longitude"),
 				location.should.eventually.have.property("altitude"),
-			]
-							  );
+			]);
         });
         it('should add the newly created location to locations', function () {
-            var mgr = new manager.Manager(apiKey);
+            var mgr = new manager.Manager(apiKey, apiLocation);
 			return mgr.createUser(sampleUser.name).then((user) => {
 				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
 					return mgr.updateLocation(sampleLocation.latitude, sampleLocation.longitude, sampleLocation.altitude, sampleLocation.horizontalAccuracy, sampleLocation.verticalAccuracy).then((location)=>{
@@ -231,18 +231,18 @@ describe('Manager', function () {
         });
         it('should not allow to be called before createUser and createDevice', function () {
 			var completionDevice =  function(device) {
-				var mgr = new manager.Manager(apiKey);
+				var mgr = new manager.Manager(apiKey, apiLocation);
 				chai.expect(() => {mgr.updateLocation(sampleLocation.latitude, sampleLocation.longitude, sampleLocation.altitude, sampleLocation.horizontalAccuracy, sampleLocation.verticalAccuracy);}).to.throw(Error);
 			};
         });
 	});
     describe('getAllMatches()', function () {
         it('should not allow to be called before createUser and createDevice', function () {
-			var mgr = new manager.Manager(apiKey);
+			var mgr = new manager.Manager(apiKey, apiLocation);
 			chai.expect(() => {mgr.getAllMatches();}).to.throw(Error);
         });
         it('should get an empty array when no matches are available', function () {
-            var mgr = new manager.Manager(apiKey);
+            var mgr = new manager.Manager(apiKey, apiLocation);
 			return mgr.createUser(sampleUser.name).then((user) => {
 				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
 					return mgr.getAllMatches().then((matches)=>{
@@ -255,7 +255,7 @@ describe('Manager', function () {
 	});
     describe('getAllPublicationsForDevice()', function () {
         it('should return an empty [] when no publication exist for a given device', function () {
-			var mgr = new manager.Manager(apiKey);
+			var mgr = new manager.Manager(apiKey, apiLocation);
 			return mgr.createUser(sampleUser.name).then((user) => {
 				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
 					return mgr.getAllPublicationsForDevice(user.userId, device.deviceId).then((publications)=>{
@@ -266,7 +266,7 @@ describe('Manager', function () {
 			});
         });
         it('should return a publication when it has been created for a given device', function () {
-			var mgr = new manager.Manager(apiKey);
+			var mgr = new manager.Manager(apiKey, apiLocation);
 			return mgr.createUser(sampleUser.name).then((user) => {
 				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
 					return mgr.createPublication(samplePublication.topic, samplePublication.range, samplePublication.duration, samplePublication.properties).then((publication)=>{
@@ -281,7 +281,7 @@ describe('Manager', function () {
 	});
     describe('getAllSubscriptionsForDevice()', function () {
         it('should return an empty [] when no publication exist for a given device', function () {
-			var mgr = new manager.Manager(apiKey);
+			var mgr = new manager.Manager(apiKey, apiLocation);
 			return mgr.createUser(sampleUser.name).then((user) => {
 				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
 					return mgr.getAllSubscriptionsForDevice(user.userId, device.deviceId).then((subscriptions)=>{
@@ -292,7 +292,7 @@ describe('Manager', function () {
 			});
         });
         it('should return a subscription when it has been created for a given device', function () {
-			var mgr = new manager.Manager(apiKey);
+			var mgr = new manager.Manager(apiKey, apiLocation);
 			return mgr.createUser(sampleUser.name).then((user) => {
 				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
 					return mgr.createSubscription(sampleSubscription.topic, sampleSubscription.selector, sampleSubscription.range, sampleSubscription.duration).then((subscription)=>{
