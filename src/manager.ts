@@ -196,4 +196,20 @@ export class Manager {
         });
         return p;
     }
+
+    public getAllSubscriptionsForDevice(userId: String, deviceId: String, completion?: (subscriptions: ScalpsCoreRestApi.Subscription[]) => void) {
+        let p = new Promise((resolve, reject) => {
+            var api = new ScalpsCoreRestApi.DeviceApi();
+            var callback = function(error, data, response) {
+                if (error) {
+                    reject("An error has occured while fetching subscriptions: " + error)
+                } else {
+                    // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
+                    resolve(JSON.parse(response.text));
+                }
+            };
+            api.getSubscriptions(userId, deviceId, callback);
+        });
+        return p;
+    }
 }

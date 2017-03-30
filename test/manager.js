@@ -279,4 +279,30 @@ describe('Manager', function () {
 			});
         });
 	});
+    describe('getAllSubscriptionsForDevice()', function () {
+        it('should return an empty [] when no publication exist for a given device', function () {
+			var mgr = new manager.Manager(apiKey);
+			return mgr.createUser(sampleUser.name).then((user) => {
+				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
+					return mgr.getAllSubscriptionsForDevice(user.userId, device.deviceId).then((subscriptions)=>{
+						subscriptions.should.be.instanceof(Array);
+						subscriptions.should.eql([]);
+					});
+				});
+			});
+        });
+        it('should return a subscription when it has been created for a given device', function () {
+			var mgr = new manager.Manager(apiKey);
+			return mgr.createUser(sampleUser.name).then((user) => {
+				return mgr.createDevice(sampleDevice.deviceName, sampleDevice.platform, sampleDevice.deviceToken, sampleDevice.latitude, sampleDevice.longitude, sampleDevice.altitude, sampleDevice.horizontalAccuracy, sampleDevice.verticalAccuracy).then((device) => {
+					return mgr.createSubscription(sampleSubscription.topic, sampleSubscription.selector, sampleSubscription.range, sampleSubscription.duration).then((subscription)=>{
+						return mgr.getAllSubscriptionsForDevice(user.userId, device.deviceId).then((subscriptions)=>{
+							subscriptions.should.be.instanceof(Array);
+							subscriptions.should.contain(subscription);
+						});
+					});
+				});
+			});
+        });
+	});
 });
