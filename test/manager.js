@@ -1,3 +1,6 @@
+// API key and apiEndpoint are stored in test/config.js
+require('./config');
+
 var assert = require('assert');
 var chai = require('chai');
 var chaiAsPromised = require("chai-as-promised");
@@ -5,11 +8,8 @@ var manager = require('../lib/manager');
 chai.should();
 chai.use(chaiAsPromised);
 
-// CONFIGURATION
-const apiKey = "ea0df90a-db0a-11e5-bd35-3bd106df139b";
-const apiLocation  = "http://localhost:9000";
-
 // STUB OBJECTS
+
 var sampleUser = {"name": "test"};
 var sampleDevice = {
 	"deviceName" : "test",

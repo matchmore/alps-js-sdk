@@ -32,6 +32,9 @@ browserify lib/manager.js --standalone adjago > build/adjago.js
 
 To run the tests:
 
+*IMPORTANT* 
+Please edit `test/config.js` to add a valid API key before to use the tests
+
 ``` 
 npm test
 ```
