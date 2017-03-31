@@ -1,4 +1,5 @@
 import ScalpsCoreRestApi = require('scalps_core_rest_api');
+import { MatchMonitor } from './matchmonitor';
 
 export class Manager {
     defaultClient: ScalpsCoreRestApi.ApiClient;
@@ -12,6 +13,8 @@ export class Manager {
     public defaultUser: ScalpsCoreRestApi.User;
     public defaultDevice: ScalpsCoreRestApi.Device;
 
+    private matchMonitor: MatchMonitor;
+
     constructor(public apiKey: string, apiUrlOverride?: string) {
         this.init(apiUrlOverride);
     }
@@ -19,8 +22,9 @@ export class Manager {
     init(apiUrlOverride?: string) {
         this.defaultClient = ScalpsCoreRestApi.ApiClient.instance;
         this.defaultClient.authentications['api-key'].apiKey = this.apiKey;
-        // Hack the api location (to use localhost)
+        // Hack the api location (to use an overidden value if needed)
         if (apiUrlOverride) this.defaultClient.basePath = apiUrlOverride;
+        this.matchMonitor = new MatchMonitor(this);
     }
 
     public createUser(userName: String, completion?: (user: ScalpsCoreRestApi.User) => void): Promise<ScalpsCoreRestApi.User> {
@@ -211,5 +215,17 @@ export class Manager {
             api.getSubscriptions(userId, deviceId, callback);
         });
         return p;
+    }
+
+    public onMatch(completion: (match: ScalpsCoreRestApi) => void) {
+        this.matchMonitor.onMatch = completion;
+    }
+
+    public startMonitoringMatches() {
+        this.matchMonitor.startMonitoringMatches();
+    }
+
+    public stopMonitoringMatches() {
+        this.matchMonitor.stopMonitoringMatches();
     }
 }
