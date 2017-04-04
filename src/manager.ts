@@ -77,7 +77,7 @@ export class Manager {
             });
             return p;
         } else {
-            throw Error("There is no default user available, please call createUser before createDevice");
+            throw new Error("There is no default user available, please call createUser before createDevice");
         }
     }
 
@@ -102,7 +102,7 @@ export class Manager {
             });
             return p;
         } else {
-            throw Error("There is no default user or device available, please call createUser and createDevice before createPublication");
+            throw new Error("There is no default user or device available, please call createUser and createDevice before createPublication");
         }
     }
 
@@ -127,7 +127,7 @@ export class Manager {
             });
             return p;
         } else {
-            throw Error("There is no default user or device available, please call createUser and createDevice before createSubscription");
+            throw new Error("There is no default user or device available, please call createUser and createDevice before createSubscription");
         }
     }
 
@@ -156,7 +156,7 @@ export class Manager {
             });
             return p;
         } else {
-            throw Error("There is no default user or device available, please call createUser and createDevice before updateLocation");
+            throw new Error("There is no default user or device available, please call createUser and createDevice before updateLocation");
         }
     }
 
@@ -181,7 +181,7 @@ export class Manager {
             });
             return p;
         } else {
-            throw Error("There is no default user or device available, please call createUser and createDevice before getAllMatches");
+            throw new Error("There is no default user or device available, please call createUser and createDevice before getAllMatches");
         }
     }
 

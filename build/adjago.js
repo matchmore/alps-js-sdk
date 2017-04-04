@@ -1982,7 +1982,7 @@ var Manager = (function () {
             return p;
         }
         else {
-            throw Error("There is no default user available, please call createUser before createDevice");
+            throw new Error("There is no default user available, please call createUser before createDevice");
         }
     };
     Manager.prototype.createPublication = function (topic, range, duration, properties, completion) {
@@ -2008,7 +2008,7 @@ var Manager = (function () {
             return p;
         }
         else {
-            throw Error("There is no default user or device available, please call createUser and createDevice before createPublication");
+            throw new Error("There is no default user or device available, please call createUser and createDevice before createPublication");
         }
     };
     Manager.prototype.createSubscription = function (topic, selector, range, duration, completion) {
@@ -2034,7 +2034,7 @@ var Manager = (function () {
             return p;
         }
         else {
-            throw Error("There is no default user or device available, please call createUser and createDevice before createSubscription");
+            throw new Error("There is no default user or device available, please call createUser and createDevice before createSubscription");
         }
     };
     Manager.prototype.updateLocation = function (latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completion) {
@@ -2064,7 +2064,7 @@ var Manager = (function () {
             return p;
         }
         else {
-            throw Error("There is no default user or device available, please call createUser and createDevice before updateLocation");
+            throw new Error("There is no default user or device available, please call createUser and createDevice before updateLocation");
         }
     };
     Manager.prototype.getAllMatches = function (completion) {
@@ -2087,7 +2087,7 @@ var Manager = (function () {
             return p;
         }
         else {
-            throw Error("There is no default user or device available, please call createUser and createDevice before getAllMatches");
+            throw new Error("There is no default user or device available, please call createUser and createDevice before getAllMatches");
         }
     };
     Manager.prototype.getAllPublicationsForDevice = function (userId, deviceId, completion) {
@@ -2157,7 +2157,6 @@ var MatchMonitor = (function () {
     };
     MatchMonitor.prototype.checkMatches = function () {
         var _this = this;
-        console.log("Checking for matches");
         this.manager.getAllMatches().then(function (matches) {
             for (var idx in matches) {
                 var match = matches[idx];
