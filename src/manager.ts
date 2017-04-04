@@ -1,5 +1,6 @@
 import ScalpsCoreRestApi = require('scalps_core_rest_api');
 import { MatchMonitor } from './matchmonitor';
+import { LocationManager } from './locationmanager';
 
 export class Manager {
     defaultClient: ScalpsCoreRestApi.ApiClient;
@@ -14,6 +15,7 @@ export class Manager {
     public defaultDevice: ScalpsCoreRestApi.Device;
 
     private matchMonitor: MatchMonitor;
+    private locationManager: LocationManager;
 
     constructor(public apiKey: string, apiUrlOverride?: string) {
         this.init(apiUrlOverride);
@@ -25,6 +27,7 @@ export class Manager {
         // Hack the api location (to use an overidden value if needed)
         if (apiUrlOverride) this.defaultClient.basePath = apiUrlOverride;
         this.matchMonitor = new MatchMonitor(this);
+        this.locationManager = new LocationManager(this);
     }
 
     public createUser(userName: String, completion?: (user: ScalpsCoreRestApi.User) => void): Promise<ScalpsCoreRestApi.User> {
@@ -227,5 +230,13 @@ export class Manager {
 
     public stopMonitoringMatches() {
         this.matchMonitor.stopMonitoringMatches();
+    }
+
+    public startUpdatingLocation() {
+        this.locationManager.startUpdatingLocation();
+    }
+
+    public stopUpdatingLocation() {
+        this.locationManager.stopUpdatingLocation();
     }
 }

@@ -1913,8 +1913,68 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
 },{}],5:[function(require,module,exports){
 "use strict";
 exports.__esModule = true;
+var LocationManager = (function () {
+    function LocationManager(manager) {
+        this.init(manager);
+    }
+    LocationManager.prototype.init = function (manager) {
+        this.manager = manager;
+    };
+    LocationManager.prototype.startUpdatingLocation = function () {
+        var _this = this;
+        if (navigator.geolocation) {
+            this.geoId = navigator.geolocation.watchPosition(function (loc) { _this.onLocationReceived(loc); }, this.onError);
+        }
+        else {
+            throw new Error("Geolocation is not supported in this browser/app");
+        }
+    };
+    LocationManager.prototype.stopUpdatingLocation = function () {
+        if (navigator.geolocation) {
+            navigator.geolocation.clearWatch(this.geoId);
+        }
+        else {
+            throw new Error("Geolocation is not supported in this browser/app");
+        }
+    };
+    LocationManager.prototype.onLocationReceived = function (loc) {
+        var latitude, longitude, altitude;
+        if (loc.coords.latitude)
+            latitude = loc.coords.latitude;
+        else
+            throw new Error("Location did not contain any latitude: " + JSON.stringify(loc));
+        if (loc.coords.longitude)
+            longitude = loc.coords.longitude;
+        else
+            throw new Error("Location did not contain any longitude: " + JSON.stringify(loc));
+        if (loc.coords.altitude)
+            altitude = loc.coords.altitude;
+        else
+            altitude = 0;
+        this.manager.updateLocation(latitude, longitude, altitude);
+    };
+    LocationManager.prototype.onError = function (error) {
+        switch (error.code) {
+            case error.PERMISSION_DENIED:
+                throw new Error("User denied the request for Geolocation.");
+            case error.POSITION_UNAVAILABLE:
+                throw new Error("Location information is unavailable.");
+            case error.TIMEOUT:
+                throw new Error("The request to get user location timed out.");
+            case error.UNKNOWN_ERROR:
+                throw new Error("An unknown error occurred.");
+        }
+    };
+    return LocationManager;
+}());
+exports.LocationManager = LocationManager;
+
+},{}],6:[function(require,module,exports){
+"use strict";
+exports.__esModule = true;
 var ScalpsCoreRestApi = require("scalps_core_rest_api");
 var matchmonitor_1 = require("./matchmonitor");
+var locationmanager_1 = require("./locationmanager");
 var Manager = (function () {
     function Manager(apiKey, apiUrlOverride) {
         this.apiKey = apiKey;
@@ -1931,6 +1991,7 @@ var Manager = (function () {
         if (apiUrlOverride)
             this.defaultClient.basePath = apiUrlOverride;
         this.matchMonitor = new matchmonitor_1.MatchMonitor(this);
+        this.locationManager = new locationmanager_1.LocationManager(this);
     };
     Manager.prototype.createUser = function (userName, completion) {
         var _this = this;
@@ -2129,11 +2190,17 @@ var Manager = (function () {
     Manager.prototype.stopMonitoringMatches = function () {
         this.matchMonitor.stopMonitoringMatches();
     };
+    Manager.prototype.startUpdatingLocation = function () {
+        this.locationManager.startUpdatingLocation();
+    };
+    Manager.prototype.stopUpdatingLocation = function () {
+        this.locationManager.stopUpdatingLocation();
+    };
     return Manager;
 }());
 exports.Manager = Manager;
 
-},{"./matchmonitor":6,"scalps_core_rest_api":17}],6:[function(require,module,exports){
+},{"./locationmanager":5,"./matchmonitor":7,"scalps_core_rest_api":18}],7:[function(require,module,exports){
 "use strict";
 exports.__esModule = true;
 var MatchMonitor = (function () {
@@ -2179,7 +2246,7 @@ var MatchMonitor = (function () {
 }());
 exports.MatchMonitor = MatchMonitor;
 
-},{}],7:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 
 /**
  * Expose `Emitter`.
@@ -2344,7 +2411,7 @@ Emitter.prototype.hasListeners = function(event){
   return !! this.listeners(event).length;
 };
 
-},{}],8:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 
 /**
  * Reduce `arr` with `fn`.
@@ -2369,7 +2436,7 @@ module.exports = function(arr, fn, initial){
   
   return curr;
 };
-},{}],9:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 (function (Buffer){
 /**
  * SCALPS Core REST API
@@ -2898,7 +2965,7 @@ module.exports = function(arr, fn, initial){
 }));
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":3,"fs":1,"superagent":30}],10:[function(require,module,exports){
+},{"buffer":3,"fs":1,"superagent":31}],11:[function(require,module,exports){
 /**
  * SCALPS Core REST API
  *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
@@ -3490,7 +3557,7 @@ module.exports = function(arr, fn, initial){
   return exports;
 }));
 
-},{"../ApiClient":9,"../model/APIError":18,"../model/Device":19,"../model/DeviceLocation":20,"../model/Matches":23,"../model/Publication":24,"../model/Publications":25,"../model/Subscription":26,"../model/Subscriptions":27}],11:[function(require,module,exports){
+},{"../ApiClient":10,"../model/APIError":19,"../model/Device":20,"../model/DeviceLocation":21,"../model/Matches":24,"../model/Publication":25,"../model/Publications":26,"../model/Subscription":27,"../model/Subscriptions":28}],12:[function(require,module,exports){
 /**
  * SCALPS Core REST API
  *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
@@ -3621,7 +3688,7 @@ module.exports = function(arr, fn, initial){
   return exports;
 }));
 
-},{"../ApiClient":9,"../model/APIError":18,"../model/DeviceLocation":20}],12:[function(require,module,exports){
+},{"../ApiClient":10,"../model/APIError":19,"../model/DeviceLocation":21}],13:[function(require,module,exports){
 /**
  * SCALPS Core REST API
  *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
@@ -3725,7 +3792,7 @@ module.exports = function(arr, fn, initial){
   return exports;
 }));
 
-},{"../ApiClient":9,"../model/APIError":18,"../model/Matches":23}],13:[function(require,module,exports){
+},{"../ApiClient":10,"../model/APIError":19,"../model/Matches":24}],14:[function(require,module,exports){
 /**
  * SCALPS Core REST API
  *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
@@ -3909,7 +3976,7 @@ module.exports = function(arr, fn, initial){
   return exports;
 }));
 
-},{"../ApiClient":9,"../model/APIError":18,"../model/Publication":24,"../model/Publications":25}],14:[function(require,module,exports){
+},{"../ApiClient":10,"../model/APIError":19,"../model/Publication":25,"../model/Publications":26}],15:[function(require,module,exports){
 /**
  * SCALPS Core REST API
  *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
@@ -4093,7 +4160,7 @@ module.exports = function(arr, fn, initial){
   return exports;
 }));
 
-},{"../ApiClient":9,"../model/APIError":18,"../model/Subscription":26,"../model/Subscriptions":27}],15:[function(require,module,exports){
+},{"../ApiClient":10,"../model/APIError":19,"../model/Subscription":27,"../model/Subscriptions":28}],16:[function(require,module,exports){
 /**
  * SCALPS Core REST API
  *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
@@ -4678,7 +4745,7 @@ module.exports = function(arr, fn, initial){
   return exports;
 }));
 
-},{"../ApiClient":9,"../model/APIError":18,"../model/Device":19,"../model/DeviceLocation":20,"../model/Publication":24,"../model/Publications":25,"../model/Subscription":26,"../model/Subscriptions":27,"../model/Users":29}],16:[function(require,module,exports){
+},{"../ApiClient":10,"../model/APIError":19,"../model/Device":20,"../model/DeviceLocation":21,"../model/Publication":25,"../model/Publications":26,"../model/Subscription":27,"../model/Subscriptions":28,"../model/Users":30}],17:[function(require,module,exports){
 /**
  * SCALPS Core REST API
  *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
@@ -4817,7 +4884,7 @@ module.exports = function(arr, fn, initial){
   return exports;
 }));
 
-},{"../ApiClient":9,"../model/APIError":18,"../model/User":28,"../model/Users":29}],17:[function(require,module,exports){
+},{"../ApiClient":10,"../model/APIError":19,"../model/User":29,"../model/Users":30}],18:[function(require,module,exports){
 /**
  * SCALPS Core REST API
  *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
@@ -4979,7 +5046,7 @@ module.exports = function(arr, fn, initial){
   return exports;
 }));
 
-},{"./ApiClient":9,"./api/DeviceApi":10,"./api/LocationApi":11,"./api/MatchesApi":12,"./api/PublicationApi":13,"./api/SubscriptionApi":14,"./api/UserApi":15,"./api/UsersApi":16,"./model/APIError":18,"./model/Device":19,"./model/DeviceLocation":20,"./model/Location":21,"./model/Match":22,"./model/Matches":23,"./model/Publication":24,"./model/Publications":25,"./model/Subscription":26,"./model/Subscriptions":27,"./model/User":28,"./model/Users":29}],18:[function(require,module,exports){
+},{"./ApiClient":10,"./api/DeviceApi":11,"./api/LocationApi":12,"./api/MatchesApi":13,"./api/PublicationApi":14,"./api/SubscriptionApi":15,"./api/UserApi":16,"./api/UsersApi":17,"./model/APIError":19,"./model/Device":20,"./model/DeviceLocation":21,"./model/Location":22,"./model/Match":23,"./model/Matches":24,"./model/Publication":25,"./model/Publications":26,"./model/Subscription":27,"./model/Subscriptions":28,"./model/User":29,"./model/Users":30}],19:[function(require,module,exports){
 /**
  * SCALPS Core REST API
  *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
@@ -5070,7 +5137,7 @@ module.exports = function(arr, fn, initial){
 
 
 
-},{"../ApiClient":9}],19:[function(require,module,exports){
+},{"../ApiClient":10}],20:[function(require,module,exports){
 /**
  * SCALPS Core REST API
  *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
@@ -5192,7 +5259,7 @@ module.exports = function(arr, fn, initial){
 
 
 
-},{"../ApiClient":9,"./Location":21}],20:[function(require,module,exports){
+},{"../ApiClient":10,"./Location":22}],21:[function(require,module,exports){
 /**
  * SCALPS Core REST API
  *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
@@ -5284,7 +5351,7 @@ module.exports = function(arr, fn, initial){
 
 
 
-},{"../ApiClient":9,"./Location":21}],21:[function(require,module,exports){
+},{"../ApiClient":10,"./Location":22}],22:[function(require,module,exports){
 /**
  * SCALPS Core REST API
  *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
@@ -5416,7 +5483,7 @@ module.exports = function(arr, fn, initial){
 
 
 
-},{"../ApiClient":9}],22:[function(require,module,exports){
+},{"../ApiClient":10}],23:[function(require,module,exports){
 /**
  * SCALPS Core REST API
  *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
@@ -5528,7 +5595,7 @@ module.exports = function(arr, fn, initial){
 
 
 
-},{"../ApiClient":9,"./Publication":24,"./Subscription":26}],23:[function(require,module,exports){
+},{"../ApiClient":10,"./Publication":25,"./Subscription":27}],24:[function(require,module,exports){
 /**
  * SCALPS Core REST API
  *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
@@ -5606,7 +5673,7 @@ module.exports = function(arr, fn, initial){
 
 
 
-},{"../ApiClient":9,"./Match":22}],24:[function(require,module,exports){
+},{"../ApiClient":10,"./Match":23}],25:[function(require,module,exports){
 /**
  * SCALPS Core REST API
  *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
@@ -5763,7 +5830,7 @@ module.exports = function(arr, fn, initial){
 
 
 
-},{"../ApiClient":9,"./Location":21}],25:[function(require,module,exports){
+},{"../ApiClient":10,"./Location":22}],26:[function(require,module,exports){
 /**
  * SCALPS Core REST API
  *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
@@ -5841,7 +5908,7 @@ module.exports = function(arr, fn, initial){
 
 
 
-},{"../ApiClient":9,"./Publication":24}],26:[function(require,module,exports){
+},{"../ApiClient":10,"./Publication":25}],27:[function(require,module,exports){
 /**
  * SCALPS Core REST API
  *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
@@ -5998,7 +6065,7 @@ module.exports = function(arr, fn, initial){
 
 
 
-},{"../ApiClient":9,"./Location":21}],27:[function(require,module,exports){
+},{"../ApiClient":10,"./Location":22}],28:[function(require,module,exports){
 /**
  * SCALPS Core REST API
  *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
@@ -6076,7 +6143,7 @@ module.exports = function(arr, fn, initial){
 
 
 
-},{"../ApiClient":9,"./Subscription":26}],28:[function(require,module,exports){
+},{"../ApiClient":10,"./Subscription":27}],29:[function(require,module,exports){
 /**
  * SCALPS Core REST API
  *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
@@ -6167,7 +6234,7 @@ module.exports = function(arr, fn, initial){
 
 
 
-},{"../ApiClient":9}],29:[function(require,module,exports){
+},{"../ApiClient":10}],30:[function(require,module,exports){
 /**
  * SCALPS Core REST API
  *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
@@ -6245,7 +6312,7 @@ module.exports = function(arr, fn, initial){
 
 
 
-},{"../ApiClient":9,"./User":28}],30:[function(require,module,exports){
+},{"../ApiClient":10,"./User":29}],31:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -7438,5 +7505,5 @@ request.put = function(url, data, fn){
 
 module.exports = request;
 
-},{"emitter":7,"reduce":8}]},{},[5])(5)
+},{"emitter":8,"reduce":9}]},{},[6])(6)
 });
