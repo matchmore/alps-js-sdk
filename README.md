@@ -25,7 +25,7 @@ tsc
 To create a Standalone (using Browserify):
 
 ```
-browserify lib/manager.js --standalone adjago > build/adjago.js
+browserify lib/manager.js --standalone matchmore > build/matchmore.js
 ```
 
 ## Testing
