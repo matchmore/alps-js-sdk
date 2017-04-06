@@ -1940,15 +1940,15 @@ var LocationManager = (function () {
     LocationManager.prototype.onLocationReceived = function (loc) {
         var latitude, longitude, altitude;
         if (loc.coords.latitude)
-            latitude = loc.coords.latitude;
+            latitude = parseFloat(loc.coords.latitude);
         else
             throw new Error("Location did not contain any latitude: " + JSON.stringify(loc));
         if (loc.coords.longitude)
-            longitude = loc.coords.longitude;
+            longitude = parseFloat(loc.coords.longitude);
         else
             throw new Error("Location did not contain any longitude: " + JSON.stringify(loc));
         if (loc.coords.altitude)
-            altitude = loc.coords.altitude;
+            altitude = parseFloat(loc.coords.altitude);
         else
             altitude = 0;
         this.onLocationUpdate(loc);
