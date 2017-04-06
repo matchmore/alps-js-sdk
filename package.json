@@ -1,4 +1,9 @@
 {
+	"name": "matchmore",
+	"version": "0.0.1",
+	"description": "We_connect_things",
+	"license": "MIT",
+	"main": "build/matchmore.js",
   "scripts": {
     "test": "./node_modules/mocha/bin/mocha"
   },
