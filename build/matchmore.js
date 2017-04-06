@@ -2016,140 +2016,156 @@ var Manager = (function () {
         return p;
     };
     Manager.prototype.createDevice = function (deviceName, platform, deviceToken, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completion) {
-        var _this = this;
         if (this.defaultUser) {
-            var p = new Promise(function (resolve, reject) {
-                var api = new ScalpsCoreRestApi.DeviceApi();
-                var callback = function (error, data, response) {
-                    if (error) {
-                        reject("An error has occured while creating device '" + deviceName + "' :" + error);
-                    }
-                    else {
-                        resolve(JSON.parse(response.text));
-                    }
-                };
-                var opts = {
-                    'horizontalAccuracy': horizontalAccuracy,
-                    'verticalAccuracy': verticalAccuracy
-                };
-                api.createDevice(_this.defaultUser.userId, deviceName, platform, deviceToken, latitude, longitude, altitude, opts, callback);
-            });
-            p.then(function (device) {
-                _this.devices.push(device);
-                _this.defaultDevice = _this.devices[0];
-                if (completion)
-                    completion(device);
-            });
-            return p;
+            return this.createAnyDevice(this.defaultUser.userId, deviceName, platform, deviceToken, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completion);
         }
         else {
             throw new Error("There is no default user available, please call createUser before createDevice");
         }
     };
-    Manager.prototype.createPublication = function (topic, range, duration, properties, completion) {
+    Manager.prototype.createAnyDevice = function (userId, deviceName, platform, deviceToken, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completion) {
         var _this = this;
+        var p = new Promise(function (resolve, reject) {
+            var api = new ScalpsCoreRestApi.DeviceApi();
+            var callback = function (error, data, response) {
+                if (error) {
+                    reject("An error has occured while creating device '" + deviceName + "' :" + error);
+                }
+                else {
+                    resolve(JSON.parse(response.text));
+                }
+            };
+            var opts = {
+                'horizontalAccuracy': horizontalAccuracy,
+                'verticalAccuracy': verticalAccuracy
+            };
+            api.createDevice(userId, deviceName, platform, deviceToken, latitude, longitude, altitude, opts, callback);
+        });
+        p.then(function (device) {
+            _this.devices.push(device);
+            _this.defaultDevice = _this.devices[0];
+            if (completion)
+                completion(device);
+        });
+        return p;
+    };
+    Manager.prototype.createPublication = function (topic, range, duration, properties, completion) {
         if (this.defaultUser && this.defaultDevice) {
-            var p = new Promise(function (resolve, reject) {
-                var api = new ScalpsCoreRestApi.PublicationApi();
-                var callback = function (error, data, response) {
-                    if (error) {
-                        reject("An error has occured while creating publication '" + topic + "' :" + error);
-                    }
-                    else {
-                        resolve(JSON.parse(response.text));
-                    }
-                };
-                api.createPublication(_this.defaultUser.userId, _this.defaultDevice.deviceId, topic, range, duration, properties, callback);
-            });
-            p.then(function (publication) {
-                _this.publications.push(publication);
-                if (completion)
-                    completion(publication);
-            });
-            return p;
+            return this.createAnyPublication(this.defaultUser.userId, this.defaultDevice.deviceId, topic, range, duration, properties, completion);
         }
         else {
             throw new Error("There is no default user or device available, please call createUser and createDevice before createPublication");
         }
     };
-    Manager.prototype.createSubscription = function (topic, selector, range, duration, completion) {
+    Manager.prototype.createAnyPublication = function (userId, deviceId, topic, range, duration, properties, completion) {
         var _this = this;
+        var p = new Promise(function (resolve, reject) {
+            var api = new ScalpsCoreRestApi.PublicationApi();
+            var callback = function (error, data, response) {
+                if (error) {
+                    reject("An error has occured while creating publication '" + topic + "' :" + error);
+                }
+                else {
+                    resolve(JSON.parse(response.text));
+                }
+            };
+            api.createPublication(userId, deviceId, topic, range, duration, properties, callback);
+        });
+        p.then(function (publication) {
+            _this.publications.push(publication);
+            if (completion)
+                completion(publication);
+        });
+        return p;
+    };
+    Manager.prototype.createSubscription = function (topic, selector, range, duration, completion) {
         if (this.defaultUser && this.defaultDevice) {
-            var p = new Promise(function (resolve, reject) {
-                var api = new ScalpsCoreRestApi.SubscriptionApi();
-                var callback = function (error, data, response) {
-                    if (error) {
-                        reject("An error has occured while creating subscription '" + topic + "' :" + error);
-                    }
-                    else {
-                        resolve(JSON.parse(response.text));
-                    }
-                };
-                api.createSubscription(_this.defaultUser.userId, _this.defaultDevice.deviceId, topic, selector, range, duration, callback);
-            });
-            p.then(function (subscription) {
-                _this.subscriptions.push(subscription);
-                if (completion)
-                    completion(subscription);
-            });
-            return p;
+            return this.createAnySubscription(this.defaultUser.userId, this.defaultDevice.deviceId, topic, selector, range, duration, completion);
         }
         else {
             throw new Error("There is no default user or device available, please call createUser and createDevice before createSubscription");
         }
     };
-    Manager.prototype.updateLocation = function (latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completion) {
+    Manager.prototype.createAnySubscription = function (userId, deviceId, topic, selector, range, duration, completion) {
         var _this = this;
+        var p = new Promise(function (resolve, reject) {
+            var api = new ScalpsCoreRestApi.SubscriptionApi();
+            var callback = function (error, data, response) {
+                if (error) {
+                    reject("An error has occured while creating subscription '" + topic + "' :" + error);
+                }
+                else {
+                    resolve(JSON.parse(response.text));
+                }
+            };
+            api.createSubscription(userId, deviceId, topic, selector, range, duration, callback);
+        });
+        p.then(function (subscription) {
+            _this.subscriptions.push(subscription);
+            if (completion)
+                completion(subscription);
+        });
+        return p;
+    };
+    Manager.prototype.updateLocation = function (latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completion) {
         if (this.defaultUser && this.defaultDevice) {
-            var p = new Promise(function (resolve, reject) {
-                var api = new ScalpsCoreRestApi.LocationApi();
-                var callback = function (error, data, response) {
-                    if (error) {
-                        reject("An error has occured while creating location ['" + latitude + "','" + longitude + "']  :" + error);
-                    }
-                    else {
-                        resolve(JSON.parse(response.text));
-                    }
-                };
-                var opts = {
-                    'horizontalAccuracy': horizontalAccuracy,
-                    'verticalAccuracy': verticalAccuracy
-                };
-                api.createLocation(_this.defaultUser.userId, _this.defaultDevice.deviceId, latitude, longitude, altitude, opts, callback);
-            });
-            p.then(function (location) {
-                _this.locations.push(location);
-                if (completion)
-                    completion(location);
-            });
-            return p;
+            return this.updateAnyLocation(this.defaultUser.userId, this.defaultDevice.deviceId, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completion);
         }
         else {
             throw new Error("There is no default user or device available, please call createUser and createDevice before updateLocation");
         }
     };
-    Manager.prototype.getAllMatches = function (completion) {
+    Manager.prototype.updateAnyLocation = function (userId, deviceId, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completion) {
         var _this = this;
+        var p = new Promise(function (resolve, reject) {
+            var api = new ScalpsCoreRestApi.LocationApi();
+            var callback = function (error, data, response) {
+                if (error) {
+                    reject("An error has occured while creating location ['" + latitude + "','" + longitude + "']  :" + error);
+                }
+                else {
+                    resolve(JSON.parse(response.text));
+                }
+            };
+            var opts = {
+                'horizontalAccuracy': horizontalAccuracy,
+                'verticalAccuracy': verticalAccuracy
+            };
+            api.createLocation(userId, deviceId, latitude, longitude, altitude, opts, callback);
+        });
+        p.then(function (location) {
+            _this.locations.push(location);
+            if (completion)
+                completion(location);
+        });
+        return p;
+    };
+    Manager.prototype.getAllMatches = function (completion) {
         if (this.defaultUser && this.defaultDevice) {
-            var p = new Promise(function (resolve, reject) {
-                var api = new ScalpsCoreRestApi.DeviceApi();
-                var callback = function (error, data, response) {
-                    if (error) {
-                        reject("An error has occured while fetching matches: " + error);
-                    }
-                    else {
-                        resolve(JSON.parse(response.text));
-                    }
-                };
-                api.getMatches(_this.defaultUser.userId, _this.defaultDevice.deviceId, callback);
-            });
-            p.then(function (location) {
-            });
-            return p;
+            return this.getAllMatchesForAny(this.defaultUser.userId, this.defaultDevice.deviceId);
         }
         else {
             throw new Error("There is no default user or device available, please call createUser and createDevice before getAllMatches");
         }
+    };
+    Manager.prototype.getAllMatchesForAny = function (userId, deviceId, completion) {
+        var p = new Promise(function (resolve, reject) {
+            var api = new ScalpsCoreRestApi.DeviceApi();
+            var callback = function (error, data, response) {
+                if (error) {
+                    reject("An error has occured while fetching matches: " + error);
+                }
+                else {
+                    resolve(JSON.parse(response.text));
+                }
+            };
+            api.getMatches(userId, deviceId, callback);
+        });
+        p.then(function (matches) {
+            if (completion)
+                completion(matches);
+        });
+        return p;
     };
     Manager.prototype.getAllPublicationsForDevice = function (userId, deviceId, completion) {
         var p = new Promise(function (resolve, reject) {
