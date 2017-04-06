@@ -1951,7 +1951,8 @@ var LocationManager = (function () {
             altitude = loc.coords.altitude;
         else
             altitude = 0;
-        this.manager.updateLocation(latitude, longitude, altitude);
+        this.onLocationUpdate(loc);
+        this.manager.updateLocation(latitude, longitude, altitude, 1.0, 1.0);
     };
     LocationManager.prototype.onError = function (error) {
         switch (error.code) {
@@ -2199,6 +2200,9 @@ var Manager = (function () {
     };
     Manager.prototype.onMatch = function (completion) {
         this.matchMonitor.onMatch = completion;
+    };
+    Manager.prototype.onLocationUpdate = function (completion) {
+        this.locationManager.onLocationUpdate = completion;
     };
     Manager.prototype.startMonitoringMatches = function () {
         this.matchMonitor.startMonitoringMatches();
