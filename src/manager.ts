@@ -241,8 +241,12 @@ export class Manager {
         return p;
     }
 
-    public onMatch(completion: (match: ScalpsCoreRestApi) => void) {
+    public onMatch(completion: (match: ScalpsCoreRestApi.Match) => void) {
         this.matchMonitor.onMatch = completion;
+    }
+
+    public onLocationUpdate(completion: (location: ScalpsCoreRestApi.Location) => void) {
+        this.locationManager.onLocationUpdate = completion;
     }
 
     public startMonitoringMatches() {

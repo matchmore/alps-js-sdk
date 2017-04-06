@@ -6,6 +6,8 @@ export class LocationManager {
 
     private geoId;
 
+    public onLocationUpdate: (location: ScalpsCoreRestApi.Location) => void;
+
     constructor(manager: Manager) {
         this.init(manager);
     }
@@ -44,7 +46,8 @@ export class LocationManager {
             altitude = loc.coords.altitude;
         else
             altitude = 0; // Default value, TODO: use an altitude API
-        this.manager.updateLocation(latitude, longitude, altitude);
+        this.onLocationUpdate(loc);
+        this.manager.updateLocation(latitude, longitude, altitude, 1.0, 1.0);
     }
 
     private onError(error) {
