@@ -14,6 +14,12 @@ You need to also install the js-api module, if you have it installed locally, yo
 npm install /PATH/TO/js-api/
 ```
 
+or by using the version on GitHub:
+
+```
+npm https://github.com/MatchMore/js-api
+```
+
 ## Compilation
 
 To compile the project:
@@ -38,6 +44,17 @@ Please edit `test/config.js` to add a valid API key before to use the tests
 ``` 
 npm test
 ```
+
+## Usage
+
+### In a browser
+
+Include `build/matchmore.js` into your page and start by creating a Manager() instance. The Manager will allow you to create Users, Devices, Publications, Subscriptions, ...
+
+### In your project 
+
+Use npm to include MatchMore
+
 
 # Technologies
 
