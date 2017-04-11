@@ -33,19 +33,23 @@ export class LocationManager {
     }
 
     private onLocationReceived(loc) {
+        if (!loc.coords) return; // Guard for bad values
         let latitude, longitude, altitude;
         if (loc.coords.latitude)
             latitude = parseFloat(loc.coords.latitude);
         else
-            throw new Error("Location did not contain any latitude: " + JSON.stringify(loc));
+            return;
+        //throw new Error("Location did not contain any latitude: " + JSON.stringify(loc));
         if (loc.coords.longitude)
             longitude = parseFloat(loc.coords.longitude);
         else
-            throw new Error("Location did not contain any longitude: " + JSON.stringify(loc));
+            return;
+        //throw new Error("Location did not contain any longitude: " + JSON.stringify(loc));
         if (loc.coords.altitude)
             altitude = parseFloat(loc.coords.altitude);
         else
-            altitude = 0; // Default value, TODO: use an altitude API
+            altitude = 0; // Default value, TODO: use an altitude API?
+
         this.onLocationUpdate(loc);
         this.manager.updateLocation(latitude, longitude, altitude, 1.0, 1.0);
     }
