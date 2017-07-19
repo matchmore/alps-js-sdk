@@ -8,16 +8,16 @@ To install the packages:
 npm install
 ```
 
-You need to also install the js-api module, if you have it installed locally, you can do it by passing the local path to it's git repo:
+You need to also install the alps-js-api module, if you have it installed locally, you can do it by passing the local path to it's git repo:
 
 ```
-npm install /PATH/TO/js-api/
+npm install /PATH/TO/alps-js-api/
 ```
 
 or by using the version on GitHub:
 
 ```
-npm https://github.com/MatchMore/js-api
+npm https://github.com/MatchMore/alps-js-api
 ```
 
 ## Compilation
