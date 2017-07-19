@@ -2,7 +2,7 @@
 
 ## Installation
 
-To install the packages:
+Clone the repo locally and install the dependencies from the root folder with:
 
 ```
 npm install
@@ -17,7 +17,7 @@ npm install /PATH/TO/alps-js-api/
 or by using the version on GitHub:
 
 ```
-npm https://github.com/MatchMore/alps-js-api
+npm install https://github.com/MatchMore/alps-js-api --save
 ```
 
 ## Compilation
