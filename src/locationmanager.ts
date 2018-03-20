@@ -1,4 +1,4 @@
-import ScalpsCoreRestApi = require('scalps_core_rest_api');
+import ScalpsCoreRestApi = require('matchmore_alps_core_rest_api');
 import { Manager } from './manager';
 
 export class LocationManager {

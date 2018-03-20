@@ -2506,9 +2506,9 @@ module.exports = function(arr, fn, initial){
     /**
      * The base URL against which to resolve every API call's (relative) path.
      * @type {String}
-     * @default http://api.adjago.io/v02
+     * @default http://api.matchmore.io/v5
      */
-    this.basePath = 'http://api.adjago.io/v02'.replace(/\/+$/, '');
+    this.basePath = 'http://api.matchmore.io/v5'.replace(/\/+$/, '');
 
     /**
      * The authentication methods to be included for all API calls.

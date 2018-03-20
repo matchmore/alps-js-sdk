@@ -1,15 +1,19 @@
 {
-	"name": "matchmore",
-	"version": "0.0.1",
-	"description": "We_connect_things",
-	"license": "MIT",
-	"main": "build/matchmore.js",
+  "name": "matchmore",
+  "version": "0.0.1",
+  "description": "We_connect_things",
+  "license": "MIT",
+  "main": "build/matchmore.js",
   "scripts": {
-    "test": "./node_modules/mocha/bin/mocha"
+    "test": "./node_modules/mocha/bin/mocha",
+    "postinstall": "./build.sh"
   },
   "devDependencies": {
     "mocha": "^3.2.0",
     "chai": "^3.5.0",
     "chai-as-promised": "^6.0.0"
+  },
+  "dependencies": {
+    "matchmore_alps_core_rest_api": "file:matchmore_alps_core_rest_api"
   }
 }

@@ -1,9 +1,9 @@
-import ScalpsCoreRestApi = require('scalps_core_rest_api');
+import ScalpsCoreRestApi = require('matchmore_alps_core_rest_api');
 import { Manager } from './manager';
 
 export class MatchMonitor {
     manager: Manager;
-    timerId: Number;
+    timerId: number;
     deliveredMatches: ScalpsCoreRestApi.Match[] = [];
     public onMatch: (match: ScalpsCoreRestApi.Match) => void;
 
