@@ -18,7 +18,7 @@ export class MatchMonitor {
 
     public startMonitoringMatches() {
         this.stopMonitoringMatches();
-        this.timerId = setInterval(() => { this.checkMatches(); }, 1000);
+        let timer = setInterval(() => { this.checkMatches(); }, 1000);
     }
 
     public stopMonitoringMatches() {

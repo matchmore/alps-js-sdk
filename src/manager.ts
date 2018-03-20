@@ -11,7 +11,6 @@ export class Manager {
     public publications: ScalpsCoreRestApi.Publication[] = [];
     public subscriptions: ScalpsCoreRestApi.Subscription[] = [];
     public locations: ScalpsCoreRestApi.Location[] = [];
-    public defaultUser: ScalpsCoreRestApi.User;
     public defaultDevice: ScalpsCoreRestApi.Device;
 
     private matchMonitor: MatchMonitor;
@@ -30,42 +29,19 @@ export class Manager {
         this.locationManager = new LocationManager(this);
     }
 
-    public createUser(userName: String, completion?: (user: ScalpsCoreRestApi.User) => void): Promise<ScalpsCoreRestApi.User> {
-        let p = new Promise((resolve, reject) => {
-            let api = new ScalpsCoreRestApi.UsersApi();
-            let callback = function(error, data, response) {
-                if (error) {
-                    reject("An error has occured while creating user '" + userName + "' :" + error)
-                } else {
-                    // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-                    resolve(JSON.parse(response.text));
-                }
-            };
-            api.createUser(userName, callback);
-        });
-        p.then((user) => {
-            this.users.push(user);
-            this.defaultUser = this.users[0];
-            if (completion) completion(user);
-        });
-        return p;
-    }
-
     public createDevice(deviceName: String, platform: String, deviceToken: String,
-        latitude: Number, longitude: Number, altitude: Number,
-        horizontalAccuracy: Number, verticalAccuracy: Number,
+        latitude: number, longitude: number, altitude: number,
+        horizontalAccuracy: number, verticalAccuracy: number,
         completion?: (device: ScalpsCoreRestApi.Device) => void): Promise<ScalpsCoreRestApi.Device> {
-        if (this.defaultUser) {
-            return this.createAnyDevice(this.defaultUser.userId, deviceName, platform, deviceToken, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completion);
-        } else {
-            throw new Error("There is no default user available, please call createUser before createDevice");
-        }
+        return this.createAnyDevice(deviceName, platform, deviceToken, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completion);
     }
 
-    public createAnyDevice(userId: String, deviceName: String, platform: String, deviceToken: String,
-        latitude: Number, longitude: Number, altitude: Number,
-        horizontalAccuracy: Number, verticalAccuracy: Number,
+    public createAnyDevice(deviceName: String, platform: String, deviceToken: String,
+        latitude: number, longitude: number, altitude: number,
+        horizontalAccuracy: number, verticalAccuracy: number,
         completion?: (device: ScalpsCoreRestApi.Device) => void): Promise<ScalpsCoreRestApi.Device> {
+        
+        console.log(completion);
 
         let p = new Promise((resolve, reject) => {
             let api = new ScalpsCoreRestApi.DeviceApi();
@@ -81,7 +57,7 @@ export class Manager {
                 'horizontalAccuracy': horizontalAccuracy,
                 'verticalAccuracy': verticalAccuracy
             };
-            api.createDevice(userId, deviceName, platform, deviceToken, latitude, longitude, altitude, opts, callback);
+            api.createDevice(deviceName, platform, deviceToken, latitude, longitude, altitude, opts, callback);
         });
         p.then((device) => {
             this.devices.push(device);
@@ -91,15 +67,15 @@ export class Manager {
         return p;
     }
 
-    public createPublication(topic: String, range: Number, duration: Number, properties: Object, completion?: (publication: ScalpsCoreRestApi.Publication) => void): Promise<ScalpsCoreRestApi.Publication> {
-        if (this.defaultUser && this.defaultDevice) {
-            return this.createAnyPublication(this.defaultUser.userId, this.defaultDevice.deviceId, topic, range, duration, properties, completion);
+    public createPublication(topic: String, range: number, duration: number, properties: Object, completion?: (publication: ScalpsCoreRestApi.Publication) => void): Promise<ScalpsCoreRestApi.Publication> {
+        if (this.defaultDevice) {
+            return this.createAnyPublication(this.defaultDevice.deviceId, topic, range, duration, properties, completion);
         } else {
-            throw new Error("There is no default user or device available, please call createUser and createDevice before createPublication");
+            throw new Error("There is no default device available, please call createDevice before createPublication");
         }
     }
 
-    public createAnyPublication(userId: String, deviceId: String, topic: String, range: Number, duration: Number, properties: Object, completion?: (publication: ScalpsCoreRestApi.Publication) => void): Promise<ScalpsCoreRestApi.Publication> {
+    public createAnyPublication( deviceId: String, topic: String, range: number, duration: number, properties: Object, completion?: (publication: ScalpsCoreRestApi.Publication) => void): Promise<ScalpsCoreRestApi.Publication> {
 
         let p = new Promise((resolve, reject) => {
             let api = new ScalpsCoreRestApi.PublicationApi();
@@ -111,7 +87,7 @@ export class Manager {
                     resolve(JSON.parse(response.text));
                 }
             };
-            api.createPublication(userId, deviceId, topic, range, duration, properties, callback);
+            api.createPublication( deviceId, topic, range, duration, properties, callback);
         });
         p.then((publication) => {
             this.publications.push(publication);
@@ -120,15 +96,15 @@ export class Manager {
         return p;
     }
 
-    public createSubscription(topic: String, selector: String, range: Number, duration: Number, completion?: (subscription: ScalpsCoreRestApi.Subscription) => void): Promise<ScalpsCoreRestApi.Subscription> {
-        if (this.defaultUser && this.defaultDevice) {
-            return this.createAnySubscription(this.defaultUser.userId, this.defaultDevice.deviceId, topic, selector, range, duration, completion);
+    public createSubscription(topic: String, selector: String, range: number, duration: number, completion?: (subscription: ScalpsCoreRestApi.Subscription) => void): Promise<ScalpsCoreRestApi.Subscription> {
+        if (this.defaultDevice) {
+            return this.createAnySubscription(this.defaultDevice.deviceId, topic, selector, range, duration, completion);
         } else {
-            throw new Error("There is no default user or device available, please call createUser and createDevice before createSubscription");
+            throw new Error("There is no default device available, please call createDevice before createSubscription");
         }
     }
 
-    public createAnySubscription(userId: String, deviceId: String, topic: String, selector: String, range: Number, duration: Number, completion?: (subscription: ScalpsCoreRestApi.Subscription) => void): Promise<ScalpsCoreRestApi.Subscription> {
+    public createAnySubscription(deviceId: String, topic: String, selector: String, range: number, duration: number, completion?: (subscription: ScalpsCoreRestApi.Subscription) => void): Promise<ScalpsCoreRestApi.Subscription> {
 
         let p = new Promise((resolve, reject) => {
             let api = new ScalpsCoreRestApi.SubscriptionApi();
@@ -140,7 +116,7 @@ export class Manager {
                     resolve(JSON.parse(response.text));
                 }
             };
-            api.createSubscription(userId, deviceId, topic, selector, range, duration, callback);
+            api.createSubscription(deviceId, topic, selector, range, duration, callback);
         });
         p.then((subscription) => {
             this.subscriptions.push(subscription);
@@ -149,15 +125,15 @@ export class Manager {
         return p;
     }
 
-    public updateLocation(latitude: Number, longitude: Number, altitude: Number, horizontalAccuracy: Number, verticalAccuracy: Number, completion?: (location: ScalpsCoreRestApi.DeviceLocation) => void): Promise<ScalpsCoreRestApi.DeviceLocation> {
-        if (this.defaultUser && this.defaultDevice) {
-            return this.updateAnyLocation(this.defaultUser.userId, this.defaultDevice.deviceId, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completion);
+    public updateLocation(latitude: number, longitude: number, altitude: number, horizontalAccuracy: number, verticalAccuracy: number, completion?: (location: ScalpsCoreRestApi.DeviceLocation) => void): Promise<ScalpsCoreRestApi.DeviceLocation> {
+        if (this.defaultDevice) {
+            return this.updateAnyLocation(this.defaultDevice.deviceId, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completion);
         } else {
-            throw new Error("There is no default user or device available, please call createUser and createDevice before updateLocation");
+            throw new Error("There is no default device available, please call createDevice before updateLocation");
         }
     }
 
-    public updateAnyLocation(userId: String, deviceId: String, latitude: Number, longitude: Number, altitude: Number, horizontalAccuracy: Number, verticalAccuracy: Number, completion?: (location: ScalpsCoreRestApi.DeviceLocation) => void): Promise<ScalpsCoreRestApi.DeviceLocation> {
+    public updateAnyLocation( deviceId: String, latitude: number, longitude: number, altitude: number, horizontalAccuracy: number, verticalAccuracy: number, completion?: (location: ScalpsCoreRestApi.DeviceLocation) => void): Promise<ScalpsCoreRestApi.DeviceLocation> {
 
         let p = new Promise((resolve, reject) => {
             let api = new ScalpsCoreRestApi.LocationApi();
@@ -173,7 +149,7 @@ export class Manager {
                 'horizontalAccuracy': horizontalAccuracy,
                 'verticalAccuracy': verticalAccuracy
             };
-            api.createLocation(userId, deviceId, latitude, longitude, altitude, opts, callback);
+            api.createLocation( deviceId, latitude, longitude, altitude, opts, callback);
         });
         p.then((location) => {
             this.locations.push(location);
@@ -183,14 +159,14 @@ export class Manager {
     }
 
     public getAllMatches(completion?: (matches: ScalpsCoreRestApi.Match[]) => void) {
-        if (this.defaultUser && this.defaultDevice) {
-            return this.getAllMatchesForAny(this.defaultUser.userId, this.defaultDevice.deviceId);
+        if (this.defaultDevice) {
+            return this.getAllMatchesForAny(this.defaultDevice.deviceId);
         } else {
-            throw new Error("There is no default user or device available, please call createUser and createDevice before getAllMatches");
+            throw new Error("There is no default device available, please call createDevice before getAllMatches");
         }
     }
 
-    public getAllMatchesForAny(userId: String, deviceId: String, completion?: (matches: ScalpsCoreRestApi.Match[]) => void) {
+    public getAllMatchesForAny(deviceId: String, completion?: (matches: ScalpsCoreRestApi.Match[]) => void) {
         let p = new Promise((resolve, reject) => {
             let api = new ScalpsCoreRestApi.DeviceApi();
             let callback = function(error, data, response) {
@@ -201,7 +177,7 @@ export class Manager {
                     resolve(JSON.parse(response.text));
                 }
             };
-            api.getMatches(userId, deviceId, callback);
+            api.getMatches(deviceId, callback);
         });
         p.then((matches: ScalpsCoreRestApi.Match[]) => {
             if (completion) completion(matches);
@@ -209,7 +185,7 @@ export class Manager {
         return p;
     }
 
-    public getAllPublicationsForDevice(userId: String, deviceId: String, completion?: (publications: ScalpsCoreRestApi.Publication[]) => void) {
+    public getAllPublicationsForDevice( deviceId: String, completion?: (publications: ScalpsCoreRestApi.Publication[]) => void) {
         let p = new Promise((resolve, reject) => {
             let api = new ScalpsCoreRestApi.DeviceApi();
             let callback = function(error, data, response) {
@@ -220,12 +196,12 @@ export class Manager {
                     resolve(JSON.parse(response.text));
                 }
             };
-            api.getPublications(userId, deviceId, callback);
+            api.getPublications( deviceId, callback);
         });
         return p;
     }
 
-    public getAllSubscriptionsForDevice(userId: String, deviceId: String, completion?: (subscriptions: ScalpsCoreRestApi.Subscription[]) => void) {
+    public getAllSubscriptionsForDevice( deviceId: String, completion?: (subscriptions: ScalpsCoreRestApi.Subscription[]) => void) {
         let p = new Promise((resolve, reject) => {
             let api = new ScalpsCoreRestApi.DeviceApi();
             let callback = function(error, data, response) {
@@ -236,7 +212,7 @@ export class Manager {
                     resolve(JSON.parse(response.text));
                 }
             };
-            api.getSubscriptions(userId, deviceId, callback);
+            api.getSubscriptions( deviceId, callback);
         });
         return p;
     }
