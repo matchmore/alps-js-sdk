@@ -1,6 +1,7 @@
 import ScalpsCoreRestApi = require('matchmore_alps_core_rest_api');
 import { MatchMonitor } from './matchmonitor';
 import { LocationManager } from './locationmanager';
+import * as models from './model/models';
 
 export class Manager {
     defaultClient: ScalpsCoreRestApi.ApiClient;
@@ -29,35 +30,21 @@ export class Manager {
         this.locationManager = new LocationManager(this);
     }
 
-    public createDevice(deviceName: String, platform: String, deviceToken: String,
-        latitude: number, longitude: number, altitude: number,
-        horizontalAccuracy: number, verticalAccuracy: number,
+    public createDevice(device: models.Device,
         completion?: (device: ScalpsCoreRestApi.Device) => void): Promise<ScalpsCoreRestApi.Device> {
-        return this.createAnyDevice(deviceName, platform, deviceToken, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completion);
-    }
-
-    public createAnyDevice(deviceName: String, platform: String, deviceToken: String,
-        latitude: number, longitude: number, altitude: number,
-        horizontalAccuracy: number, verticalAccuracy: number,
-        completion?: (device: ScalpsCoreRestApi.Device) => void): Promise<ScalpsCoreRestApi.Device> {
-        
-        console.log(completion);
-
+        device = this.setDeviceType(device);
         let p = new Promise((resolve, reject) => {
             let api = new ScalpsCoreRestApi.DeviceApi();
             let callback = function(error, data, response) {
                 if (error) {
-                    reject("An error has occured while creating device '" + deviceName + "' :" + error)
+                    reject("An error has occured while creating device '" + device.name + "' :" + error)
                 } else {
                     // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
                     resolve(JSON.parse(response.text));
                 }
             };
-            var opts = {
-                'horizontalAccuracy': horizontalAccuracy,
-                'verticalAccuracy': verticalAccuracy
-            };
-            api.createDevice(deviceName, platform, deviceToken, latitude, longitude, altitude, opts, callback);
+
+            api.createDevice(device, callback);
         });
         p.then((device) => {
             this.devices.push(device);
@@ -65,6 +52,37 @@ export class Manager {
             if (completion) completion(device);
         });
         return p;
+    }
+
+    private setDeviceType(device: models.Device): models.Device {        
+        if(this.isMobileDevice(device)){
+            device.deviceType = models.DeviceType.MobileDevice;
+            return device;
+        }
+
+        if(this.isBeaconDevice(device)){
+            device.deviceType = models.DeviceType.IBeaconDevice;
+            return device;
+        }
+
+        if(this.isPinDevice(device)){
+            device.deviceType = models.DeviceType.PinDevice;
+            return device;
+        }
+
+        throw new Error("Cannot determine device type");
+    }
+
+    private isMobileDevice(device:models.Device): device is models.MobileDevice {
+        return (<models.MobileDevice>device).platform !== undefined;
+    }
+
+    private isPinDevice(device:models.Device): device is models.PinDevice {
+        return (<models.PinDevice>device).location !== undefined;
+    }
+
+    private isBeaconDevice(device:models.Device): device is models.IBeaconDevice {
+        return (<models.IBeaconDevice>device).major !== undefined;
     }
 
     public createPublication(topic: String, range: number, duration: number, properties: Object, completion?: (publication: ScalpsCoreRestApi.Publication) => void): Promise<ScalpsCoreRestApi.Publication> {
