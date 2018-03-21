@@ -89,7 +89,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = Publication;
@@ -143,7 +143,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = null;
@@ -197,7 +197,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = Publication;
@@ -244,7 +244,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = Publications;

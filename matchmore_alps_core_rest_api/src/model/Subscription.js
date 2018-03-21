@@ -64,6 +64,7 @@
     _this['range'] = range;
     _this['duration'] = duration;
 
+
   };
 
   /**
@@ -100,6 +101,9 @@
       }
       if (data.hasOwnProperty('duration')) {
         obj['duration'] = ApiClient.convertToType(data['duration'], 'Number');
+      }
+      if (data.hasOwnProperty('matchTTL')) {
+        obj['matchTTL'] = ApiClient.convertToType(data['matchTTL'], 'Number');
       }
       if (data.hasOwnProperty('pushers')) {
         obj['pushers'] = ApiClient.convertToType(data['pushers'], ['String']);
@@ -148,6 +152,11 @@
    * @member {Number} duration
    */
   exports.prototype['duration'] = undefined;
+  /**
+   * The duration of the match in seconds, this describes how often you will get matches when publication and subscription are moving in each other range. If set to '0' you will get matches every time publication or subscription in range will move. Negative values are not allowed. 
+   * @member {Number} matchTTL
+   */
+  exports.prototype['matchTTL'] = undefined;
   /**
    * When match will occurs, they will be notified on these provided URI(s) address(es) in the pushers array. 
    * @member {Array.<String>} pushers

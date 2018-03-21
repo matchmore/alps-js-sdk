@@ -107,7 +107,7 @@
    */
   exports.prototype['updatedAt'] = undefined;
   /**
-   * Optional device groups, one device can belong to multiple groups, groups are string that can be max 25 characters long and contains letters numbers or underscores
+   * Optional device groups, one device can belong to multiple groups, grops are string that can be max 25 characters long and contains letters numbers or underscores
    * @member {Array.<String>} group
    */
   exports.prototype['group'] = undefined;

@@ -90,7 +90,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = Match;
@@ -137,7 +137,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = Matches;

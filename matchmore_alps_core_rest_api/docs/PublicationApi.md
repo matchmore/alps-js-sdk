@@ -19,6 +19,13 @@ Create a publication for a device
 ### Example
 ```javascript
 var MatchmoreAlpsCoreRestApi = require('matchmore_alps_core_rest_api');
+var defaultClient = MatchmoreAlpsCoreRestApi.ApiClient.instance;
+
+// Configure API key authorization: api-key
+var api-key = defaultClient.authentications['api-key'];
+api-key.apiKey = 'YOUR API KEY';
+// Uncomment the following line to set a prefix for the API key, e.g. "Token" (defaults to null)
+//api-key.apiKeyPrefix = 'Token';
 
 var apiInstance = new MatchmoreAlpsCoreRestApi.PublicationApi();
 
@@ -50,7 +57,7 @@ Name | Type | Description  | Notes
 
 ### Authorization
 
-No authorization required
+[api-key](../README.md#api-key)
 
 ### HTTP request headers
 
@@ -68,6 +75,13 @@ Delete a Publication
 ### Example
 ```javascript
 var MatchmoreAlpsCoreRestApi = require('matchmore_alps_core_rest_api');
+var defaultClient = MatchmoreAlpsCoreRestApi.ApiClient.instance;
+
+// Configure API key authorization: api-key
+var api-key = defaultClient.authentications['api-key'];
+api-key.apiKey = 'YOUR API KEY';
+// Uncomment the following line to set a prefix for the API key, e.g. "Token" (defaults to null)
+//api-key.apiKeyPrefix = 'Token';
 
 var apiInstance = new MatchmoreAlpsCoreRestApi.PublicationApi();
 
@@ -99,7 +113,7 @@ null (empty response body)
 
 ### Authorization
 
-No authorization required
+[api-key](../README.md#api-key)
 
 ### HTTP request headers
 
@@ -115,6 +129,13 @@ Info about a publication on a device
 ### Example
 ```javascript
 var MatchmoreAlpsCoreRestApi = require('matchmore_alps_core_rest_api');
+var defaultClient = MatchmoreAlpsCoreRestApi.ApiClient.instance;
+
+// Configure API key authorization: api-key
+var api-key = defaultClient.authentications['api-key'];
+api-key.apiKey = 'YOUR API KEY';
+// Uncomment the following line to set a prefix for the API key, e.g. "Token" (defaults to null)
+//api-key.apiKeyPrefix = 'Token';
 
 var apiInstance = new MatchmoreAlpsCoreRestApi.PublicationApi();
 
@@ -146,7 +167,7 @@ Name | Type | Description  | Notes
 
 ### Authorization
 
-No authorization required
+[api-key](../README.md#api-key)
 
 ### HTTP request headers
 
@@ -162,6 +183,13 @@ Get all publications for a device
 ### Example
 ```javascript
 var MatchmoreAlpsCoreRestApi = require('matchmore_alps_core_rest_api');
+var defaultClient = MatchmoreAlpsCoreRestApi.ApiClient.instance;
+
+// Configure API key authorization: api-key
+var api-key = defaultClient.authentications['api-key'];
+api-key.apiKey = 'YOUR API KEY';
+// Uncomment the following line to set a prefix for the API key, e.g. "Token" (defaults to null)
+//api-key.apiKeyPrefix = 'Token';
 
 var apiInstance = new MatchmoreAlpsCoreRestApi.PublicationApi();
 
@@ -190,7 +218,7 @@ Name | Type | Description  | Notes
 
 ### Authorization
 
-No authorization required
+[api-key](../README.md#api-key)
 
 ### HTTP request headers
 
