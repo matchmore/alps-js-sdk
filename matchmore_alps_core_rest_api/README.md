@@ -96,6 +96,14 @@ Please follow the [installation](#installation) instruction and execute the foll
 ```javascript
 var MatchmoreAlpsCoreRestApi = require('matchmore_alps_core_rest_api');
 
+var defaultClient = MatchmoreAlpsCoreRestApi.ApiClient.instance;
+
+// Configure API key authorization: api-key
+var api-key = defaultClient.authentications['api-key'];
+api-key.apiKey = "YOUR API KEY"
+// Uncomment the following line to set a prefix for the API key, e.g. "Token" (defaults to null)
+//api-key.apiKeyPrefix['api-key'] = "Token"
+
 var api = new MatchmoreAlpsCoreRestApi.DeviceApi()
 
 var device = new MatchmoreAlpsCoreRestApi.Device(); // {Device} The device to be created.

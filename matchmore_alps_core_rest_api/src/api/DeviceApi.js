@@ -82,7 +82,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = Device;
@@ -135,7 +135,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = Location;
@@ -188,7 +188,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = Publication;
@@ -241,7 +241,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = Subscription;
@@ -287,7 +287,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = null;
@@ -341,7 +341,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = null;
@@ -395,7 +395,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = null;
@@ -442,7 +442,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = Device;
@@ -483,7 +483,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = IBeaconTriples;
@@ -537,7 +537,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = Match;
@@ -584,7 +584,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = Matches;
@@ -638,7 +638,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = Publication;
@@ -685,7 +685,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = Publications;
@@ -739,7 +739,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = Subscription;
@@ -786,7 +786,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = Subscriptions;
@@ -839,7 +839,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = ProximityEvent;
@@ -886,7 +886,7 @@
       var formParams = {
       };
 
-      var authNames = [];
+      var authNames = ['api-key'];
       var contentTypes = ['application/json'];
       var accepts = ['application/json'];
       var returnType = Device;
