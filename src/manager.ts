@@ -51,11 +51,17 @@ export class Manager {
     return this._persistenceManager.subscriptions();
   }
 
+  /**
+   * Creates a mobile device
+   * @param name 
+   * @param platform 
+   * @param deviceToken platform token for push notifications for example apns://apns-token or fcm://fcm-token
+   * @param completion optional callback
+   */
   public createMobileDevice(
     name: string,
     platform: string,
     deviceToken: string,
-    location: models.Location,
     completion?: (device: models.MobileDevice) => void
   ): Promise<models.MobileDevice> {
     return this.createAnyDevice(
@@ -63,14 +69,20 @@ export class Manager {
         deviceType: models.DeviceType.MobileDevice,
         name: name,
         platform: platform,
-        deviceToken: deviceToken,
-        location: location
+        deviceToken: deviceToken
       },
       completion
     );
   }
 
+  /**
+   * Create a pin device
+   * @param name 
+   * @param location 
+   * @param completion optional callback
+   */
   public createPinDevice(
+    name: string,
     location: models.Location,
     completion?: (device: models.PinDevice) => void
   ): Promise<models.PinDevice> {
@@ -84,7 +96,17 @@ export class Manager {
     );
   }
 
+/**
+ * Creates an ibeacon device
+ * @param name 
+ * @param proximityUUID 
+ * @param major 
+ * @param minor 
+ * @param location 
+ * @param completion optional callback
+ */
   public createIBeaconDevice(
+    name: string,
     proximityUUID: string,
     major: number,
     minor: number,
@@ -103,7 +125,11 @@ export class Manager {
       completion
     );
   }
-
+/**
+ * Create a device
+ * @param device whole device object
+ * @param completion optional callback
+ */
   public createAnyDevice<T extends models.Device>(
     device: models.Device,
     completion?: (device: T) => void
@@ -172,7 +198,15 @@ export class Manager {
   ): device is models.IBeaconDevice {
     return (<models.IBeaconDevice>device).major !== undefined;
   }
-
+/**
+ * Create a publication for a device
+ * @param topic topic of the publication
+ * @param range range in meters
+ * @param duration time in seconds
+ * @param properties properties on which the sub selector can filter on
+ * @param deviceId optional, if not provided the default device will be used
+ * @param completion optional callback
+ */
   public createPublication(
     topic: string,
     range: number,
@@ -222,11 +256,20 @@ export class Manager {
     });
   }
 
+  /**
+   * Create a subscription for a device
+   * @param topic topic of the subscription
+   * @param range range in meters
+   * @param duration time in seconds
+   * @param selector selector which is used for filtering publications 
+   * @param deviceId optional, if not provided the default device will be used
+   * @param completion optional callback
+   */
   public createSubscription(
     topic: string,
-    selector: string,
     range: number,
     duration: number,
+    selector?: string,
     deviceId?: string,
     completion?: (subscription: models.Subscription) => void
   ): Promise<models.Subscription> {
@@ -271,17 +314,23 @@ export class Manager {
     });
   }
 
+  /**
+   * Updates the device location
+   * @param location 
+   * @param deviceId optional, if not provided the default device will be used
+   * @param completion optional callback
+   */
   public updateLocation(
     location: models.Location,
     deviceId?: string,
     completion?: (location: void) => void
   ): Promise<void> {
+    if (!this.defaultDevice) {
+      throw new Error(
+        "There is no default device available, please call createDevice before createPublication"
+      );
+    }
     let p = new Promise((resolve, reject) => {
-      if (!this.defaultDevice) {
-        throw new Error(
-          "There is no default device available, please call createDevice before createPublication"
-        );
-      }
       let api = new ScalpsCoreRestApi.LocationApi();
       let callback = function(error, data, response) {
         if (error) {
@@ -307,22 +356,20 @@ export class Manager {
     });
   }
 
+  /**
+   * Returns all current matches
+   * @param deviceId optional, if not provided the default device will be used
+   * @param completion optional callback
+   */
   public getAllMatches(
-    completion?: (matches: ScalpsCoreRestApi.Match[]) => void
-  ) {
-    if (this.defaultDevice) {
-      return this.getAllMatchesForAny(this.defaultDevice.id);
-    } else {
-      throw new Error(
-        "There is no default device available, please call createDevice before getAllMatches"
-      );
-    }
-  }
-
-  public getAllMatchesForAny(
-    deviceId: string,
+    deviceId?: string,
     completion?: (matches: models.Match[]) => void
   ) {
+    if (!this.defaultDevice) {
+      throw new Error(
+        "There is no default device available, please call createDevice before createPublication"
+      );
+    }
     let p = new Promise((resolve, reject) => {
       let api = new ScalpsCoreRestApi.DeviceApi();
       let callback = function(error, data, response) {
@@ -333,7 +380,8 @@ export class Manager {
           resolve(JSON.parse(response.text));
         }
       };
-      api.getMatches(deviceId, callback);
+      let _deviceId = deviceId ? deviceId : this.defaultDevice.id;
+      api.getMatches(_deviceId, callback);
     });
     p.then((matches: models.Match[]) => {
       if (completion) completion(matches);
@@ -341,8 +389,13 @@ export class Manager {
     return p;
   }
 
-  public getAllPublicationsForDevice(
-    deviceId: string,
+  /**
+   * Gets publications
+   * @param deviceId optional, if not provided the default device will be used
+   * @param completion optional callback
+   */
+  public getAllPublications(
+    deviceId?: string,
     completion?: (publications: models.Publication[]) => void
   ) {
     let p = new Promise((resolve, reject) => {
@@ -355,13 +408,19 @@ export class Manager {
           resolve(JSON.parse(response.text));
         }
       };
-      api.getPublications(deviceId, callback);
+      let _deviceId = deviceId ? deviceId : this.defaultDevice.id;
+      api.getPublications(_deviceId, callback);
     });
     return p;
   }
 
-  public getAllSubscriptionsForDevice(
-    deviceId: string,
+  /**
+   * Gets subscriptions
+   * @param deviceId optional, if not provided the default device will be used
+   * @param completion optional callback
+   */
+  public getAllSubscriptions(
+    deviceId?: string,
     completion?: (subscriptions: models.Subscription[]) => void
   ) {
     let p = new Promise((resolve, reject) => {
@@ -374,15 +433,24 @@ export class Manager {
           resolve(JSON.parse(response.text));
         }
       };
-      api.getSubscriptions(deviceId, callback);
+      let _deviceId = deviceId ? deviceId : this.defaultDevice.id;
+      api.getSubscriptions(_deviceId, callback);
     });
     return p;
   }
 
+  /**
+   * Registers a callback for matches
+   * @param completion 
+   */
   public onMatch(completion: (match: models.Match) => void) {
     this._matchMonitor.onMatch = completion;
   }
 
+  /**
+   * Register a callback for location updates
+   * @param completion 
+   */
   public onLocationUpdate(completion: (location: models.Location) => void) {
     this._locationManager.onLocationUpdate = completion;
   }
