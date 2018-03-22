@@ -1,6 +1,6931 @@
-(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.matchmore = f()}})(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.matchmore = f()}})(function(){var define,module,exports;return (function(){function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s}return e})()({1:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var LocationManager = (function () {
+    function LocationManager(manager) {
+        this.init(manager);
+    }
+    LocationManager.prototype.init = function (manager) {
+        this.manager = manager;
+    };
+    LocationManager.prototype.startUpdatingLocation = function () {
+        var _this = this;
+        if (navigator.geolocation) {
+            this.geoId = navigator.geolocation.watchPosition(function (loc) {
+                _this.onLocationReceived(loc);
+            }, this.onError);
+        }
+        else {
+            throw new Error("Geolocation is not supported in this browser/app");
+        }
+    };
+    LocationManager.prototype.stopUpdatingLocation = function () {
+        if (navigator.geolocation) {
+            navigator.geolocation.clearWatch(this.geoId);
+        }
+        else {
+            throw new Error("Geolocation is not supported in this browser/app");
+        }
+    };
+    LocationManager.prototype.onLocationReceived = function (loc) {
+        if (!loc.coords)
+            return;
+        var latitude, longitude, altitude;
+        if (loc.coords.latitude)
+            latitude = parseFloat(loc.coords.latitude);
+        else
+            return;
+        if (loc.coords.longitude)
+            longitude = parseFloat(loc.coords.longitude);
+        else
+            return;
+        if (loc.coords.altitude)
+            altitude = parseFloat(loc.coords.altitude);
+        else
+            altitude = 0;
+        this.onLocationUpdate(loc);
+        this.manager.updateLocation({
+            latitude: latitude,
+            longitude: longitude,
+            altitude: altitude,
+            horizontalAccuracy: 1.0,
+            verticalAccuracy: 1.0
+        });
+    };
+    LocationManager.prototype.onError = function (error) {
+        switch (error.code) {
+            case error.PERMISSION_DENIED:
+                throw new Error("User denied the request for Geolocation.");
+            case error.POSITION_UNAVAILABLE:
+                throw new Error("Location information is unavailable.");
+            case error.TIMEOUT:
+                throw new Error("The request to get user location timed out.");
+            case error.UNKNOWN_ERROR:
+                throw new Error("An unknown error occurred.");
+        }
+    };
+    return LocationManager;
+}());
+exports.LocationManager = LocationManager;
 
 },{}],2:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var ScalpsCoreRestApi = require("matchmore_alps_core_rest_api");
+var Base64 = require("Base64");
+var matchmonitor_1 = require("./matchmonitor");
+var locationmanager_1 = require("./locationmanager");
+var models = require("./model/models");
+var persistence_1 = require("./persistence");
+var Manager = (function () {
+    function Manager(apiKey, apiUrlOverride, persistenceManager) {
+        this.apiKey = apiKey;
+        this._persistenceManager =
+            persistenceManager || new persistence_1.InMemoryPersistenceManager();
+        this.init(apiUrlOverride);
+    }
+    Manager.prototype.init = function (apiUrlOverride) {
+        this.defaultClient = ScalpsCoreRestApi.ApiClient.instance;
+        this.token = JSON.parse(Base64.atob(this.apiKey.split(".")[1]));
+        this.defaultClient.authentications["api-key"].apiKey = this.apiKey;
+        if (apiUrlOverride)
+            this.defaultClient.basePath = apiUrlOverride;
+        this._matchMonitor = new matchmonitor_1.MatchMonitor(this);
+        this._locationManager = new locationmanager_1.LocationManager(this);
+    };
+    Object.defineProperty(Manager.prototype, "defaultDevice", {
+        get: function () {
+            return this._persistenceManager.defaultDevice();
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(Manager.prototype, "devices", {
+        get: function () {
+            return this._persistenceManager.devices();
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(Manager.prototype, "publications", {
+        get: function () {
+            return this._persistenceManager.publications();
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(Manager.prototype, "subscriptions", {
+        get: function () {
+            return this._persistenceManager.subscriptions();
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Manager.prototype.createMobileDevice = function (name, platform, deviceToken, location, completion) {
+        return this.createAnyDevice({
+            deviceType: models.DeviceType.MobileDevice,
+            name: name,
+            platform: platform,
+            deviceToken: deviceToken,
+            location: location
+        }, completion);
+    };
+    Manager.prototype.createPinDevice = function (location, completion) {
+        return this.createAnyDevice({
+            deviceType: models.DeviceType.PinDevice,
+            name: name,
+            location: location
+        }, completion);
+    };
+    Manager.prototype.createIBeaconDevice = function (proximityUUID, major, minor, location, completion) {
+        return this.createAnyDevice({
+            deviceType: models.DeviceType.IBeaconDevice,
+            name: name,
+            proximityUUID: proximityUUID,
+            major: major,
+            minor: minor,
+            location: location
+        }, completion);
+    };
+    Manager.prototype.createAnyDevice = function (device, completion) {
+        var _this = this;
+        device = this.setDeviceType(device);
+        var p = new Promise(function (resolve, reject) {
+            var api = new ScalpsCoreRestApi.DeviceApi();
+            var callback = function (error, data, response) {
+                if (error) {
+                    reject("An error has occured while creating device '" +
+                        device.name +
+                        "' :" +
+                        error);
+                }
+                else {
+                    resolve(JSON.parse(response.text));
+                }
+            };
+            api.createDevice(device, callback);
+        });
+        return p.then(function (device) {
+            var ddevice = _this._persistenceManager.defaultDevice();
+            var isDefault = !ddevice;
+            _this._persistenceManager.addDevice(device, isDefault);
+            if (completion)
+                completion(device);
+            return device;
+        });
+    };
+    Manager.prototype.setDeviceType = function (device) {
+        if (this.isMobileDevice(device)) {
+            device.deviceType = models.DeviceType.MobileDevice;
+            return device;
+        }
+        if (this.isBeaconDevice(device)) {
+            device.deviceType = models.DeviceType.IBeaconDevice;
+            return device;
+        }
+        if (this.isPinDevice(device)) {
+            device.deviceType = models.DeviceType.PinDevice;
+            return device;
+        }
+        throw new Error("Cannot determine device type");
+    };
+    Manager.prototype.isMobileDevice = function (device) {
+        return device.platform !== undefined;
+    };
+    Manager.prototype.isPinDevice = function (device) {
+        return device.location !== undefined;
+    };
+    Manager.prototype.isBeaconDevice = function (device) {
+        return device.major !== undefined;
+    };
+    Manager.prototype.createPublication = function (topic, range, duration, properties, deviceId, completion) {
+        var _this = this;
+        if (!this.defaultDevice) {
+            throw new Error("There is no default device available, please call createDevice before createPublication");
+        }
+        var p = new Promise(function (resolve, reject) {
+            var api = new ScalpsCoreRestApi.PublicationApi();
+            var callback = function (error, data, response) {
+                if (error) {
+                    reject("An error has occured while creating publication '" +
+                        topic +
+                        "' :" +
+                        error);
+                }
+                else {
+                    resolve(JSON.parse(response.text));
+                }
+            };
+            var _deviceId = deviceId ? deviceId : _this.defaultDevice.id;
+            var publication = {
+                worldId: _this.token.sub,
+                topic: topic,
+                deviceId: _deviceId,
+                range: range,
+                duration: duration,
+                properties: properties
+            };
+            api.createPublication(_deviceId, publication, callback);
+        });
+        return p.then(function (publication) {
+            _this._persistenceManager.add(publication);
+            if (completion)
+                completion(publication);
+            return publication;
+        });
+    };
+    Manager.prototype.createSubscription = function (topic, selector, range, duration, deviceId, completion) {
+        var _this = this;
+        if (!this.defaultDevice) {
+            throw new Error("There is no default device available, please call createDevice before createPublication");
+        }
+        var p = new Promise(function (resolve, reject) {
+            var api = new ScalpsCoreRestApi.SubscriptionApi();
+            var callback = function (error, data, response) {
+                if (error) {
+                    reject("An error has occured while creating subscription '" +
+                        topic +
+                        "' :" +
+                        error);
+                }
+                else {
+                    resolve(JSON.parse(response.text));
+                }
+            };
+            var _deviceId = deviceId ? deviceId : _this.defaultDevice.id;
+            var subscription = {
+                worldId: _this.token.sub,
+                topic: topic,
+                deviceId: _deviceId,
+                range: range,
+                duration: duration,
+                selector: selector
+            };
+            api.createSubscription(_deviceId, subscription, callback);
+        });
+        return p.then(function (subscription) {
+            _this._persistenceManager.add(subscription);
+            if (completion)
+                completion(subscription);
+            return subscription;
+        });
+    };
+    Manager.prototype.updateLocation = function (location, deviceId, completion) {
+        var _this = this;
+        var p = new Promise(function (resolve, reject) {
+            if (!_this.defaultDevice) {
+                throw new Error("There is no default device available, please call createDevice before createPublication");
+            }
+            var api = new ScalpsCoreRestApi.LocationApi();
+            var callback = function (error, data, response) {
+                if (error) {
+                    reject("An error has occured while creating location ['" +
+                        location.latitude +
+                        "','" +
+                        location.longitude +
+                        "']  :" +
+                        error);
+                }
+                else {
+                    resolve();
+                }
+            };
+            var _deviceId = deviceId ? deviceId : _this.defaultDevice.id;
+            api.createLocation(_deviceId, location, callback);
+        });
+        return p.then(function (location) {
+            if (completion)
+                completion;
+        });
+    };
+    Manager.prototype.getAllMatches = function (completion) {
+        if (this.defaultDevice) {
+            return this.getAllMatchesForAny(this.defaultDevice.id);
+        }
+        else {
+            throw new Error("There is no default device available, please call createDevice before getAllMatches");
+        }
+    };
+    Manager.prototype.getAllMatchesForAny = function (deviceId, completion) {
+        var p = new Promise(function (resolve, reject) {
+            var api = new ScalpsCoreRestApi.DeviceApi();
+            var callback = function (error, data, response) {
+                if (error) {
+                    reject("An error has occured while fetching matches: " + error);
+                }
+                else {
+                    resolve(JSON.parse(response.text));
+                }
+            };
+            api.getMatches(deviceId, callback);
+        });
+        p.then(function (matches) {
+            if (completion)
+                completion(matches);
+        });
+        return p;
+    };
+    Manager.prototype.getAllPublicationsForDevice = function (deviceId, completion) {
+        var p = new Promise(function (resolve, reject) {
+            var api = new ScalpsCoreRestApi.DeviceApi();
+            var callback = function (error, data, response) {
+                if (error) {
+                    reject("An error has occured while fetching publications: " + error);
+                }
+                else {
+                    resolve(JSON.parse(response.text));
+                }
+            };
+            api.getPublications(deviceId, callback);
+        });
+        return p;
+    };
+    Manager.prototype.getAllSubscriptionsForDevice = function (deviceId, completion) {
+        var p = new Promise(function (resolve, reject) {
+            var api = new ScalpsCoreRestApi.DeviceApi();
+            var callback = function (error, data, response) {
+                if (error) {
+                    reject("An error has occured while fetching subscriptions: " + error);
+                }
+                else {
+                    resolve(JSON.parse(response.text));
+                }
+            };
+            api.getSubscriptions(deviceId, callback);
+        });
+        return p;
+    };
+    Manager.prototype.onMatch = function (completion) {
+        this._matchMonitor.onMatch = completion;
+    };
+    Manager.prototype.onLocationUpdate = function (completion) {
+        this._locationManager.onLocationUpdate = completion;
+    };
+    Manager.prototype.startMonitoringMatches = function () {
+        this._matchMonitor.startMonitoringMatches();
+    };
+    Manager.prototype.stopMonitoringMatches = function () {
+        this._matchMonitor.stopMonitoringMatches();
+    };
+    Manager.prototype.startUpdatingLocation = function () {
+        this._locationManager.startUpdatingLocation();
+    };
+    Manager.prototype.stopUpdatingLocation = function () {
+        this._locationManager.stopUpdatingLocation();
+    };
+    return Manager;
+}());
+exports.Manager = Manager;
+
+},{"./locationmanager":1,"./matchmonitor":3,"./model/models":5,"./persistence":6,"Base64":40,"matchmore_alps_core_rest_api":21}],3:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var MatchMonitor = (function () {
+    function MatchMonitor(manager) {
+        this.deliveredMatches = [];
+        this.init(manager);
+    }
+    MatchMonitor.prototype.init = function (manager) {
+        this.manager = manager;
+        this.onMatch = function (match) { };
+    };
+    MatchMonitor.prototype.startMonitoringMatches = function () {
+        var _this = this;
+        this.stopMonitoringMatches();
+        var timer = setInterval(function () { _this.checkMatches(); }, 1000);
+    };
+    MatchMonitor.prototype.stopMonitoringMatches = function () {
+        if (this.timerId) {
+            clearInterval(this.timerId);
+        }
+    };
+    MatchMonitor.prototype.checkMatches = function () {
+        var _this = this;
+        this.manager.getAllMatches().then(function (matches) {
+            for (var idx in matches) {
+                var match = matches[idx];
+                if (_this.hasNotBeenDelivered(match)) {
+                    _this.deliveredMatches.push(match);
+                    _this.onMatch(match);
+                }
+            }
+        });
+    };
+    MatchMonitor.prototype.hasNotBeenDelivered = function (match) {
+        for (var idx in this.deliveredMatches) {
+            var deliveredMatch = this.deliveredMatches[idx];
+            if (deliveredMatch.matchId == match.matchId)
+                return false;
+        }
+        return true;
+    };
+    return MatchMonitor;
+}());
+exports.MatchMonitor = MatchMonitor;
+
+},{}],4:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var DeviceType;
+(function (DeviceType) {
+    DeviceType[DeviceType["MobileDevice"] = 'MobileDevice'] = "MobileDevice";
+    DeviceType[DeviceType["PinDevice"] = 'PinDevice'] = "PinDevice";
+    DeviceType[DeviceType["IBeaconDevice"] = 'IBeaconDevice'] = "IBeaconDevice";
+})(DeviceType = exports.DeviceType || (exports.DeviceType = {}));
+
+},{}],5:[function(require,module,exports){
+"use strict";
+function __export(m) {
+    for (var p in m) if (!exports.hasOwnProperty(p)) exports[p] = m[p];
+}
+Object.defineProperty(exports, "__esModule", { value: true });
+__export(require("./DeviceType"));
+
+},{"./DeviceType":4}],6:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var MatchmoreEntityDiscriminator = (function () {
+    function MatchmoreEntityDiscriminator() {
+    }
+    MatchmoreEntityDiscriminator.isDevice = function (x) {
+        return (x.deviceToken !== undefined ||
+            x.location !== undefined ||
+            x.proximityUUID !== undefined);
+    };
+    MatchmoreEntityDiscriminator.isSubscription = function (x) {
+        return x.selector !== undefined;
+    };
+    MatchmoreEntityDiscriminator.isPublication = function (x) {
+        return x.properties !== undefined;
+    };
+    return MatchmoreEntityDiscriminator;
+}());
+exports.MatchmoreEntityDiscriminator = MatchmoreEntityDiscriminator;
+var InMemoryPersistenceManager = (function () {
+    function InMemoryPersistenceManager() {
+        this._devices = [];
+        this._publications = [];
+        this._subscriptions = [];
+    }
+    InMemoryPersistenceManager.prototype.devices = function () {
+        return this._devices;
+    };
+    InMemoryPersistenceManager.prototype.publications = function () {
+        return this._publications;
+    };
+    InMemoryPersistenceManager.prototype.subscriptions = function () {
+        return this._subscriptions;
+    };
+    InMemoryPersistenceManager.prototype.add = function (entity) {
+        if (MatchmoreEntityDiscriminator.isDevice(entity)) {
+            var device = entity;
+            this._devices.push(device);
+            return;
+        }
+        if (MatchmoreEntityDiscriminator.isPublication(entity)) {
+            var pub = entity;
+            this._publications.push(pub);
+            return;
+        }
+        if (MatchmoreEntityDiscriminator.isSubscription(entity)) {
+            var sub = entity;
+            this._subscriptions.push(sub);
+            return;
+        }
+    };
+    InMemoryPersistenceManager.prototype.defaultDevice = function () {
+        return this._defaultDevice;
+    };
+    InMemoryPersistenceManager.prototype.addDevice = function (device, isDefault) {
+        this.add(device);
+        if (isDefault)
+            this._defaultDevice = device;
+    };
+    return InMemoryPersistenceManager;
+}());
+exports.InMemoryPersistenceManager = InMemoryPersistenceManager;
+
+},{}],7:[function(require,module,exports){
+
+/**
+ * Expose `Emitter`.
+ */
+
+if (typeof module !== 'undefined') {
+  module.exports = Emitter;
+}
+
+/**
+ * Initialize a new `Emitter`.
+ *
+ * @api public
+ */
+
+function Emitter(obj) {
+  if (obj) return mixin(obj);
+};
+
+/**
+ * Mixin the emitter properties.
+ *
+ * @param {Object} obj
+ * @return {Object}
+ * @api private
+ */
+
+function mixin(obj) {
+  for (var key in Emitter.prototype) {
+    obj[key] = Emitter.prototype[key];
+  }
+  return obj;
+}
+
+/**
+ * Listen on the given `event` with `fn`.
+ *
+ * @param {String} event
+ * @param {Function} fn
+ * @return {Emitter}
+ * @api public
+ */
+
+Emitter.prototype.on =
+Emitter.prototype.addEventListener = function(event, fn){
+  this._callbacks = this._callbacks || {};
+  (this._callbacks['$' + event] = this._callbacks['$' + event] || [])
+    .push(fn);
+  return this;
+};
+
+/**
+ * Adds an `event` listener that will be invoked a single
+ * time then automatically removed.
+ *
+ * @param {String} event
+ * @param {Function} fn
+ * @return {Emitter}
+ * @api public
+ */
+
+Emitter.prototype.once = function(event, fn){
+  function on() {
+    this.off(event, on);
+    fn.apply(this, arguments);
+  }
+
+  on.fn = fn;
+  this.on(event, on);
+  return this;
+};
+
+/**
+ * Remove the given callback for `event` or all
+ * registered callbacks.
+ *
+ * @param {String} event
+ * @param {Function} fn
+ * @return {Emitter}
+ * @api public
+ */
+
+Emitter.prototype.off =
+Emitter.prototype.removeListener =
+Emitter.prototype.removeAllListeners =
+Emitter.prototype.removeEventListener = function(event, fn){
+  this._callbacks = this._callbacks || {};
+
+  // all
+  if (0 == arguments.length) {
+    this._callbacks = {};
+    return this;
+  }
+
+  // specific event
+  var callbacks = this._callbacks['$' + event];
+  if (!callbacks) return this;
+
+  // remove all handlers
+  if (1 == arguments.length) {
+    delete this._callbacks['$' + event];
+    return this;
+  }
+
+  // remove specific handler
+  var cb;
+  for (var i = 0; i < callbacks.length; i++) {
+    cb = callbacks[i];
+    if (cb === fn || cb.fn === fn) {
+      callbacks.splice(i, 1);
+      break;
+    }
+  }
+  return this;
+};
+
+/**
+ * Emit `event` with the given args.
+ *
+ * @param {String} event
+ * @param {Mixed} ...
+ * @return {Emitter}
+ */
+
+Emitter.prototype.emit = function(event){
+  this._callbacks = this._callbacks || {};
+  var args = [].slice.call(arguments, 1)
+    , callbacks = this._callbacks['$' + event];
+
+  if (callbacks) {
+    callbacks = callbacks.slice(0);
+    for (var i = 0, len = callbacks.length; i < len; ++i) {
+      callbacks[i].apply(this, args);
+    }
+  }
+
+  return this;
+};
+
+/**
+ * Return array of callbacks for `event`.
+ *
+ * @param {String} event
+ * @return {Array}
+ * @api public
+ */
+
+Emitter.prototype.listeners = function(event){
+  this._callbacks = this._callbacks || {};
+  return this._callbacks['$' + event] || [];
+};
+
+/**
+ * Check if this emitter has `event` handlers.
+ *
+ * @param {String} event
+ * @return {Boolean}
+ * @api public
+ */
+
+Emitter.prototype.hasListeners = function(event){
+  return !! this.listeners(event).length;
+};
+
+},{}],8:[function(require,module,exports){
+/**
+ * Root reference for iframes.
+ */
+
+var root;
+if (typeof window !== 'undefined') { // Browser window
+  root = window;
+} else if (typeof self !== 'undefined') { // Web Worker
+  root = self;
+} else { // Other environments
+  console.warn("Using browser-only version of superagent in non-browser environment");
+  root = this;
+}
+
+var Emitter = require('component-emitter');
+var RequestBase = require('./request-base');
+var isObject = require('./is-object');
+var isFunction = require('./is-function');
+var ResponseBase = require('./response-base');
+var shouldRetry = require('./should-retry');
+
+/**
+ * Noop.
+ */
+
+function noop(){};
+
+/**
+ * Expose `request`.
+ */
+
+var request = exports = module.exports = function(method, url) {
+  // callback
+  if ('function' == typeof url) {
+    return new exports.Request('GET', method).end(url);
+  }
+
+  // url first
+  if (1 == arguments.length) {
+    return new exports.Request('GET', method);
+  }
+
+  return new exports.Request(method, url);
+}
+
+exports.Request = Request;
+
+/**
+ * Determine XHR.
+ */
+
+request.getXHR = function () {
+  if (root.XMLHttpRequest
+      && (!root.location || 'file:' != root.location.protocol
+          || !root.ActiveXObject)) {
+    return new XMLHttpRequest;
+  } else {
+    try { return new ActiveXObject('Microsoft.XMLHTTP'); } catch(e) {}
+    try { return new ActiveXObject('Msxml2.XMLHTTP.6.0'); } catch(e) {}
+    try { return new ActiveXObject('Msxml2.XMLHTTP.3.0'); } catch(e) {}
+    try { return new ActiveXObject('Msxml2.XMLHTTP'); } catch(e) {}
+  }
+  throw Error("Browser-only verison of superagent could not find XHR");
+};
+
+/**
+ * Removes leading and trailing whitespace, added to support IE.
+ *
+ * @param {String} s
+ * @return {String}
+ * @api private
+ */
+
+var trim = ''.trim
+  ? function(s) { return s.trim(); }
+  : function(s) { return s.replace(/(^\s*|\s*$)/g, ''); };
+
+/**
+ * Serialize the given `obj`.
+ *
+ * @param {Object} obj
+ * @return {String}
+ * @api private
+ */
+
+function serialize(obj) {
+  if (!isObject(obj)) return obj;
+  var pairs = [];
+  for (var key in obj) {
+    pushEncodedKeyValuePair(pairs, key, obj[key]);
+  }
+  return pairs.join('&');
+}
+
+/**
+ * Helps 'serialize' with serializing arrays.
+ * Mutates the pairs array.
+ *
+ * @param {Array} pairs
+ * @param {String} key
+ * @param {Mixed} val
+ */
+
+function pushEncodedKeyValuePair(pairs, key, val) {
+  if (val != null) {
+    if (Array.isArray(val)) {
+      val.forEach(function(v) {
+        pushEncodedKeyValuePair(pairs, key, v);
+      });
+    } else if (isObject(val)) {
+      for(var subkey in val) {
+        pushEncodedKeyValuePair(pairs, key + '[' + subkey + ']', val[subkey]);
+      }
+    } else {
+      pairs.push(encodeURIComponent(key)
+        + '=' + encodeURIComponent(val));
+    }
+  } else if (val === null) {
+    pairs.push(encodeURIComponent(key));
+  }
+}
+
+/**
+ * Expose serialization method.
+ */
+
+ request.serializeObject = serialize;
+
+ /**
+  * Parse the given x-www-form-urlencoded `str`.
+  *
+  * @param {String} str
+  * @return {Object}
+  * @api private
+  */
+
+function parseString(str) {
+  var obj = {};
+  var pairs = str.split('&');
+  var pair;
+  var pos;
+
+  for (var i = 0, len = pairs.length; i < len; ++i) {
+    pair = pairs[i];
+    pos = pair.indexOf('=');
+    if (pos == -1) {
+      obj[decodeURIComponent(pair)] = '';
+    } else {
+      obj[decodeURIComponent(pair.slice(0, pos))] =
+        decodeURIComponent(pair.slice(pos + 1));
+    }
+  }
+
+  return obj;
+}
+
+/**
+ * Expose parser.
+ */
+
+request.parseString = parseString;
+
+/**
+ * Default MIME type map.
+ *
+ *     superagent.types.xml = 'application/xml';
+ *
+ */
+
+request.types = {
+  html: 'text/html',
+  json: 'application/json',
+  xml: 'application/xml',
+  urlencoded: 'application/x-www-form-urlencoded',
+  'form': 'application/x-www-form-urlencoded',
+  'form-data': 'application/x-www-form-urlencoded'
+};
+
+/**
+ * Default serialization map.
+ *
+ *     superagent.serialize['application/xml'] = function(obj){
+ *       return 'generated xml here';
+ *     };
+ *
+ */
+
+ request.serialize = {
+   'application/x-www-form-urlencoded': serialize,
+   'application/json': JSON.stringify
+ };
+
+ /**
+  * Default parsers.
+  *
+  *     superagent.parse['application/xml'] = function(str){
+  *       return { object parsed from str };
+  *     };
+  *
+  */
+
+request.parse = {
+  'application/x-www-form-urlencoded': parseString,
+  'application/json': JSON.parse
+};
+
+/**
+ * Parse the given header `str` into
+ * an object containing the mapped fields.
+ *
+ * @param {String} str
+ * @return {Object}
+ * @api private
+ */
+
+function parseHeader(str) {
+  var lines = str.split(/\r?\n/);
+  var fields = {};
+  var index;
+  var line;
+  var field;
+  var val;
+
+  lines.pop(); // trailing CRLF
+
+  for (var i = 0, len = lines.length; i < len; ++i) {
+    line = lines[i];
+    index = line.indexOf(':');
+    field = line.slice(0, index).toLowerCase();
+    val = trim(line.slice(index + 1));
+    fields[field] = val;
+  }
+
+  return fields;
+}
+
+/**
+ * Check if `mime` is json or has +json structured syntax suffix.
+ *
+ * @param {String} mime
+ * @return {Boolean}
+ * @api private
+ */
+
+function isJSON(mime) {
+  return /[\/+]json\b/.test(mime);
+}
+
+/**
+ * Initialize a new `Response` with the given `xhr`.
+ *
+ *  - set flags (.ok, .error, etc)
+ *  - parse header
+ *
+ * Examples:
+ *
+ *  Aliasing `superagent` as `request` is nice:
+ *
+ *      request = superagent;
+ *
+ *  We can use the promise-like API, or pass callbacks:
+ *
+ *      request.get('/').end(function(res){});
+ *      request.get('/', function(res){});
+ *
+ *  Sending data can be chained:
+ *
+ *      request
+ *        .post('/user')
+ *        .send({ name: 'tj' })
+ *        .end(function(res){});
+ *
+ *  Or passed to `.send()`:
+ *
+ *      request
+ *        .post('/user')
+ *        .send({ name: 'tj' }, function(res){});
+ *
+ *  Or passed to `.post()`:
+ *
+ *      request
+ *        .post('/user', { name: 'tj' })
+ *        .end(function(res){});
+ *
+ * Or further reduced to a single call for simple cases:
+ *
+ *      request
+ *        .post('/user', { name: 'tj' }, function(res){});
+ *
+ * @param {XMLHTTPRequest} xhr
+ * @param {Object} options
+ * @api private
+ */
+
+function Response(req) {
+  this.req = req;
+  this.xhr = this.req.xhr;
+  // responseText is accessible only if responseType is '' or 'text' and on older browsers
+  this.text = ((this.req.method !='HEAD' && (this.xhr.responseType === '' || this.xhr.responseType === 'text')) || typeof this.xhr.responseType === 'undefined')
+     ? this.xhr.responseText
+     : null;
+  this.statusText = this.req.xhr.statusText;
+  var status = this.xhr.status;
+  // handle IE9 bug: http://stackoverflow.com/questions/10046972/msie-returns-status-code-of-1223-for-ajax-request
+  if (status === 1223) {
+      status = 204;
+  }
+  this._setStatusProperties(status);
+  this.header = this.headers = parseHeader(this.xhr.getAllResponseHeaders());
+  // getAllResponseHeaders sometimes falsely returns "" for CORS requests, but
+  // getResponseHeader still works. so we get content-type even if getting
+  // other headers fails.
+  this.header['content-type'] = this.xhr.getResponseHeader('content-type');
+  this._setHeaderProperties(this.header);
+
+  if (null === this.text && req._responseType) {
+    this.body = this.xhr.response;
+  } else {
+    this.body = this.req.method != 'HEAD'
+      ? this._parseBody(this.text ? this.text : this.xhr.response)
+      : null;
+  }
+}
+
+ResponseBase(Response.prototype);
+
+/**
+ * Parse the given body `str`.
+ *
+ * Used for auto-parsing of bodies. Parsers
+ * are defined on the `superagent.parse` object.
+ *
+ * @param {String} str
+ * @return {Mixed}
+ * @api private
+ */
+
+Response.prototype._parseBody = function(str){
+  var parse = request.parse[this.type];
+  if(this.req._parser) {
+    return this.req._parser(this, str);
+  }
+  if (!parse && isJSON(this.type)) {
+    parse = request.parse['application/json'];
+  }
+  return parse && str && (str.length || str instanceof Object)
+    ? parse(str)
+    : null;
+};
+
+/**
+ * Return an `Error` representative of this response.
+ *
+ * @return {Error}
+ * @api public
+ */
+
+Response.prototype.toError = function(){
+  var req = this.req;
+  var method = req.method;
+  var url = req.url;
+
+  var msg = 'cannot ' + method + ' ' + url + ' (' + this.status + ')';
+  var err = new Error(msg);
+  err.status = this.status;
+  err.method = method;
+  err.url = url;
+
+  return err;
+};
+
+/**
+ * Expose `Response`.
+ */
+
+request.Response = Response;
+
+/**
+ * Initialize a new `Request` with the given `method` and `url`.
+ *
+ * @param {String} method
+ * @param {String} url
+ * @api public
+ */
+
+function Request(method, url) {
+  var self = this;
+  this._query = this._query || [];
+  this.method = method;
+  this.url = url;
+  this.header = {}; // preserves header name case
+  this._header = {}; // coerces header names to lowercase
+  this.on('end', function(){
+    var err = null;
+    var res = null;
+
+    try {
+      res = new Response(self);
+    } catch(e) {
+      err = new Error('Parser is unable to parse the response');
+      err.parse = true;
+      err.original = e;
+      // issue #675: return the raw response if the response parsing fails
+      if (self.xhr) {
+        // ie9 doesn't have 'response' property
+        err.rawResponse = typeof self.xhr.responseType == 'undefined' ? self.xhr.responseText : self.xhr.response;
+        // issue #876: return the http status code if the response parsing fails
+        err.status = self.xhr.status ? self.xhr.status : null;
+        err.statusCode = err.status; // backwards-compat only
+      } else {
+        err.rawResponse = null;
+        err.status = null;
+      }
+
+      return self.callback(err);
+    }
+
+    self.emit('response', res);
+
+    var new_err;
+    try {
+      if (!self._isResponseOK(res)) {
+        new_err = new Error(res.statusText || 'Unsuccessful HTTP response');
+        new_err.original = err;
+        new_err.response = res;
+        new_err.status = res.status;
+      }
+    } catch(e) {
+      new_err = e; // #985 touching res may cause INVALID_STATE_ERR on old Android
+    }
+
+    // #1000 don't catch errors from the callback to avoid double calling it
+    if (new_err) {
+      self.callback(new_err, res);
+    } else {
+      self.callback(null, res);
+    }
+  });
+}
+
+/**
+ * Mixin `Emitter` and `RequestBase`.
+ */
+
+Emitter(Request.prototype);
+RequestBase(Request.prototype);
+
+/**
+ * Set Content-Type to `type`, mapping values from `request.types`.
+ *
+ * Examples:
+ *
+ *      superagent.types.xml = 'application/xml';
+ *
+ *      request.post('/')
+ *        .type('xml')
+ *        .send(xmlstring)
+ *        .end(callback);
+ *
+ *      request.post('/')
+ *        .type('application/xml')
+ *        .send(xmlstring)
+ *        .end(callback);
+ *
+ * @param {String} type
+ * @return {Request} for chaining
+ * @api public
+ */
+
+Request.prototype.type = function(type){
+  this.set('Content-Type', request.types[type] || type);
+  return this;
+};
+
+/**
+ * Set Accept to `type`, mapping values from `request.types`.
+ *
+ * Examples:
+ *
+ *      superagent.types.json = 'application/json';
+ *
+ *      request.get('/agent')
+ *        .accept('json')
+ *        .end(callback);
+ *
+ *      request.get('/agent')
+ *        .accept('application/json')
+ *        .end(callback);
+ *
+ * @param {String} accept
+ * @return {Request} for chaining
+ * @api public
+ */
+
+Request.prototype.accept = function(type){
+  this.set('Accept', request.types[type] || type);
+  return this;
+};
+
+/**
+ * Set Authorization field value with `user` and `pass`.
+ *
+ * @param {String} user
+ * @param {String} [pass] optional in case of using 'bearer' as type
+ * @param {Object} options with 'type' property 'auto', 'basic' or 'bearer' (default 'basic')
+ * @return {Request} for chaining
+ * @api public
+ */
+
+Request.prototype.auth = function(user, pass, options){
+  if (typeof pass === 'object' && pass !== null) { // pass is optional and can substitute for options
+    options = pass;
+  }
+  if (!options) {
+    options = {
+      type: 'function' === typeof btoa ? 'basic' : 'auto',
+    }
+  }
+
+  switch (options.type) {
+    case 'basic':
+      this.set('Authorization', 'Basic ' + btoa(user + ':' + pass));
+    break;
+
+    case 'auto':
+      this.username = user;
+      this.password = pass;
+    break;
+      
+    case 'bearer': // usage would be .auth(accessToken, { type: 'bearer' })
+      this.set('Authorization', 'Bearer ' + user);
+    break;  
+  }
+  return this;
+};
+
+/**
+ * Add query-string `val`.
+ *
+ * Examples:
+ *
+ *   request.get('/shoes')
+ *     .query('size=10')
+ *     .query({ color: 'blue' })
+ *
+ * @param {Object|String} val
+ * @return {Request} for chaining
+ * @api public
+ */
+
+Request.prototype.query = function(val){
+  if ('string' != typeof val) val = serialize(val);
+  if (val) this._query.push(val);
+  return this;
+};
+
+/**
+ * Queue the given `file` as an attachment to the specified `field`,
+ * with optional `options` (or filename).
+ *
+ * ``` js
+ * request.post('/upload')
+ *   .attach('content', new Blob(['<a id="a"><b id="b">hey!</b></a>'], { type: "text/html"}))
+ *   .end(callback);
+ * ```
+ *
+ * @param {String} field
+ * @param {Blob|File} file
+ * @param {String|Object} options
+ * @return {Request} for chaining
+ * @api public
+ */
+
+Request.prototype.attach = function(field, file, options){
+  if (file) {
+    if (this._data) {
+      throw Error("superagent can't mix .send() and .attach()");
+    }
+
+    this._getFormData().append(field, file, options || file.name);
+  }
+  return this;
+};
+
+Request.prototype._getFormData = function(){
+  if (!this._formData) {
+    this._formData = new root.FormData();
+  }
+  return this._formData;
+};
+
+/**
+ * Invoke the callback with `err` and `res`
+ * and handle arity check.
+ *
+ * @param {Error} err
+ * @param {Response} res
+ * @api private
+ */
+
+Request.prototype.callback = function(err, res){
+  // console.log(this._retries, this._maxRetries)
+  if (this._maxRetries && this._retries++ < this._maxRetries && shouldRetry(err, res)) {
+    return this._retry();
+  }
+
+  var fn = this._callback;
+  this.clearTimeout();
+
+  if (err) {
+    if (this._maxRetries) err.retries = this._retries - 1;
+    this.emit('error', err);
+  }
+
+  fn(err, res);
+};
+
+/**
+ * Invoke callback with x-domain error.
+ *
+ * @api private
+ */
+
+Request.prototype.crossDomainError = function(){
+  var err = new Error('Request has been terminated\nPossible causes: the network is offline, Origin is not allowed by Access-Control-Allow-Origin, the page is being unloaded, etc.');
+  err.crossDomain = true;
+
+  err.status = this.status;
+  err.method = this.method;
+  err.url = this.url;
+
+  this.callback(err);
+};
+
+// This only warns, because the request is still likely to work
+Request.prototype.buffer = Request.prototype.ca = Request.prototype.agent = function(){
+  console.warn("This is not supported in browser version of superagent");
+  return this;
+};
+
+// This throws, because it can't send/receive data as expected
+Request.prototype.pipe = Request.prototype.write = function(){
+  throw Error("Streaming is not supported in browser version of superagent");
+};
+
+/**
+ * Compose querystring to append to req.url
+ *
+ * @api private
+ */
+
+Request.prototype._appendQueryString = function(){
+  var query = this._query.join('&');
+  if (query) {
+    this.url += (this.url.indexOf('?') >= 0 ? '&' : '?') + query;
+  }
+
+  if (this._sort) {
+    var index = this.url.indexOf('?');
+    if (index >= 0) {
+      var queryArr = this.url.substring(index + 1).split('&');
+      if (isFunction(this._sort)) {
+        queryArr.sort(this._sort);
+      } else {
+        queryArr.sort();
+      }
+      this.url = this.url.substring(0, index) + '?' + queryArr.join('&');
+    }
+  }
+};
+
+/**
+ * Check if `obj` is a host object,
+ * we don't want to serialize these :)
+ *
+ * @param {Object} obj
+ * @return {Boolean}
+ * @api private
+ */
+Request.prototype._isHost = function _isHost(obj) {
+  // Native objects stringify to [object File], [object Blob], [object FormData], etc.
+  return obj && 'object' === typeof obj && !Array.isArray(obj) && Object.prototype.toString.call(obj) !== '[object Object]';
+}
+
+/**
+ * Initiate request, invoking callback `fn(res)`
+ * with an instanceof `Response`.
+ *
+ * @param {Function} fn
+ * @return {Request} for chaining
+ * @api public
+ */
+
+Request.prototype.end = function(fn){
+  if (this._endCalled) {
+    console.warn("Warning: .end() was called twice. This is not supported in superagent");
+  }
+  this._endCalled = true;
+
+  // store callback
+  this._callback = fn || noop;
+
+  // querystring
+  this._appendQueryString();
+
+  return this._end();
+};
+
+Request.prototype._end = function() {
+  var self = this;
+  var xhr = this.xhr = request.getXHR();
+  var data = this._formData || this._data;
+
+  this._setTimeouts();
+
+  // state change
+  xhr.onreadystatechange = function(){
+    var readyState = xhr.readyState;
+    if (readyState >= 2 && self._responseTimeoutTimer) {
+      clearTimeout(self._responseTimeoutTimer);
+    }
+    if (4 != readyState) {
+      return;
+    }
+
+    // In IE9, reads to any property (e.g. status) off of an aborted XHR will
+    // result in the error "Could not complete the operation due to error c00c023f"
+    var status;
+    try { status = xhr.status } catch(e) { status = 0; }
+
+    if (!status) {
+      if (self.timedout || self._aborted) return;
+      return self.crossDomainError();
+    }
+    self.emit('end');
+  };
+
+  // progress
+  var handleProgress = function(direction, e) {
+    if (e.total > 0) {
+      e.percent = e.loaded / e.total * 100;
+    }
+    e.direction = direction;
+    self.emit('progress', e);
+  }
+  if (this.hasListeners('progress')) {
+    try {
+      xhr.onprogress = handleProgress.bind(null, 'download');
+      if (xhr.upload) {
+        xhr.upload.onprogress = handleProgress.bind(null, 'upload');
+      }
+    } catch(e) {
+      // Accessing xhr.upload fails in IE from a web worker, so just pretend it doesn't exist.
+      // Reported here:
+      // https://connect.microsoft.com/IE/feedback/details/837245/xmlhttprequest-upload-throws-invalid-argument-when-used-from-web-worker-context
+    }
+  }
+
+  // initiate request
+  try {
+    if (this.username && this.password) {
+      xhr.open(this.method, this.url, true, this.username, this.password);
+    } else {
+      xhr.open(this.method, this.url, true);
+    }
+  } catch (err) {
+    // see #1149
+    return this.callback(err);
+  }
+
+  // CORS
+  if (this._withCredentials) xhr.withCredentials = true;
+
+  // body
+  if (!this._formData && 'GET' != this.method && 'HEAD' != this.method && 'string' != typeof data && !this._isHost(data)) {
+    // serialize stuff
+    var contentType = this._header['content-type'];
+    var serialize = this._serializer || request.serialize[contentType ? contentType.split(';')[0] : ''];
+    if (!serialize && isJSON(contentType)) {
+      serialize = request.serialize['application/json'];
+    }
+    if (serialize) data = serialize(data);
+  }
+
+  // set header fields
+  for (var field in this.header) {
+    if (null == this.header[field]) continue;
+
+    if (this.header.hasOwnProperty(field))
+      xhr.setRequestHeader(field, this.header[field]);
+  }
+
+  if (this._responseType) {
+    xhr.responseType = this._responseType;
+  }
+
+  // send stuff
+  this.emit('request', this);
+
+  // IE11 xhr.send(undefined) sends 'undefined' string as POST payload (instead of nothing)
+  // We need null here if data is undefined
+  xhr.send(typeof data !== 'undefined' ? data : null);
+  return this;
+};
+
+/**
+ * GET `url` with optional callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed|Function} [data] or fn
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+request.get = function(url, data, fn){
+  var req = request('GET', url);
+  if ('function' == typeof data) fn = data, data = null;
+  if (data) req.query(data);
+  if (fn) req.end(fn);
+  return req;
+};
+
+/**
+ * HEAD `url` with optional callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed|Function} [data] or fn
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+request.head = function(url, data, fn){
+  var req = request('HEAD', url);
+  if ('function' == typeof data) fn = data, data = null;
+  if (data) req.send(data);
+  if (fn) req.end(fn);
+  return req;
+};
+
+/**
+ * OPTIONS query to `url` with optional callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed|Function} [data] or fn
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+request.options = function(url, data, fn){
+  var req = request('OPTIONS', url);
+  if ('function' == typeof data) fn = data, data = null;
+  if (data) req.send(data);
+  if (fn) req.end(fn);
+  return req;
+};
+
+/**
+ * DELETE `url` with optional `data` and callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed} [data]
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+function del(url, data, fn){
+  var req = request('DELETE', url);
+  if ('function' == typeof data) fn = data, data = null;
+  if (data) req.send(data);
+  if (fn) req.end(fn);
+  return req;
+};
+
+request['del'] = del;
+request['delete'] = del;
+
+/**
+ * PATCH `url` with optional `data` and callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed} [data]
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+request.patch = function(url, data, fn){
+  var req = request('PATCH', url);
+  if ('function' == typeof data) fn = data, data = null;
+  if (data) req.send(data);
+  if (fn) req.end(fn);
+  return req;
+};
+
+/**
+ * POST `url` with optional `data` and callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed} [data]
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+request.post = function(url, data, fn){
+  var req = request('POST', url);
+  if ('function' == typeof data) fn = data, data = null;
+  if (data) req.send(data);
+  if (fn) req.end(fn);
+  return req;
+};
+
+/**
+ * PUT `url` with optional `data` and callback `fn(res)`.
+ *
+ * @param {String} url
+ * @param {Mixed|Function} [data] or fn
+ * @param {Function} [fn]
+ * @return {Request}
+ * @api public
+ */
+
+request.put = function(url, data, fn){
+  var req = request('PUT', url);
+  if ('function' == typeof data) fn = data, data = null;
+  if (data) req.send(data);
+  if (fn) req.end(fn);
+  return req;
+};
+
+},{"./is-function":9,"./is-object":10,"./request-base":11,"./response-base":12,"./should-retry":13,"component-emitter":7}],9:[function(require,module,exports){
+/**
+ * Check if `fn` is a function.
+ *
+ * @param {Function} fn
+ * @return {Boolean}
+ * @api private
+ */
+var isObject = require('./is-object');
+
+function isFunction(fn) {
+  var tag = isObject(fn) ? Object.prototype.toString.call(fn) : '';
+  return tag === '[object Function]';
+}
+
+module.exports = isFunction;
+
+},{"./is-object":10}],10:[function(require,module,exports){
+/**
+ * Check if `obj` is an object.
+ *
+ * @param {Object} obj
+ * @return {Boolean}
+ * @api private
+ */
+
+function isObject(obj) {
+  return null !== obj && 'object' === typeof obj;
+}
+
+module.exports = isObject;
+
+},{}],11:[function(require,module,exports){
+/**
+ * Module of mixed-in functions shared between node and client code
+ */
+var isObject = require('./is-object');
+
+/**
+ * Expose `RequestBase`.
+ */
+
+module.exports = RequestBase;
+
+/**
+ * Initialize a new `RequestBase`.
+ *
+ * @api public
+ */
+
+function RequestBase(obj) {
+  if (obj) return mixin(obj);
+}
+
+/**
+ * Mixin the prototype properties.
+ *
+ * @param {Object} obj
+ * @return {Object}
+ * @api private
+ */
+
+function mixin(obj) {
+  for (var key in RequestBase.prototype) {
+    obj[key] = RequestBase.prototype[key];
+  }
+  return obj;
+}
+
+/**
+ * Clear previous timeout.
+ *
+ * @return {Request} for chaining
+ * @api public
+ */
+
+RequestBase.prototype.clearTimeout = function _clearTimeout(){
+  clearTimeout(this._timer);
+  clearTimeout(this._responseTimeoutTimer);
+  delete this._timer;
+  delete this._responseTimeoutTimer;
+  return this;
+};
+
+/**
+ * Override default response body parser
+ *
+ * This function will be called to convert incoming data into request.body
+ *
+ * @param {Function}
+ * @api public
+ */
+
+RequestBase.prototype.parse = function parse(fn){
+  this._parser = fn;
+  return this;
+};
+
+/**
+ * Set format of binary response body.
+ * In browser valid formats are 'blob' and 'arraybuffer',
+ * which return Blob and ArrayBuffer, respectively.
+ *
+ * In Node all values result in Buffer.
+ *
+ * Examples:
+ *
+ *      req.get('/')
+ *        .responseType('blob')
+ *        .end(callback);
+ *
+ * @param {String} val
+ * @return {Request} for chaining
+ * @api public
+ */
+
+RequestBase.prototype.responseType = function(val){
+  this._responseType = val;
+  return this;
+};
+
+/**
+ * Override default request body serializer
+ *
+ * This function will be called to convert data set via .send or .attach into payload to send
+ *
+ * @param {Function}
+ * @api public
+ */
+
+RequestBase.prototype.serialize = function serialize(fn){
+  this._serializer = fn;
+  return this;
+};
+
+/**
+ * Set timeouts.
+ *
+ * - response timeout is time between sending request and receiving the first byte of the response. Includes DNS and connection time.
+ * - deadline is the time from start of the request to receiving response body in full. If the deadline is too short large files may not load at all on slow connections.
+ *
+ * Value of 0 or false means no timeout.
+ *
+ * @param {Number|Object} ms or {response, read, deadline}
+ * @return {Request} for chaining
+ * @api public
+ */
+
+RequestBase.prototype.timeout = function timeout(options){
+  if (!options || 'object' !== typeof options) {
+    this._timeout = options;
+    this._responseTimeout = 0;
+    return this;
+  }
+
+  for(var option in options) {
+    switch(option) {
+      case 'deadline':
+        this._timeout = options.deadline;
+        break;
+      case 'response':
+        this._responseTimeout = options.response;
+        break;
+      default:
+        console.warn("Unknown timeout option", option);
+    }
+  }
+  return this;
+};
+
+/**
+ * Set number of retry attempts on error.
+ *
+ * Failed requests will be retried 'count' times if timeout or err.code >= 500.
+ *
+ * @param {Number} count
+ * @return {Request} for chaining
+ * @api public
+ */
+
+RequestBase.prototype.retry = function retry(count){
+  // Default to 1 if no count passed or true
+  if (arguments.length === 0 || count === true) count = 1;
+  if (count <= 0) count = 0;
+  this._maxRetries = count;
+  this._retries = 0;
+  return this;
+};
+
+/**
+ * Retry request
+ *
+ * @return {Request} for chaining
+ * @api private
+ */
+
+RequestBase.prototype._retry = function() {
+  this.clearTimeout();
+
+  // node
+  if (this.req) {
+    this.req = null;
+    this.req = this.request();
+  }
+
+  this._aborted = false;
+  this.timedout = false;
+
+  return this._end();
+};
+
+/**
+ * Promise support
+ *
+ * @param {Function} resolve
+ * @param {Function} [reject]
+ * @return {Request}
+ */
+
+RequestBase.prototype.then = function then(resolve, reject) {
+  if (!this._fullfilledPromise) {
+    var self = this;
+    if (this._endCalled) {
+      console.warn("Warning: superagent request was sent twice, because both .end() and .then() were called. Never call .end() if you use promises");
+    }
+    this._fullfilledPromise = new Promise(function(innerResolve, innerReject){
+      self.end(function(err, res){
+        if (err) innerReject(err); else innerResolve(res);
+      });
+    });
+  }
+  return this._fullfilledPromise.then(resolve, reject);
+}
+
+RequestBase.prototype.catch = function(cb) {
+  return this.then(undefined, cb);
+};
+
+/**
+ * Allow for extension
+ */
+
+RequestBase.prototype.use = function use(fn) {
+  fn(this);
+  return this;
+}
+
+RequestBase.prototype.ok = function(cb) {
+  if ('function' !== typeof cb) throw Error("Callback required");
+  this._okCallback = cb;
+  return this;
+};
+
+RequestBase.prototype._isResponseOK = function(res) {
+  if (!res) {
+    return false;
+  }
+
+  if (this._okCallback) {
+    return this._okCallback(res);
+  }
+
+  return res.status >= 200 && res.status < 300;
+};
+
+
+/**
+ * Get request header `field`.
+ * Case-insensitive.
+ *
+ * @param {String} field
+ * @return {String}
+ * @api public
+ */
+
+RequestBase.prototype.get = function(field){
+  return this._header[field.toLowerCase()];
+};
+
+/**
+ * Get case-insensitive header `field` value.
+ * This is a deprecated internal API. Use `.get(field)` instead.
+ *
+ * (getHeader is no longer used internally by the superagent code base)
+ *
+ * @param {String} field
+ * @return {String}
+ * @api private
+ * @deprecated
+ */
+
+RequestBase.prototype.getHeader = RequestBase.prototype.get;
+
+/**
+ * Set header `field` to `val`, or multiple fields with one object.
+ * Case-insensitive.
+ *
+ * Examples:
+ *
+ *      req.get('/')
+ *        .set('Accept', 'application/json')
+ *        .set('X-API-Key', 'foobar')
+ *        .end(callback);
+ *
+ *      req.get('/')
+ *        .set({ Accept: 'application/json', 'X-API-Key': 'foobar' })
+ *        .end(callback);
+ *
+ * @param {String|Object} field
+ * @param {String} val
+ * @return {Request} for chaining
+ * @api public
+ */
+
+RequestBase.prototype.set = function(field, val){
+  if (isObject(field)) {
+    for (var key in field) {
+      this.set(key, field[key]);
+    }
+    return this;
+  }
+  this._header[field.toLowerCase()] = val;
+  this.header[field] = val;
+  return this;
+};
+
+/**
+ * Remove header `field`.
+ * Case-insensitive.
+ *
+ * Example:
+ *
+ *      req.get('/')
+ *        .unset('User-Agent')
+ *        .end(callback);
+ *
+ * @param {String} field
+ */
+RequestBase.prototype.unset = function(field){
+  delete this._header[field.toLowerCase()];
+  delete this.header[field];
+  return this;
+};
+
+/**
+ * Write the field `name` and `val`, or multiple fields with one object
+ * for "multipart/form-data" request bodies.
+ *
+ * ``` js
+ * request.post('/upload')
+ *   .field('foo', 'bar')
+ *   .end(callback);
+ *
+ * request.post('/upload')
+ *   .field({ foo: 'bar', baz: 'qux' })
+ *   .end(callback);
+ * ```
+ *
+ * @param {String|Object} name
+ * @param {String|Blob|File|Buffer|fs.ReadStream} val
+ * @return {Request} for chaining
+ * @api public
+ */
+RequestBase.prototype.field = function(name, val) {
+
+  // name should be either a string or an object.
+  if (null === name ||  undefined === name) {
+    throw new Error('.field(name, val) name can not be empty');
+  }
+
+  if (this._data) {
+    console.error(".field() can't be used if .send() is used. Please use only .send() or only .field() & .attach()");
+  }
+
+  if (isObject(name)) {
+    for (var key in name) {
+      this.field(key, name[key]);
+    }
+    return this;
+  }
+
+  if (Array.isArray(val)) {
+    for (var i in val) {
+      this.field(name, val[i]);
+    }
+    return this;
+  }
+
+  // val should be defined now
+  if (null === val || undefined === val) {
+    throw new Error('.field(name, val) val can not be empty');
+  }
+  if ('boolean' === typeof val) {
+    val = '' + val;
+  }
+  this._getFormData().append(name, val);
+  return this;
+};
+
+/**
+ * Abort the request, and clear potential timeout.
+ *
+ * @return {Request}
+ * @api public
+ */
+RequestBase.prototype.abort = function(){
+  if (this._aborted) {
+    return this;
+  }
+  this._aborted = true;
+  this.xhr && this.xhr.abort(); // browser
+  this.req && this.req.abort(); // node
+  this.clearTimeout();
+  this.emit('abort');
+  return this;
+};
+
+/**
+ * Enable transmission of cookies with x-domain requests.
+ *
+ * Note that for this to work the origin must not be
+ * using "Access-Control-Allow-Origin" with a wildcard,
+ * and also must set "Access-Control-Allow-Credentials"
+ * to "true".
+ *
+ * @api public
+ */
+
+RequestBase.prototype.withCredentials = function(on){
+  // This is browser-only functionality. Node side is no-op.
+  if(on==undefined) on = true;
+  this._withCredentials = on;
+  return this;
+};
+
+/**
+ * Set the max redirects to `n`. Does noting in browser XHR implementation.
+ *
+ * @param {Number} n
+ * @return {Request} for chaining
+ * @api public
+ */
+
+RequestBase.prototype.redirects = function(n){
+  this._maxRedirects = n;
+  return this;
+};
+
+/**
+ * Convert to a plain javascript object (not JSON string) of scalar properties.
+ * Note as this method is designed to return a useful non-this value,
+ * it cannot be chained.
+ *
+ * @return {Object} describing method, url, and data of this request
+ * @api public
+ */
+
+RequestBase.prototype.toJSON = function(){
+  return {
+    method: this.method,
+    url: this.url,
+    data: this._data,
+    headers: this._header
+  };
+};
+
+
+/**
+ * Send `data` as the request body, defaulting the `.type()` to "json" when
+ * an object is given.
+ *
+ * Examples:
+ *
+ *       // manual json
+ *       request.post('/user')
+ *         .type('json')
+ *         .send('{"name":"tj"}')
+ *         .end(callback)
+ *
+ *       // auto json
+ *       request.post('/user')
+ *         .send({ name: 'tj' })
+ *         .end(callback)
+ *
+ *       // manual x-www-form-urlencoded
+ *       request.post('/user')
+ *         .type('form')
+ *         .send('name=tj')
+ *         .end(callback)
+ *
+ *       // auto x-www-form-urlencoded
+ *       request.post('/user')
+ *         .type('form')
+ *         .send({ name: 'tj' })
+ *         .end(callback)
+ *
+ *       // defaults to x-www-form-urlencoded
+ *      request.post('/user')
+ *        .send('name=tobi')
+ *        .send('species=ferret')
+ *        .end(callback)
+ *
+ * @param {String|Object} data
+ * @return {Request} for chaining
+ * @api public
+ */
+
+RequestBase.prototype.send = function(data){
+  var isObj = isObject(data);
+  var type = this._header['content-type'];
+
+  if (this._formData) {
+    console.error(".send() can't be used if .attach() or .field() is used. Please use only .send() or only .field() & .attach()");
+  }
+
+  if (isObj && !this._data) {
+    if (Array.isArray(data)) {
+      this._data = [];
+    } else if (!this._isHost(data)) {
+      this._data = {};
+    }
+  } else if (data && this._data && this._isHost(this._data)) {
+    throw Error("Can't merge these send calls");
+  }
+
+  // merge
+  if (isObj && isObject(this._data)) {
+    for (var key in data) {
+      this._data[key] = data[key];
+    }
+  } else if ('string' == typeof data) {
+    // default to x-www-form-urlencoded
+    if (!type) this.type('form');
+    type = this._header['content-type'];
+    if ('application/x-www-form-urlencoded' == type) {
+      this._data = this._data
+        ? this._data + '&' + data
+        : data;
+    } else {
+      this._data = (this._data || '') + data;
+    }
+  } else {
+    this._data = data;
+  }
+
+  if (!isObj || this._isHost(data)) {
+    return this;
+  }
+
+  // default to json
+  if (!type) this.type('json');
+  return this;
+};
+
+
+/**
+ * Sort `querystring` by the sort function
+ *
+ *
+ * Examples:
+ *
+ *       // default order
+ *       request.get('/user')
+ *         .query('name=Nick')
+ *         .query('search=Manny')
+ *         .sortQuery()
+ *         .end(callback)
+ *
+ *       // customized sort function
+ *       request.get('/user')
+ *         .query('name=Nick')
+ *         .query('search=Manny')
+ *         .sortQuery(function(a, b){
+ *           return a.length - b.length;
+ *         })
+ *         .end(callback)
+ *
+ *
+ * @param {Function} sort
+ * @return {Request} for chaining
+ * @api public
+ */
+
+RequestBase.prototype.sortQuery = function(sort) {
+  // _sort default to true but otherwise can be a function or boolean
+  this._sort = typeof sort === 'undefined' ? true : sort;
+  return this;
+};
+
+/**
+ * Invoke callback with timeout error.
+ *
+ * @api private
+ */
+
+RequestBase.prototype._timeoutError = function(reason, timeout, errno){
+  if (this._aborted) {
+    return;
+  }
+  var err = new Error(reason + timeout + 'ms exceeded');
+  err.timeout = timeout;
+  err.code = 'ECONNABORTED';
+  err.errno = errno;
+  this.timedout = true;
+  this.abort();
+  this.callback(err);
+};
+
+RequestBase.prototype._setTimeouts = function() {
+  var self = this;
+
+  // deadline
+  if (this._timeout && !this._timer) {
+    this._timer = setTimeout(function(){
+      self._timeoutError('Timeout of ', self._timeout, 'ETIME');
+    }, this._timeout);
+  }
+  // response timeout
+  if (this._responseTimeout && !this._responseTimeoutTimer) {
+    this._responseTimeoutTimer = setTimeout(function(){
+      self._timeoutError('Response timeout of ', self._responseTimeout, 'ETIMEDOUT');
+    }, this._responseTimeout);
+  }
+}
+
+},{"./is-object":10}],12:[function(require,module,exports){
+
+/**
+ * Module dependencies.
+ */
+
+var utils = require('./utils');
+
+/**
+ * Expose `ResponseBase`.
+ */
+
+module.exports = ResponseBase;
+
+/**
+ * Initialize a new `ResponseBase`.
+ *
+ * @api public
+ */
+
+function ResponseBase(obj) {
+  if (obj) return mixin(obj);
+}
+
+/**
+ * Mixin the prototype properties.
+ *
+ * @param {Object} obj
+ * @return {Object}
+ * @api private
+ */
+
+function mixin(obj) {
+  for (var key in ResponseBase.prototype) {
+    obj[key] = ResponseBase.prototype[key];
+  }
+  return obj;
+}
+
+/**
+ * Get case-insensitive `field` value.
+ *
+ * @param {String} field
+ * @return {String}
+ * @api public
+ */
+
+ResponseBase.prototype.get = function(field){
+    return this.header[field.toLowerCase()];
+};
+
+/**
+ * Set header related properties:
+ *
+ *   - `.type` the content type without params
+ *
+ * A response of "Content-Type: text/plain; charset=utf-8"
+ * will provide you with a `.type` of "text/plain".
+ *
+ * @param {Object} header
+ * @api private
+ */
+
+ResponseBase.prototype._setHeaderProperties = function(header){
+    // TODO: moar!
+    // TODO: make this a util
+
+    // content-type
+    var ct = header['content-type'] || '';
+    this.type = utils.type(ct);
+
+    // params
+    var params = utils.params(ct);
+    for (var key in params) this[key] = params[key];
+
+    this.links = {};
+
+    // links
+    try {
+        if (header.link) {
+            this.links = utils.parseLinks(header.link);
+        }
+    } catch (err) {
+        // ignore
+    }
+};
+
+/**
+ * Set flags such as `.ok` based on `status`.
+ *
+ * For example a 2xx response will give you a `.ok` of __true__
+ * whereas 5xx will be __false__ and `.error` will be __true__. The
+ * `.clientError` and `.serverError` are also available to be more
+ * specific, and `.statusType` is the class of error ranging from 1..5
+ * sometimes useful for mapping respond colors etc.
+ *
+ * "sugar" properties are also defined for common cases. Currently providing:
+ *
+ *   - .noContent
+ *   - .badRequest
+ *   - .unauthorized
+ *   - .notAcceptable
+ *   - .notFound
+ *
+ * @param {Number} status
+ * @api private
+ */
+
+ResponseBase.prototype._setStatusProperties = function(status){
+    var type = status / 100 | 0;
+
+    // status / class
+    this.status = this.statusCode = status;
+    this.statusType = type;
+
+    // basics
+    this.info = 1 == type;
+    this.ok = 2 == type;
+    this.redirect = 3 == type;
+    this.clientError = 4 == type;
+    this.serverError = 5 == type;
+    this.error = (4 == type || 5 == type)
+        ? this.toError()
+        : false;
+
+    // sugar
+    this.accepted = 202 == status;
+    this.noContent = 204 == status;
+    this.badRequest = 400 == status;
+    this.unauthorized = 401 == status;
+    this.notAcceptable = 406 == status;
+    this.forbidden = 403 == status;
+    this.notFound = 404 == status;
+};
+
+},{"./utils":14}],13:[function(require,module,exports){
+var ERROR_CODES = [
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'EADDRINFO',
+  'ESOCKETTIMEDOUT'
+];
+
+/**
+ * Determine if a request should be retried.
+ * (Borrowed from segmentio/superagent-retry)
+ *
+ * @param {Error} err
+ * @param {Response} [res]
+ * @returns {Boolean}
+ */
+module.exports = function shouldRetry(err, res) {
+  if (err && err.code && ~ERROR_CODES.indexOf(err.code)) return true;
+  if (res && res.status && res.status >= 500) return true;
+  // Superagent timeout
+  if (err && 'timeout' in err && err.code == 'ECONNABORTED') return true;
+  if (err && 'crossDomain' in err) return true;
+  return false;
+};
+
+},{}],14:[function(require,module,exports){
+
+/**
+ * Return the mime type for the given `str`.
+ *
+ * @param {String} str
+ * @return {String}
+ * @api private
+ */
+
+exports.type = function(str){
+  return str.split(/ *; */).shift();
+};
+
+/**
+ * Return header field parameters.
+ *
+ * @param {String} str
+ * @return {Object}
+ * @api private
+ */
+
+exports.params = function(str){
+  return str.split(/ *; */).reduce(function(obj, str){
+    var parts = str.split(/ *= */);
+    var key = parts.shift();
+    var val = parts.shift();
+
+    if (key && val) obj[key] = val;
+    return obj;
+  }, {});
+};
+
+/**
+ * Parse Link header fields.
+ *
+ * @param {String} str
+ * @return {Object}
+ * @api private
+ */
+
+exports.parseLinks = function(str){
+  return str.split(/ *, */).reduce(function(obj, str){
+    var parts = str.split(/ *; */);
+    var url = parts[0].slice(1, -1);
+    var rel = parts[1].split(/ *= */)[1].slice(1, -1);
+    obj[rel] = url;
+    return obj;
+  }, {});
+};
+
+/**
+ * Strip content related fields from `header`.
+ *
+ * @param {Object} header
+ * @return {Object} header
+ * @api private
+ */
+
+exports.cleanHeader = function(header, shouldStripCookie){
+  delete header['content-type'];
+  delete header['content-length'];
+  delete header['transfer-encoding'];
+  delete header['host'];
+  if (shouldStripCookie) {
+    delete header['cookie'];
+  }
+  return header;
+};
+},{}],15:[function(require,module,exports){
+(function (Buffer){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['superagent', 'querystring'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('superagent'), require('querystring'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.ApiClient = factory(root.superagent, root.querystring);
+  }
+}(this, function(superagent, querystring) {
+  'use strict';
+
+  /**
+   * @module ApiClient
+   * @version 0.5.0
+   */
+
+  /**
+   * Manages low level client-server communications, parameter marshalling, etc. There should not be any need for an
+   * application to use this class directly - the *Api and model classes provide the public API for the service. The
+   * contents of this file should be regarded as internal but are documented for completeness.
+   * @alias module:ApiClient
+   * @class
+   */
+  var exports = function() {
+    /**
+     * The base URL against which to resolve every API call's (relative) path.
+     * @type {String}
+     * @default https://api.matchmore.io/v5
+     */
+    this.basePath = 'https://api.matchmore.io/v5'.replace(/\/+$/, '');
+
+    /**
+     * The authentication methods to be included for all API calls.
+     * @type {Array.<String>}
+     */
+    this.authentications = {
+      'api-key': {type: 'apiKey', 'in': 'header', name: 'api-key'}
+    };
+    /**
+     * The default HTTP headers to be included for all API calls.
+     * @type {Array.<String>}
+     * @default {}
+     */
+    this.defaultHeaders = {};
+
+    /**
+     * The default HTTP timeout for all API calls.
+     * @type {Number}
+     * @default 60000
+     */
+    this.timeout = 60000;
+
+    /**
+     * If set to false an additional timestamp parameter is added to all API GET calls to
+     * prevent browser caching
+     * @type {Boolean}
+     * @default true
+     */
+    this.cache = true;
+
+    /**
+     * If set to true, the client will save the cookies from each server
+     * response, and return them in the next request.
+     * @default false
+     */
+    this.enableCookies = false;
+
+    /*
+     * Used to save and return cookies in a node.js (non-browser) setting,
+     * if this.enableCookies is set to true.
+     */
+    if (typeof window === 'undefined') {
+      this.agent = new superagent.agent();
+    }
+
+    /*
+     * Allow user to override superagent agent
+     */
+    this.requestAgent = null;
+  };
+
+  /**
+   * Returns a string representation for an actual parameter.
+   * @param param The actual parameter.
+   * @returns {String} The string representation of <code>param</code>.
+   */
+  exports.prototype.paramToString = function(param) {
+    if (param == undefined || param == null) {
+      return '';
+    }
+    if (param instanceof Date) {
+      return param.toJSON();
+    }
+    return param.toString();
+  };
+
+  /**
+   * Builds full URL by appending the given path to the base URL and replacing path parameter place-holders with parameter values.
+   * NOTE: query parameters are not handled here.
+   * @param {String} path The path to append to the base URL.
+   * @param {Object} pathParams The parameter values to append.
+   * @returns {String} The encoded path with parameter values substituted.
+   */
+  exports.prototype.buildUrl = function(path, pathParams) {
+    if (!path.match(/^\//)) {
+      path = '/' + path;
+    }
+    var url = this.basePath + path;
+    var _this = this;
+    url = url.replace(/\{([\w-]+)\}/g, function(fullMatch, key) {
+      var value;
+      if (pathParams.hasOwnProperty(key)) {
+        value = _this.paramToString(pathParams[key]);
+      } else {
+        value = fullMatch;
+      }
+      return encodeURIComponent(value);
+    });
+    return url;
+  };
+
+  /**
+   * Checks whether the given content type represents JSON.<br>
+   * JSON content type examples:<br>
+   * <ul>
+   * <li>application/json</li>
+   * <li>application/json; charset=UTF8</li>
+   * <li>APPLICATION/JSON</li>
+   * </ul>
+   * @param {String} contentType The MIME content type to check.
+   * @returns {Boolean} <code>true</code> if <code>contentType</code> represents JSON, otherwise <code>false</code>.
+   */
+  exports.prototype.isJsonMime = function(contentType) {
+    return Boolean(contentType != null && contentType.match(/^application\/json(;.*)?$/i));
+  };
+
+  /**
+   * Chooses a content type from the given array, with JSON preferred; i.e. return JSON if included, otherwise return the first.
+   * @param {Array.<String>} contentTypes
+   * @returns {String} The chosen content type, preferring JSON.
+   */
+  exports.prototype.jsonPreferredMime = function(contentTypes) {
+    for (var i = 0; i < contentTypes.length; i++) {
+      if (this.isJsonMime(contentTypes[i])) {
+        return contentTypes[i];
+      }
+    }
+    return contentTypes[0];
+  };
+
+  /**
+   * Checks whether the given parameter value represents file-like content.
+   * @param param The parameter to check.
+   * @returns {Boolean} <code>true</code> if <code>param</code> represents a file.
+   */
+  exports.prototype.isFileParam = function(param) {
+    // fs.ReadStream in Node.js and Electron (but not in runtime like browserify)
+    if (typeof require === 'function') {
+      var fs;
+      try {
+        fs = require('fs');
+      } catch (err) {}
+      if (fs && fs.ReadStream && param instanceof fs.ReadStream) {
+        return true;
+      }
+    }
+    // Buffer in Node.js
+    if (typeof Buffer === 'function' && param instanceof Buffer) {
+      return true;
+    }
+    // Blob in browser
+    if (typeof Blob === 'function' && param instanceof Blob) {
+      return true;
+    }
+    // File in browser (it seems File object is also instance of Blob, but keep this for safe)
+    if (typeof File === 'function' && param instanceof File) {
+      return true;
+    }
+    return false;
+  };
+
+  /**
+   * Normalizes parameter values:
+   * <ul>
+   * <li>remove nils</li>
+   * <li>keep files and arrays</li>
+   * <li>format to string with `paramToString` for other cases</li>
+   * </ul>
+   * @param {Object.<String, Object>} params The parameters as object properties.
+   * @returns {Object.<String, Object>} normalized parameters.
+   */
+  exports.prototype.normalizeParams = function(params) {
+    var newParams = {};
+    for (var key in params) {
+      if (params.hasOwnProperty(key) && params[key] != undefined && params[key] != null) {
+        var value = params[key];
+        if (this.isFileParam(value) || Array.isArray(value)) {
+          newParams[key] = value;
+        } else {
+          newParams[key] = this.paramToString(value);
+        }
+      }
+    }
+    return newParams;
+  };
+
+  /**
+   * Enumeration of collection format separator strategies.
+   * @enum {String}
+   * @readonly
+   */
+  exports.CollectionFormatEnum = {
+    /**
+     * Comma-separated values. Value: <code>csv</code>
+     * @const
+     */
+    CSV: ',',
+    /**
+     * Space-separated values. Value: <code>ssv</code>
+     * @const
+     */
+    SSV: ' ',
+    /**
+     * Tab-separated values. Value: <code>tsv</code>
+     * @const
+     */
+    TSV: '\t',
+    /**
+     * Pipe(|)-separated values. Value: <code>pipes</code>
+     * @const
+     */
+    PIPES: '|',
+    /**
+     * Native array. Value: <code>multi</code>
+     * @const
+     */
+    MULTI: 'multi'
+  };
+
+  /**
+   * Builds a string representation of an array-type actual parameter, according to the given collection format.
+   * @param {Array} param An array parameter.
+   * @param {module:ApiClient.CollectionFormatEnum} collectionFormat The array element separator strategy.
+   * @returns {String|Array} A string representation of the supplied collection, using the specified delimiter. Returns
+   * <code>param</code> as is if <code>collectionFormat</code> is <code>multi</code>.
+   */
+  exports.prototype.buildCollectionParam = function buildCollectionParam(param, collectionFormat) {
+    if (param == null) {
+      return null;
+    }
+    switch (collectionFormat) {
+      case 'csv':
+        return param.map(this.paramToString).join(',');
+      case 'ssv':
+        return param.map(this.paramToString).join(' ');
+      case 'tsv':
+        return param.map(this.paramToString).join('\t');
+      case 'pipes':
+        return param.map(this.paramToString).join('|');
+      case 'multi':
+        // return the array directly as SuperAgent will handle it as expected
+        return param.map(this.paramToString);
+      default:
+        throw new Error('Unknown collection format: ' + collectionFormat);
+    }
+  };
+
+  /**
+   * Applies authentication headers to the request.
+   * @param {Object} request The request object created by a <code>superagent()</code> call.
+   * @param {Array.<String>} authNames An array of authentication method names.
+   */
+  exports.prototype.applyAuthToRequest = function(request, authNames) {
+    var _this = this;
+    authNames.forEach(function(authName) {
+      var auth = _this.authentications[authName];
+      switch (auth.type) {
+        case 'basic':
+          if (auth.username || auth.password) {
+            request.auth(auth.username || '', auth.password || '');
+          }
+          break;
+        case 'apiKey':
+          if (auth.apiKey) {
+            var data = {};
+            if (auth.apiKeyPrefix) {
+              data[auth.name] = auth.apiKeyPrefix + ' ' + auth.apiKey;
+            } else {
+              data[auth.name] = auth.apiKey;
+            }
+            if (auth['in'] === 'header') {
+              request.set(data);
+            } else {
+              request.query(data);
+            }
+          }
+          break;
+        case 'oauth2':
+          if (auth.accessToken) {
+            request.set({'Authorization': 'Bearer ' + auth.accessToken});
+          }
+          break;
+        default:
+          throw new Error('Unknown authentication type: ' + auth.type);
+      }
+    });
+  };
+
+  /**
+   * Deserializes an HTTP response body into a value of the specified type.
+   * @param {Object} response A SuperAgent response object.
+   * @param {(String|Array.<String>|Object.<String, Object>|Function)} returnType The type to return. Pass a string for simple types
+   * or the constructor function for a complex type. Pass an array containing the type name to return an array of that type. To
+   * return an object, pass an object with one property whose name is the key type and whose value is the corresponding value type:
+   * all properties on <code>data<code> will be converted to this type.
+   * @returns A value of the specified type.
+   */
+  exports.prototype.deserialize = function deserialize(response, returnType) {
+    if (response == null || returnType == null || response.status == 204) {
+      return null;
+    }
+    // Rely on SuperAgent for parsing response body.
+    // See http://visionmedia.github.io/superagent/#parsing-response-bodies
+    var data = response.body;
+    if (data == null || (typeof data === 'object' && typeof data.length === 'undefined' && !Object.keys(data).length)) {
+      // SuperAgent does not always produce a body; use the unparsed response as a fallback
+      data = response.text;
+    }
+    return exports.convertToType(data, returnType);
+  };
+
+  /**
+   * Callback function to receive the result of the operation.
+   * @callback module:ApiClient~callApiCallback
+   * @param {String} error Error message, if any.
+   * @param data The data returned by the service call.
+   * @param {String} response The complete HTTP response.
+   */
+
+  /**
+   * Invokes the REST service using the supplied settings and parameters.
+   * @param {String} path The base URL to invoke.
+   * @param {String} httpMethod The HTTP method to use.
+   * @param {Object.<String, String>} pathParams A map of path parameters and their values.
+   * @param {Object.<String, Object>} queryParams A map of query parameters and their values.
+   * @param {Object.<String, Object>} collectionQueryParams A map of collection query parameters and their values.
+   * @param {Object.<String, Object>} headerParams A map of header parameters and their values.
+   * @param {Object.<String, Object>} formParams A map of form parameters and their values.
+   * @param {Object} bodyParam The value to pass as the request body.
+   * @param {Array.<String>} authNames An array of authentication type names.
+   * @param {Array.<String>} contentTypes An array of request MIME types.
+   * @param {Array.<String>} accepts An array of acceptable response MIME types.
+   * @param {(String|Array|ObjectFunction)} returnType The required type to return; can be a string for simple types or the
+   * constructor for a complex type.
+   * @param {module:ApiClient~callApiCallback} callback The callback function.
+   * @returns {Object} The SuperAgent request object.
+   */
+  exports.prototype.callApi = function callApi(path, httpMethod, pathParams,
+      queryParams, collectionQueryParams, headerParams, formParams, bodyParam, authNames, contentTypes, accepts,
+      returnType, callback) {
+
+    var _this = this;
+    var url = this.buildUrl(path, pathParams);
+    var request = superagent(httpMethod, url);
+
+    // apply authentications
+    this.applyAuthToRequest(request, authNames);
+
+    // set collection query parameters
+    for (var key in collectionQueryParams) {
+      if (collectionQueryParams.hasOwnProperty(key)) {
+        var param = collectionQueryParams[key];
+        if (param.collectionFormat === 'csv') {
+          // SuperAgent normally percent-encodes all reserved characters in a query parameter. However,
+          // commas are used as delimiters for the 'csv' collectionFormat so they must not be encoded. We
+          // must therefore construct and encode 'csv' collection query parameters manually.
+          if (param.value != null) {
+            var value = param.value.map(this.paramToString).map(encodeURIComponent).join(',');
+            request.query(encodeURIComponent(key) + "=" + value);
+          }
+        } else {
+          // All other collection query parameters should be treated as ordinary query parameters.
+          queryParams[key] = this.buildCollectionParam(param.value, param.collectionFormat);
+        }
+      }
+    }
+
+    // set query parameters
+    if (httpMethod.toUpperCase() === 'GET' && this.cache === false) {
+        queryParams['_'] = new Date().getTime();
+    }
+    request.query(this.normalizeParams(queryParams));
+
+    // set header parameters
+    request.set(this.defaultHeaders).set(this.normalizeParams(headerParams));
+
+
+    // set requestAgent if it is set by user
+    if (this.requestAgent) {
+      request.agent(this.requestAgent);
+    }
+
+    // set request timeout
+    request.timeout(this.timeout);
+
+    var contentType = this.jsonPreferredMime(contentTypes);
+    if (contentType) {
+      // Issue with superagent and multipart/form-data (https://github.com/visionmedia/superagent/issues/746)
+      if(contentType != 'multipart/form-data') {
+        request.type(contentType);
+      }
+    } else if (!request.header['Content-Type']) {
+      request.type('application/json');
+    }
+
+    if (contentType === 'application/x-www-form-urlencoded') {
+      request.send(querystring.stringify(this.normalizeParams(formParams)));
+    } else if (contentType == 'multipart/form-data') {
+      var _formParams = this.normalizeParams(formParams);
+      for (var key in _formParams) {
+        if (_formParams.hasOwnProperty(key)) {
+          if (this.isFileParam(_formParams[key])) {
+            // file field
+            request.attach(key, _formParams[key]);
+          } else {
+            request.field(key, _formParams[key]);
+          }
+        }
+      }
+    } else if (bodyParam) {
+      request.send(bodyParam);
+    }
+
+    var accept = this.jsonPreferredMime(accepts);
+    if (accept) {
+      request.accept(accept);
+    }
+
+    if (returnType === 'Blob') {
+      request.responseType('blob');
+    } else if (returnType === 'String') {
+      request.responseType('string');
+    }
+
+    // Attach previously saved cookies, if enabled
+    if (this.enableCookies){
+      if (typeof window === 'undefined') {
+        this.agent.attachCookies(request);
+      }
+      else {
+        request.withCredentials();
+      }
+    }
+
+
+    request.end(function(error, response) {
+      if (callback) {
+        var data = null;
+        if (!error) {
+          try {
+            data = _this.deserialize(response, returnType);
+            if (_this.enableCookies && typeof window === 'undefined'){
+              _this.agent.saveCookies(response);
+            }
+          } catch (err) {
+            error = err;
+          }
+        }
+        callback(error, data, response);
+      }
+    });
+
+    return request;
+  };
+
+  /**
+   * Parses an ISO-8601 string representation of a date value.
+   * @param {String} str The date value as a string.
+   * @returns {Date} The parsed date object.
+   */
+  exports.parseDate = function(str) {
+    return new Date(str.replace(/T/i, ' '));
+  };
+
+  /**
+   * Converts a value to the specified type.
+   * @param {(String|Object)} data The data to convert, as a string or object.
+   * @param {(String|Array.<String>|Object.<String, Object>|Function)} type The type to return. Pass a string for simple types
+   * or the constructor function for a complex type. Pass an array containing the type name to return an array of that type. To
+   * return an object, pass an object with one property whose name is the key type and whose value is the corresponding value type:
+   * all properties on <code>data<code> will be converted to this type.
+   * @returns An instance of the specified type or null or undefined if data is null or undefined.
+   */
+  exports.convertToType = function(data, type) {
+    if (data === null || data === undefined)
+      return data
+
+    switch (type) {
+      case 'Boolean':
+        return Boolean(data);
+      case 'Integer':
+        return parseInt(data, 10);
+      case 'Number':
+        return parseFloat(data);
+      case 'String':
+        return String(data);
+      case 'Date':
+        return this.parseDate(String(data));
+      case 'Blob':
+      	return data;
+      default:
+        if (type === Object) {
+          // generic object, return directly
+          return data;
+        } else if (typeof type === 'function') {
+          // for model type like: User
+          return type.constructFromObject(data);
+        } else if (Array.isArray(type)) {
+          // for array type like: ['String']
+          var itemType = type[0];
+          return data.map(function(item) {
+            return exports.convertToType(item, itemType);
+          });
+        } else if (typeof type === 'object') {
+          // for plain object type like: {'String': 'Integer'}
+          var keyType, valueType;
+          for (var k in type) {
+            if (type.hasOwnProperty(k)) {
+              keyType = k;
+              valueType = type[k];
+              break;
+            }
+          }
+          var result = {};
+          for (var k in data) {
+            if (data.hasOwnProperty(k)) {
+              var key = exports.convertToType(k, keyType);
+              var value = exports.convertToType(data[k], valueType);
+              result[key] = value;
+            }
+          }
+          return result;
+        } else {
+          // for unknown type, return the data directly
+          return data;
+        }
+    }
+  };
+
+  /**
+   * Constructs a new map or array model from REST data.
+   * @param data {Object|Array} The REST data.
+   * @param obj {Object|Array} The target object or array.
+   */
+  exports.constructFromObject = function(data, obj, itemType) {
+    if (Array.isArray(data)) {
+      for (var i = 0; i < data.length; i++) {
+        if (data.hasOwnProperty(i))
+          obj[i] = exports.convertToType(data[i], itemType);
+      }
+    } else {
+      for (var k in data) {
+        if (data.hasOwnProperty(k))
+          obj[k] = exports.convertToType(data[k], itemType);
+      }
+    }
+  };
+
+  /**
+   * The default API client implementation.
+   * @type {module:ApiClient}
+   */
+  exports.instance = new exports();
+
+  return exports;
+}));
+
+}).call(this,require("buffer").Buffer)
+},{"buffer":43,"fs":42,"querystring":47,"superagent":8}],16:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/APIError', 'model/Device', 'model/DeviceUpdate', 'model/IBeaconTriples', 'model/Location', 'model/Match', 'model/Matches', 'model/ProximityEvent', 'model/Publication', 'model/Publications', 'model/Subscription', 'model/Subscriptions'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('../model/APIError'), require('../model/Device'), require('../model/DeviceUpdate'), require('../model/IBeaconTriples'), require('../model/Location'), require('../model/Match'), require('../model/Matches'), require('../model/ProximityEvent'), require('../model/Publication'), require('../model/Publications'), require('../model/Subscription'), require('../model/Subscriptions'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.DeviceApi = factory(root.MatchmoreAlpsCoreRestApi.ApiClient, root.MatchmoreAlpsCoreRestApi.APIError, root.MatchmoreAlpsCoreRestApi.Device, root.MatchmoreAlpsCoreRestApi.DeviceUpdate, root.MatchmoreAlpsCoreRestApi.IBeaconTriples, root.MatchmoreAlpsCoreRestApi.Location, root.MatchmoreAlpsCoreRestApi.Match, root.MatchmoreAlpsCoreRestApi.Matches, root.MatchmoreAlpsCoreRestApi.ProximityEvent, root.MatchmoreAlpsCoreRestApi.Publication, root.MatchmoreAlpsCoreRestApi.Publications, root.MatchmoreAlpsCoreRestApi.Subscription, root.MatchmoreAlpsCoreRestApi.Subscriptions);
+  }
+}(this, function(ApiClient, APIError, Device, DeviceUpdate, IBeaconTriples, Location, Match, Matches, ProximityEvent, Publication, Publications, Subscription, Subscriptions) {
+  'use strict';
+
+  /**
+   * Device service.
+   * @module api/DeviceApi
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new DeviceApi. 
+   * @alias module:api/DeviceApi
+   * @class
+   * @param {module:ApiClient} [apiClient] Optional API client implementation to use,
+   * default to {@link module:ApiClient#instance} if unspecified.
+   */
+  var exports = function(apiClient) {
+    this.apiClient = apiClient || ApiClient.instance;
+
+
+    /**
+     * Callback function to receive the result of the createDevice operation.
+     * @callback module:api/DeviceApi~createDeviceCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Device} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Create a device
+     * @param {module:model/Device} device The device to be created.
+     * @param {module:api/DeviceApi~createDeviceCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Device}
+     */
+    this.createDevice = function(device, callback) {
+      var postBody = device;
+
+      // verify the required parameter 'device' is set
+      if (device === undefined || device === null) {
+        throw new Error("Missing the required parameter 'device' when calling createDevice");
+      }
+
+
+      var pathParams = {
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Device;
+
+      return this.apiClient.callApi(
+        '/devices', 'POST',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the createLocation operation.
+     * @callback module:api/DeviceApi~createLocationCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Location} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Create a new location for a device
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {module:model/Location} location Location to create for a device. 
+     * @param {module:api/DeviceApi~createLocationCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Location}
+     */
+    this.createLocation = function(deviceId, location, callback) {
+      var postBody = location;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling createLocation");
+      }
+
+      // verify the required parameter 'location' is set
+      if (location === undefined || location === null) {
+        throw new Error("Missing the required parameter 'location' when calling createLocation");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Location;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/locations', 'POST',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the createPublication operation.
+     * @callback module:api/DeviceApi~createPublicationCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Publication} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Create a publication for a device
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {module:model/Publication} publication Publication to create on a device. 
+     * @param {module:api/DeviceApi~createPublicationCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Publication}
+     */
+    this.createPublication = function(deviceId, publication, callback) {
+      var postBody = publication;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling createPublication");
+      }
+
+      // verify the required parameter 'publication' is set
+      if (publication === undefined || publication === null) {
+        throw new Error("Missing the required parameter 'publication' when calling createPublication");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Publication;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/publications', 'POST',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the createSubscription operation.
+     * @callback module:api/DeviceApi~createSubscriptionCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Subscription} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Create a subscription for a device
+     * @param {String} deviceId The id (UUID) of the device. 
+     * @param {module:model/Subscription} subscription Subscription to create on a device. 
+     * @param {module:api/DeviceApi~createSubscriptionCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Subscription}
+     */
+    this.createSubscription = function(deviceId, subscription, callback) {
+      var postBody = subscription;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling createSubscription");
+      }
+
+      // verify the required parameter 'subscription' is set
+      if (subscription === undefined || subscription === null) {
+        throw new Error("Missing the required parameter 'subscription' when calling createSubscription");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Subscription;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/subscriptions', 'POST',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the deleteDevice operation.
+     * @callback module:api/DeviceApi~deleteDeviceCallback
+     * @param {String} error Error message, if any.
+     * @param data This operation does not return a value.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Delete an existing device
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {module:api/DeviceApi~deleteDeviceCallback} callback The callback function, accepting three arguments: error, data, response
+     */
+    this.deleteDevice = function(deviceId, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling deleteDevice");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = null;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}', 'DELETE',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the deletePublication operation.
+     * @callback module:api/DeviceApi~deletePublicationCallback
+     * @param {String} error Error message, if any.
+     * @param data This operation does not return a value.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Delete a Publication
+     * 
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {String} publicationId The id (UUID) of the subscription.
+     * @param {module:api/DeviceApi~deletePublicationCallback} callback The callback function, accepting three arguments: error, data, response
+     */
+    this.deletePublication = function(deviceId, publicationId, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling deletePublication");
+      }
+
+      // verify the required parameter 'publicationId' is set
+      if (publicationId === undefined || publicationId === null) {
+        throw new Error("Missing the required parameter 'publicationId' when calling deletePublication");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId,
+        'publicationId': publicationId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = null;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/publications/{publicationId}', 'DELETE',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the deleteSubscription operation.
+     * @callback module:api/DeviceApi~deleteSubscriptionCallback
+     * @param {String} error Error message, if any.
+     * @param data This operation does not return a value.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Delete a Subscription
+     * 
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {String} subscriptionId The id (UUID) of the subscription.
+     * @param {module:api/DeviceApi~deleteSubscriptionCallback} callback The callback function, accepting three arguments: error, data, response
+     */
+    this.deleteSubscription = function(deviceId, subscriptionId, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling deleteSubscription");
+      }
+
+      // verify the required parameter 'subscriptionId' is set
+      if (subscriptionId === undefined || subscriptionId === null) {
+        throw new Error("Missing the required parameter 'subscriptionId' when calling deleteSubscription");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId,
+        'subscriptionId': subscriptionId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = null;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/subscriptions/{subscriptionId}', 'DELETE',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the getDevice operation.
+     * @callback module:api/DeviceApi~getDeviceCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Device} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Info about a device
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {module:api/DeviceApi~getDeviceCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Device}
+     */
+    this.getDevice = function(deviceId, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling getDevice");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Device;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}', 'GET',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the getIBeaconTriples operation.
+     * @callback module:api/DeviceApi~getIBeaconTriplesCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/IBeaconTriples} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Get IBeacons triples for all registered devices
+     * Keys in map are device UUIDs and values are IBeacon triples. In model you can see example values \&quot;property1\&quot; \&quot;property2\&quot; \&quot;property3\&quot; instead of random UUIDs this is generated by OpenApi document browser
+     * @param {module:api/DeviceApi~getIBeaconTriplesCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/IBeaconTriples}
+     */
+    this.getIBeaconTriples = function(callback) {
+      var postBody = null;
+
+
+      var pathParams = {
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = IBeaconTriples;
+
+      return this.apiClient.callApi(
+        '/devices/IBeaconTriples', 'GET',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the getMatch operation.
+     * @callback module:api/DeviceApi~getMatchCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Match} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Get match for the device by its id
+     * @param {String} deviceId The id (UUID) of the user device.
+     * @param {String} matchId The id (UUID) of the match.
+     * @param {module:api/DeviceApi~getMatchCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Match}
+     */
+    this.getMatch = function(deviceId, matchId, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling getMatch");
+      }
+
+      // verify the required parameter 'matchId' is set
+      if (matchId === undefined || matchId === null) {
+        throw new Error("Missing the required parameter 'matchId' when calling getMatch");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId,
+        'matchId': matchId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Match;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/matches/{matchId}', 'GET',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the getMatches operation.
+     * @callback module:api/DeviceApi~getMatchesCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Matches} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Get matches for the device
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {module:api/DeviceApi~getMatchesCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Matches}
+     */
+    this.getMatches = function(deviceId, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling getMatches");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Matches;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/matches', 'GET',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the getPublication operation.
+     * @callback module:api/DeviceApi~getPublicationCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Publication} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Info about a publication on a device
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {String} publicationId The id (UUID) of the publication.
+     * @param {module:api/DeviceApi~getPublicationCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Publication}
+     */
+    this.getPublication = function(deviceId, publicationId, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling getPublication");
+      }
+
+      // verify the required parameter 'publicationId' is set
+      if (publicationId === undefined || publicationId === null) {
+        throw new Error("Missing the required parameter 'publicationId' when calling getPublication");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId,
+        'publicationId': publicationId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Publication;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/publications/{publicationId}', 'GET',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the getPublications operation.
+     * @callback module:api/DeviceApi~getPublicationsCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Publications} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Get all publications for a device
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {module:api/DeviceApi~getPublicationsCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Publications}
+     */
+    this.getPublications = function(deviceId, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling getPublications");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Publications;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/publications', 'GET',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the getSubscription operation.
+     * @callback module:api/DeviceApi~getSubscriptionCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Subscription} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Info about a subscription on a device
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {String} subscriptionId The id (UUID) of the subscription.
+     * @param {module:api/DeviceApi~getSubscriptionCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Subscription}
+     */
+    this.getSubscription = function(deviceId, subscriptionId, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling getSubscription");
+      }
+
+      // verify the required parameter 'subscriptionId' is set
+      if (subscriptionId === undefined || subscriptionId === null) {
+        throw new Error("Missing the required parameter 'subscriptionId' when calling getSubscription");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId,
+        'subscriptionId': subscriptionId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Subscription;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/subscriptions/{subscriptionId}', 'GET',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the getSubscriptions operation.
+     * @callback module:api/DeviceApi~getSubscriptionsCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Subscriptions} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Get all subscriptions for a device
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {module:api/DeviceApi~getSubscriptionsCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Subscriptions}
+     */
+    this.getSubscriptions = function(deviceId, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling getSubscriptions");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Subscriptions;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/subscriptions', 'GET',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the triggerProximityEvents operation.
+     * @callback module:api/DeviceApi~triggerProximityEventsCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/ProximityEvent} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Trigger the proximity event between a device and a ranged BLE iBeacon
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {module:model/ProximityEvent} proximityEvent The proximity event to be created for the device.
+     * @param {module:api/DeviceApi~triggerProximityEventsCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/ProximityEvent}
+     */
+    this.triggerProximityEvents = function(deviceId, proximityEvent, callback) {
+      var postBody = proximityEvent;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling triggerProximityEvents");
+      }
+
+      // verify the required parameter 'proximityEvent' is set
+      if (proximityEvent === undefined || proximityEvent === null) {
+        throw new Error("Missing the required parameter 'proximityEvent' when calling triggerProximityEvents");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = ProximityEvent;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/proximityEvents', 'POST',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the updateDevice operation.
+     * @callback module:api/DeviceApi~updateDeviceCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Device} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Updates name or/and device token for existing device
+     * Token can be only updated for mobile devices.
+     * @param {module:model/DeviceUpdate} device The device update description.
+     * @param {module:api/DeviceApi~updateDeviceCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Device}
+     */
+    this.updateDevice = function(device, callback) {
+      var postBody = device;
+
+      // verify the required parameter 'device' is set
+      if (device === undefined || device === null) {
+        throw new Error("Missing the required parameter 'device' when calling updateDevice");
+      }
+
+
+      var pathParams = {
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Device;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}', 'PATCH',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+  };
+
+  return exports;
+}));
+
+},{"../ApiClient":15,"../model/APIError":22,"../model/Device":23,"../model/DeviceUpdate":25,"../model/IBeaconTriples":29,"../model/Location":30,"../model/Match":31,"../model/Matches":32,"../model/ProximityEvent":35,"../model/Publication":36,"../model/Publications":37,"../model/Subscription":38,"../model/Subscriptions":39}],17:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/APIError', 'model/Location'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('../model/APIError'), require('../model/Location'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.LocationApi = factory(root.MatchmoreAlpsCoreRestApi.ApiClient, root.MatchmoreAlpsCoreRestApi.APIError, root.MatchmoreAlpsCoreRestApi.Location);
+  }
+}(this, function(ApiClient, APIError, Location) {
+  'use strict';
+
+  /**
+   * Location service.
+   * @module api/LocationApi
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new LocationApi. 
+   * @alias module:api/LocationApi
+   * @class
+   * @param {module:ApiClient} [apiClient] Optional API client implementation to use,
+   * default to {@link module:ApiClient#instance} if unspecified.
+   */
+  var exports = function(apiClient) {
+    this.apiClient = apiClient || ApiClient.instance;
+
+
+    /**
+     * Callback function to receive the result of the createLocation operation.
+     * @callback module:api/LocationApi~createLocationCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Location} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Create a new location for a device
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {module:model/Location} location Location to create for a device. 
+     * @param {module:api/LocationApi~createLocationCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Location}
+     */
+    this.createLocation = function(deviceId, location, callback) {
+      var postBody = location;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling createLocation");
+      }
+
+      // verify the required parameter 'location' is set
+      if (location === undefined || location === null) {
+        throw new Error("Missing the required parameter 'location' when calling createLocation");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Location;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/locations', 'POST',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+  };
+
+  return exports;
+}));
+
+},{"../ApiClient":15,"../model/APIError":22,"../model/Location":30}],18:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/APIError', 'model/Match', 'model/Matches'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('../model/APIError'), require('../model/Match'), require('../model/Matches'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.MatchesApi = factory(root.MatchmoreAlpsCoreRestApi.ApiClient, root.MatchmoreAlpsCoreRestApi.APIError, root.MatchmoreAlpsCoreRestApi.Match, root.MatchmoreAlpsCoreRestApi.Matches);
+  }
+}(this, function(ApiClient, APIError, Match, Matches) {
+  'use strict';
+
+  /**
+   * Matches service.
+   * @module api/MatchesApi
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new MatchesApi. 
+   * @alias module:api/MatchesApi
+   * @class
+   * @param {module:ApiClient} [apiClient] Optional API client implementation to use,
+   * default to {@link module:ApiClient#instance} if unspecified.
+   */
+  var exports = function(apiClient) {
+    this.apiClient = apiClient || ApiClient.instance;
+
+
+    /**
+     * Callback function to receive the result of the getMatch operation.
+     * @callback module:api/MatchesApi~getMatchCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Match} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Get match for the device by its id
+     * @param {String} deviceId The id (UUID) of the user device.
+     * @param {String} matchId The id (UUID) of the match.
+     * @param {module:api/MatchesApi~getMatchCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Match}
+     */
+    this.getMatch = function(deviceId, matchId, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling getMatch");
+      }
+
+      // verify the required parameter 'matchId' is set
+      if (matchId === undefined || matchId === null) {
+        throw new Error("Missing the required parameter 'matchId' when calling getMatch");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId,
+        'matchId': matchId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Match;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/matches/{matchId}', 'GET',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the getMatches operation.
+     * @callback module:api/MatchesApi~getMatchesCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Matches} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Get matches for the device
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {module:api/MatchesApi~getMatchesCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Matches}
+     */
+    this.getMatches = function(deviceId, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling getMatches");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Matches;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/matches', 'GET',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+  };
+
+  return exports;
+}));
+
+},{"../ApiClient":15,"../model/APIError":22,"../model/Match":31,"../model/Matches":32}],19:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/APIError', 'model/Publication', 'model/Publications'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('../model/APIError'), require('../model/Publication'), require('../model/Publications'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.PublicationApi = factory(root.MatchmoreAlpsCoreRestApi.ApiClient, root.MatchmoreAlpsCoreRestApi.APIError, root.MatchmoreAlpsCoreRestApi.Publication, root.MatchmoreAlpsCoreRestApi.Publications);
+  }
+}(this, function(ApiClient, APIError, Publication, Publications) {
+  'use strict';
+
+  /**
+   * Publication service.
+   * @module api/PublicationApi
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new PublicationApi. 
+   * @alias module:api/PublicationApi
+   * @class
+   * @param {module:ApiClient} [apiClient] Optional API client implementation to use,
+   * default to {@link module:ApiClient#instance} if unspecified.
+   */
+  var exports = function(apiClient) {
+    this.apiClient = apiClient || ApiClient.instance;
+
+
+    /**
+     * Callback function to receive the result of the createPublication operation.
+     * @callback module:api/PublicationApi~createPublicationCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Publication} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Create a publication for a device
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {module:model/Publication} publication Publication to create on a device. 
+     * @param {module:api/PublicationApi~createPublicationCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Publication}
+     */
+    this.createPublication = function(deviceId, publication, callback) {
+      var postBody = publication;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling createPublication");
+      }
+
+      // verify the required parameter 'publication' is set
+      if (publication === undefined || publication === null) {
+        throw new Error("Missing the required parameter 'publication' when calling createPublication");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Publication;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/publications', 'POST',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the deletePublication operation.
+     * @callback module:api/PublicationApi~deletePublicationCallback
+     * @param {String} error Error message, if any.
+     * @param data This operation does not return a value.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Delete a Publication
+     * 
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {String} publicationId The id (UUID) of the subscription.
+     * @param {module:api/PublicationApi~deletePublicationCallback} callback The callback function, accepting three arguments: error, data, response
+     */
+    this.deletePublication = function(deviceId, publicationId, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling deletePublication");
+      }
+
+      // verify the required parameter 'publicationId' is set
+      if (publicationId === undefined || publicationId === null) {
+        throw new Error("Missing the required parameter 'publicationId' when calling deletePublication");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId,
+        'publicationId': publicationId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = null;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/publications/{publicationId}', 'DELETE',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the getPublication operation.
+     * @callback module:api/PublicationApi~getPublicationCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Publication} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Info about a publication on a device
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {String} publicationId The id (UUID) of the publication.
+     * @param {module:api/PublicationApi~getPublicationCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Publication}
+     */
+    this.getPublication = function(deviceId, publicationId, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling getPublication");
+      }
+
+      // verify the required parameter 'publicationId' is set
+      if (publicationId === undefined || publicationId === null) {
+        throw new Error("Missing the required parameter 'publicationId' when calling getPublication");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId,
+        'publicationId': publicationId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Publication;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/publications/{publicationId}', 'GET',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the getPublications operation.
+     * @callback module:api/PublicationApi~getPublicationsCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Publications} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Get all publications for a device
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {module:api/PublicationApi~getPublicationsCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Publications}
+     */
+    this.getPublications = function(deviceId, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling getPublications");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Publications;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/publications', 'GET',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+  };
+
+  return exports;
+}));
+
+},{"../ApiClient":15,"../model/APIError":22,"../model/Publication":36,"../model/Publications":37}],20:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/APIError', 'model/Subscription', 'model/Subscriptions'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('../model/APIError'), require('../model/Subscription'), require('../model/Subscriptions'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.SubscriptionApi = factory(root.MatchmoreAlpsCoreRestApi.ApiClient, root.MatchmoreAlpsCoreRestApi.APIError, root.MatchmoreAlpsCoreRestApi.Subscription, root.MatchmoreAlpsCoreRestApi.Subscriptions);
+  }
+}(this, function(ApiClient, APIError, Subscription, Subscriptions) {
+  'use strict';
+
+  /**
+   * Subscription service.
+   * @module api/SubscriptionApi
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new SubscriptionApi. 
+   * @alias module:api/SubscriptionApi
+   * @class
+   * @param {module:ApiClient} [apiClient] Optional API client implementation to use,
+   * default to {@link module:ApiClient#instance} if unspecified.
+   */
+  var exports = function(apiClient) {
+    this.apiClient = apiClient || ApiClient.instance;
+
+
+    /**
+     * Callback function to receive the result of the createSubscription operation.
+     * @callback module:api/SubscriptionApi~createSubscriptionCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Subscription} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Create a subscription for a device
+     * @param {String} deviceId The id (UUID) of the device. 
+     * @param {module:model/Subscription} subscription Subscription to create on a device. 
+     * @param {module:api/SubscriptionApi~createSubscriptionCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Subscription}
+     */
+    this.createSubscription = function(deviceId, subscription, callback) {
+      var postBody = subscription;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling createSubscription");
+      }
+
+      // verify the required parameter 'subscription' is set
+      if (subscription === undefined || subscription === null) {
+        throw new Error("Missing the required parameter 'subscription' when calling createSubscription");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Subscription;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/subscriptions', 'POST',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the deleteSubscription operation.
+     * @callback module:api/SubscriptionApi~deleteSubscriptionCallback
+     * @param {String} error Error message, if any.
+     * @param data This operation does not return a value.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Delete a Subscription
+     * 
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {String} subscriptionId The id (UUID) of the subscription.
+     * @param {module:api/SubscriptionApi~deleteSubscriptionCallback} callback The callback function, accepting three arguments: error, data, response
+     */
+    this.deleteSubscription = function(deviceId, subscriptionId, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling deleteSubscription");
+      }
+
+      // verify the required parameter 'subscriptionId' is set
+      if (subscriptionId === undefined || subscriptionId === null) {
+        throw new Error("Missing the required parameter 'subscriptionId' when calling deleteSubscription");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId,
+        'subscriptionId': subscriptionId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = null;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/subscriptions/{subscriptionId}', 'DELETE',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the getSubscription operation.
+     * @callback module:api/SubscriptionApi~getSubscriptionCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Subscription} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Info about a subscription on a device
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {String} subscriptionId The id (UUID) of the subscription.
+     * @param {module:api/SubscriptionApi~getSubscriptionCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Subscription}
+     */
+    this.getSubscription = function(deviceId, subscriptionId, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling getSubscription");
+      }
+
+      // verify the required parameter 'subscriptionId' is set
+      if (subscriptionId === undefined || subscriptionId === null) {
+        throw new Error("Missing the required parameter 'subscriptionId' when calling getSubscription");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId,
+        'subscriptionId': subscriptionId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Subscription;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/subscriptions/{subscriptionId}', 'GET',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+
+    /**
+     * Callback function to receive the result of the getSubscriptions operation.
+     * @callback module:api/SubscriptionApi~getSubscriptionsCallback
+     * @param {String} error Error message, if any.
+     * @param {module:model/Subscriptions} data The data returned by the service call.
+     * @param {String} response The complete HTTP response.
+     */
+
+    /**
+     * Get all subscriptions for a device
+     * @param {String} deviceId The id (UUID) of the device.
+     * @param {module:api/SubscriptionApi~getSubscriptionsCallback} callback The callback function, accepting three arguments: error, data, response
+     * data is of type: {@link module:model/Subscriptions}
+     */
+    this.getSubscriptions = function(deviceId, callback) {
+      var postBody = null;
+
+      // verify the required parameter 'deviceId' is set
+      if (deviceId === undefined || deviceId === null) {
+        throw new Error("Missing the required parameter 'deviceId' when calling getSubscriptions");
+      }
+
+
+      var pathParams = {
+        'deviceId': deviceId
+      };
+      var queryParams = {
+      };
+      var collectionQueryParams = {
+      };
+      var headerParams = {
+      };
+      var formParams = {
+      };
+
+      var authNames = ['api-key'];
+      var contentTypes = ['application/json'];
+      var accepts = ['application/json'];
+      var returnType = Subscriptions;
+
+      return this.apiClient.callApi(
+        '/devices/{deviceId}/subscriptions', 'GET',
+        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
+        authNames, contentTypes, accepts, returnType, callback
+      );
+    }
+  };
+
+  return exports;
+}));
+
+},{"../ApiClient":15,"../model/APIError":22,"../model/Subscription":38,"../model/Subscriptions":39}],21:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/APIError', 'model/Device', 'model/DeviceType', 'model/DeviceUpdate', 'model/Devices', 'model/IBeaconTriple', 'model/IBeaconTriples', 'model/Location', 'model/Match', 'model/Matches', 'model/ProximityEvent', 'model/Publication', 'model/Publications', 'model/Subscription', 'model/Subscriptions', 'model/IBeaconDevice', 'model/MobileDevice', 'model/PinDevice', 'api/DeviceApi', 'api/LocationApi', 'api/MatchesApi', 'api/PublicationApi', 'api/SubscriptionApi'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('./ApiClient'), require('./model/APIError'), require('./model/Device'), require('./model/DeviceType'), require('./model/DeviceUpdate'), require('./model/Devices'), require('./model/IBeaconTriple'), require('./model/IBeaconTriples'), require('./model/Location'), require('./model/Match'), require('./model/Matches'), require('./model/ProximityEvent'), require('./model/Publication'), require('./model/Publications'), require('./model/Subscription'), require('./model/Subscriptions'), require('./model/IBeaconDevice'), require('./model/MobileDevice'), require('./model/PinDevice'), require('./api/DeviceApi'), require('./api/LocationApi'), require('./api/MatchesApi'), require('./api/PublicationApi'), require('./api/SubscriptionApi'));
+  }
+}(function(ApiClient, APIError, Device, DeviceType, DeviceUpdate, Devices, IBeaconTriple, IBeaconTriples, Location, Match, Matches, ProximityEvent, Publication, Publications, Subscription, Subscriptions, IBeaconDevice, MobileDevice, PinDevice, DeviceApi, LocationApi, MatchesApi, PublicationApi, SubscriptionApi) {
+  'use strict';
+
+  /**
+   * _ALPS_by__MATCHMORE_httpsmatchmore_ioThe_first_version_of_the_MATCHMORE_API_is_an_exciting_step_toallow_developers_use_a_context_aware_pubsub_cloud_service___A_lotof_mobile_applications_and_their_use_cases_may_be_modeled_usingthis_approach_and_can_therefore_profit_from_using_MATCHMORE_astheir_backend_service_Build_something_great_with__ALPS_by_MATCHMORE_httpsmatchmore_ioOnce_youve__registered_yourclient_httpsmatchmore_ioaccountregister_its_easystart_using_our_awesome_cloud_based_context_aware_pubsub_admitted_a_lot_of_buzzwords__RESTful_APIWe_do_our_best_to_have_all_our_URLs_be_RESTful_httpsen_wikipedia_orgwikiRepresentational_state_transfer_Every_endpoint__URL_may_support_one_of_four_different_http_verbs__GETrequests_fetch_information_about_an_object_POST_requests_create_objectsPUT_requests_update_objects_and_finally_DELETE_requests_will_deleteobjects__Domain_ModelThis_is_the_current_domain_model_extended_by_an_ontology_of_devicesand_separation_between_the_developer_portal_and_the_ALPS_Core______________________________________Developer______Application____________________________________________________________________________________Developer_Portal__________________________________________________________________________________________________________________________ALPS_Core_______________________________________________________World__________________________________________________________________________________________________________________________________________________________Publication_________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________Match_________________________Device______________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________________Subscription_____________________________________________________________________________________________________________________Pin_________iBeacon______Mobile_________________________________________________________________________________________________________________________________________________Location__________________________________________1___A_developer_is_a_mobile_application_developer_registered_in_the____developer_portal_and_allowed_to_use_the_ALPS_Developer_Portal___A____developer_might_register_one_or_more_applications_to_use_the____ALPS_Core_cloud_service___For_developerapplication_pair_a_new____world_is_created_in_the_ALPS_Core_and_assigned_an_API_key_to____enable_access_to_the_ALPS_Core_cloud_service_RESTful_API___During____the_registration_the_developer_needs_to_provide_additional____configuration_information_for_each_application_e_g__its_default____push_endpoint_URI_for_match_delivery_etc_2___A__device_tagdevice_might_be_either_virtual_like_a_pin_device_or____physical_like_a_mobile_device_or_iBeacon_device___A__pin____device_tagdevice_is_one_that_has_geographical__location_taglocation_associated_with_it____but_is_not_represented_by_any_object_in_the_physical_world_usually____its_location_doesnt_change_frequently_if_at_all___A__mobile____device_tagdevice_is_one_that_potentially_moves_together_with_its_user_and____therefore_has_a_geographical_location_associated_with_it___A_mobile____device_is_typically_a_location_aware_smartphone_which_knows_its____location_thanks_to_GPS_or_to_some_other_means_like_cell_tower____triangulation_etc___An__iBeacon_device_tagdevice_represents_an_Apple____conform__iBeacon_httpsdeveloper_apple_comibeacon_announcing_its_presence_via_Bluetooth_LE____advertising_packets_which_can_be_detected_by_a_other_mobile_device_____It_doesnt_necessary_has_any_location_associated_with_it_but_it____serves_to_detect_and_announce_its_proximity_to_other_mobile____devices_3___The_hardware_and_software_stack_running_on_a_given_device_is_known____as_its_platform___This_include_its_hardware_related_capabilities____its_operating_systems_as_well_as_the_set_of_libraries__APIs____offered_to_developers_in_order_to_program_it_4___A_devices_may_issue_publications_and_subscriptions____at_any_time_it_may_also_cancel_publications_and_subscriptions____issued_previously___Publications_and_subscriptions_do_have_a____definable_finite_duration_after_which_they_are_deleted_from_the____ALPS_Core_cloud_service_and_dont_participate_anymore_in_the____matching_process_5___A__publication_tagpublication_is_similar_to_a_Java_Messaging_Service__JMS____publication_extended_with_the_notion_of_a_geographical_zone___The____zone_is_defined_as_circle_with_a_center_at_the_given_location_and____a_range_around_that_location_6___A__subscription_tagsubscription_is_similar_to_a_JMS_subscription_extended_with_the____notion_of_geographical_zone__Again_the_zone_being_defined_as____circle_with_a_center_at_the_given_location_and_a_range_around____that_location_7___Publications_and_subscriptions_which_are_associated_with_a____mobile_device_e_g__users_mobile_phone_potentially_follow_the____movements_of_the_user_carrying_the_device_and_therefore_change____their_associated_location_8___A__match_tagmatch_between_a_publication_and_a_subscription_occurs_when_both____of_the_following_two_conditions_hold____1___There_is_a_context_match_occurs_when_for_instance_the________subscription_zone_overlaps_with_the_publication_zone_or_a________proximity_event_with_an_iBeacon_device_within_the_defined________range_occurred_____2___There_is_a_content_match_the_publication_and_the_subscription________match_with_respect_to_their_JMS_counterparts_i_e__they_were________issued_on_the_same_topic_and_have_compatible_properties_and_the________evaluation_of_the_selector_against_those_properties_returns_true________value_9___A_push_notification_is_an_asynchronous_mechanism_that_allows_an____application_to_receive_matches_for_a_subscription_on_hisher_device_____Such_a_mechanism_is_clearly_dependent_on_the_devices_platform_and____capabilities___In_order_to_use_push_notifications_an_application_must____first_register_a_device__and_possibly_an_application_on_that____device_with_the_ALPS_core_cloud_service_10__Whenever_a_match_between_a_publication_and_a_subscription____occurs_the_device_which_owns_the_subscription_receives_that_match____asynchronously_via_a_push_notification_if_there_exists_a____registered_push_endpoint___A_push_endpoint_is_an_URI_which_is____able_to_consume_the_matches_for_a_particular_device_and____subscription___The_push_endpoint_doesnt_necessary_point_to_a____mobile_device_but_is_rather_a_very_flexible_mechanism_to_define____where_the_matches_should_be_delivered_11__Matches_can_also_be_retrieved_by_issuing_a_API_call_for_a____particular_device_a_idorgae4fb18a_Device_Types______________________________________________Device________________________________________________id_________________________name_______________________group_______________________________________________________________________________________________________________________________________________________________________________Pin______iBeacon___________Mobile____________________________________________________________proximityUUID_____platform_________________major_____________token____________________minor____________________________________________________________________________________________________________________________________________________________________________________________Location________________________________________a_idorg68cc0d8a_Generic_Device____id____name____groupa_idorgc430925a_PinDevice____locationa_idorgecaed9fa_iBeaconDevice____proximityUUID____major____minora_idorg7b09b62a_MobileDevice____platform____deviceToken____location.<br>
+   * The <code>index</code> module provides access to constructors for all the classes which comprise the public API.
+   * <p>
+   * An AMD (recommended!) or CommonJS application will generally do something equivalent to the following:
+   * <pre>
+   * var MatchmoreAlpsCoreRestApi = require('index'); // See note below*.
+   * var xxxSvc = new MatchmoreAlpsCoreRestApi.XxxApi(); // Allocate the API class we're going to use.
+   * var yyyModel = new MatchmoreAlpsCoreRestApi.Yyy(); // Construct a model instance.
+   * yyyModel.someProperty = 'someValue';
+   * ...
+   * var zzz = xxxSvc.doSomething(yyyModel); // Invoke the service.
+   * ...
+   * </pre>
+   * <em>*NOTE: For a top-level AMD script, use require(['index'], function(){...})
+   * and put the application logic within the callback function.</em>
+   * </p>
+   * <p>
+   * A non-AMD browser application (discouraged) might do something like this:
+   * <pre>
+   * var xxxSvc = new MatchmoreAlpsCoreRestApi.XxxApi(); // Allocate the API class we're going to use.
+   * var yyy = new MatchmoreAlpsCoreRestApi.Yyy(); // Construct a model instance.
+   * yyyModel.someProperty = 'someValue';
+   * ...
+   * var zzz = xxxSvc.doSomething(yyyModel); // Invoke the service.
+   * ...
+   * </pre>
+   * </p>
+   * @module index
+   * @version 0.5.0
+   */
+  var exports = {
+    /**
+     * The ApiClient constructor.
+     * @property {module:ApiClient}
+     */
+    ApiClient: ApiClient,
+    /**
+     * The APIError model constructor.
+     * @property {module:model/APIError}
+     */
+    APIError: APIError,
+    /**
+     * The Device model constructor.
+     * @property {module:model/Device}
+     */
+    Device: Device,
+    /**
+     * The DeviceType model constructor.
+     * @property {module:model/DeviceType}
+     */
+    DeviceType: DeviceType,
+    /**
+     * The DeviceUpdate model constructor.
+     * @property {module:model/DeviceUpdate}
+     */
+    DeviceUpdate: DeviceUpdate,
+    /**
+     * The Devices model constructor.
+     * @property {module:model/Devices}
+     */
+    Devices: Devices,
+    /**
+     * The IBeaconTriple model constructor.
+     * @property {module:model/IBeaconTriple}
+     */
+    IBeaconTriple: IBeaconTriple,
+    /**
+     * The IBeaconTriples model constructor.
+     * @property {module:model/IBeaconTriples}
+     */
+    IBeaconTriples: IBeaconTriples,
+    /**
+     * The Location model constructor.
+     * @property {module:model/Location}
+     */
+    Location: Location,
+    /**
+     * The Match model constructor.
+     * @property {module:model/Match}
+     */
+    Match: Match,
+    /**
+     * The Matches model constructor.
+     * @property {module:model/Matches}
+     */
+    Matches: Matches,
+    /**
+     * The ProximityEvent model constructor.
+     * @property {module:model/ProximityEvent}
+     */
+    ProximityEvent: ProximityEvent,
+    /**
+     * The Publication model constructor.
+     * @property {module:model/Publication}
+     */
+    Publication: Publication,
+    /**
+     * The Publications model constructor.
+     * @property {module:model/Publications}
+     */
+    Publications: Publications,
+    /**
+     * The Subscription model constructor.
+     * @property {module:model/Subscription}
+     */
+    Subscription: Subscription,
+    /**
+     * The Subscriptions model constructor.
+     * @property {module:model/Subscriptions}
+     */
+    Subscriptions: Subscriptions,
+    /**
+     * The IBeaconDevice model constructor.
+     * @property {module:model/IBeaconDevice}
+     */
+    IBeaconDevice: IBeaconDevice,
+    /**
+     * The MobileDevice model constructor.
+     * @property {module:model/MobileDevice}
+     */
+    MobileDevice: MobileDevice,
+    /**
+     * The PinDevice model constructor.
+     * @property {module:model/PinDevice}
+     */
+    PinDevice: PinDevice,
+    /**
+     * The DeviceApi service constructor.
+     * @property {module:api/DeviceApi}
+     */
+    DeviceApi: DeviceApi,
+    /**
+     * The LocationApi service constructor.
+     * @property {module:api/LocationApi}
+     */
+    LocationApi: LocationApi,
+    /**
+     * The MatchesApi service constructor.
+     * @property {module:api/MatchesApi}
+     */
+    MatchesApi: MatchesApi,
+    /**
+     * The PublicationApi service constructor.
+     * @property {module:api/PublicationApi}
+     */
+    PublicationApi: PublicationApi,
+    /**
+     * The SubscriptionApi service constructor.
+     * @property {module:api/SubscriptionApi}
+     */
+    SubscriptionApi: SubscriptionApi
+  };
+
+  return exports;
+}));
+
+},{"./ApiClient":15,"./api/DeviceApi":16,"./api/LocationApi":17,"./api/MatchesApi":18,"./api/PublicationApi":19,"./api/SubscriptionApi":20,"./model/APIError":22,"./model/Device":23,"./model/DeviceType":24,"./model/DeviceUpdate":25,"./model/Devices":26,"./model/IBeaconDevice":27,"./model/IBeaconTriple":28,"./model/IBeaconTriples":29,"./model/Location":30,"./model/Match":31,"./model/Matches":32,"./model/MobileDevice":33,"./model/PinDevice":34,"./model/ProximityEvent":35,"./model/Publication":36,"./model/Publications":37,"./model/Subscription":38,"./model/Subscriptions":39}],22:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.APIError = factory(root.MatchmoreAlpsCoreRestApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+
+
+  /**
+   * The APIError model module.
+   * @module model/APIError
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new <code>APIError</code>.
+   * @alias module:model/APIError
+   * @class
+   * @param code {Number} 
+   * @param message {String} 
+   */
+  var exports = function(code, message) {
+    var _this = this;
+
+    _this['code'] = code;
+    _this['message'] = message;
+  };
+
+  /**
+   * Constructs a <code>APIError</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/APIError} obj Optional instance to populate.
+   * @return {module:model/APIError} The populated <code>APIError</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('code')) {
+        obj['code'] = ApiClient.convertToType(data['code'], 'Number');
+      }
+      if (data.hasOwnProperty('message')) {
+        obj['message'] = ApiClient.convertToType(data['message'], 'String');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * @member {Number} code
+   */
+  exports.prototype['code'] = undefined;
+  /**
+   * @member {String} message
+   */
+  exports.prototype['message'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":15}],23:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/DeviceType'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./DeviceType'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.Device = factory(root.MatchmoreAlpsCoreRestApi.ApiClient, root.MatchmoreAlpsCoreRestApi.DeviceType);
+  }
+}(this, function(ApiClient, DeviceType) {
+  'use strict';
+
+
+
+
+  /**
+   * The Device model module.
+   * @module model/Device
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new <code>Device</code>.
+   * A device might be either virtual like a pin device or physical like a mobile phone or iBeacon device. 
+   * @alias module:model/Device
+   * @class
+   * @param deviceType {module:model/DeviceType} 
+   */
+  var exports = function(deviceType) {
+    var _this = this;
+
+
+
+
+
+
+    _this['deviceType'] = deviceType;
+  };
+
+  /**
+   * Constructs a <code>Device</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/Device} obj Optional instance to populate.
+   * @return {module:model/Device} The populated <code>Device</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('id')) {
+        obj['id'] = ApiClient.convertToType(data['id'], 'String');
+      }
+      if (data.hasOwnProperty('createdAt')) {
+        obj['createdAt'] = ApiClient.convertToType(data['createdAt'], 'Number');
+      }
+      if (data.hasOwnProperty('updatedAt')) {
+        obj['updatedAt'] = ApiClient.convertToType(data['updatedAt'], 'Number');
+      }
+      if (data.hasOwnProperty('group')) {
+        obj['group'] = ApiClient.convertToType(data['group'], ['String']);
+      }
+      if (data.hasOwnProperty('name')) {
+        obj['name'] = ApiClient.convertToType(data['name'], 'String');
+      }
+      if (data.hasOwnProperty('deviceType')) {
+        obj['deviceType'] = DeviceType.constructFromObject(data['deviceType']);
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * The id (UUID) of the device.
+   * @member {String} id
+   */
+  exports.prototype['id'] = undefined;
+  /**
+   * The timestamp of the device's creation in seconds since Jan 01 1970 (UTC). 
+   * @member {Number} createdAt
+   */
+  exports.prototype['createdAt'] = undefined;
+  /**
+   * The timestamp of the device's creation in seconds since Jan 01 1970 (UTC). 
+   * @member {Number} updatedAt
+   */
+  exports.prototype['updatedAt'] = undefined;
+  /**
+   * Optional device groups, one device can belong to multiple groups, grops are string that can be max 25 characters long and contains letters numbers or underscores
+   * @member {Array.<String>} group
+   */
+  exports.prototype['group'] = undefined;
+  /**
+   * The name of the device.
+   * @member {String} name
+   * @default ''
+   */
+  exports.prototype['name'] = '';
+  /**
+   * @member {module:model/DeviceType} deviceType
+   */
+  exports.prototype['deviceType'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":15,"./DeviceType":24}],24:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.DeviceType = factory(root.MatchmoreAlpsCoreRestApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+  /**
+   * Enum class DeviceType.
+   * @enum {}
+   * @readonly
+   */
+  var exports = {
+    /**
+     * value: "MobileDevice"
+     * @const
+     */
+    "MobileDevice": "MobileDevice",
+    /**
+     * value: "PinDevice"
+     * @const
+     */
+    "PinDevice": "PinDevice",
+    /**
+     * value: "IBeaconDevice"
+     * @const
+     */
+    "IBeaconDevice": "IBeaconDevice"  };
+
+  /**
+   * Returns a <code>DeviceType</code> enum value from a Javascript object name.
+   * @param {Object} data The plain JavaScript object containing the name of the enum value.
+   * @return {module:model/DeviceType} The enum <code>DeviceType</code> value.
+   */
+  exports.constructFromObject = function(object) {
+    return object;
+  }
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":15}],25:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.DeviceUpdate = factory(root.MatchmoreAlpsCoreRestApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+
+
+  /**
+   * The DeviceUpdate model module.
+   * @module model/DeviceUpdate
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new <code>DeviceUpdate</code>.
+   * Describes update of device, it allows to change name of device and device token (only in case of mobile devices)
+   * @alias module:model/DeviceUpdate
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+  };
+
+  /**
+   * Constructs a <code>DeviceUpdate</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/DeviceUpdate} obj Optional instance to populate.
+   * @return {module:model/DeviceUpdate} The populated <code>DeviceUpdate</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('name')) {
+        obj['name'] = ApiClient.convertToType(data['name'], 'String');
+      }
+      if (data.hasOwnProperty('deviceToken')) {
+        obj['deviceToken'] = ApiClient.convertToType(data['deviceToken'], 'String');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * New device name (optional)
+   * @member {String} name
+   */
+  exports.prototype['name'] = undefined;
+  /**
+   * Token used for pushing matches. The token needs to be prefixed with `apns://` or `fcm://` dependent on the device or channel the match should be pushed with
+   * @member {String} deviceToken
+   */
+  exports.prototype['deviceToken'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":15}],26:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/Device'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./Device'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.Devices = factory(root.MatchmoreAlpsCoreRestApi.ApiClient, root.MatchmoreAlpsCoreRestApi.Device);
+  }
+}(this, function(ApiClient, Device) {
+  'use strict';
+
+
+
+
+  /**
+   * The Devices model module.
+   * @module model/Devices
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new <code>Devices</code>.
+   * @alias module:model/Devices
+   * @class
+   * @extends Array
+   */
+  var exports = function() {
+    var _this = this;
+    _this = new Array();
+    Object.setPrototypeOf(_this, exports);
+
+    return _this;
+  };
+
+  /**
+   * Constructs a <code>Devices</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/Devices} obj Optional instance to populate.
+   * @return {module:model/Devices} The populated <code>Devices</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+      ApiClient.constructFromObject(data, obj, 'Device');
+
+    }
+    return obj;
+  }
+
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":15,"./Device":23}],27:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/Device', 'model/DeviceType'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./Device'), require('./DeviceType'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.IBeaconDevice = factory(root.MatchmoreAlpsCoreRestApi.ApiClient, root.MatchmoreAlpsCoreRestApi.Device, root.MatchmoreAlpsCoreRestApi.DeviceType);
+  }
+}(this, function(ApiClient, Device, DeviceType) {
+  'use strict';
+
+
+
+
+  /**
+   * The IBeaconDevice model module.
+   * @module model/IBeaconDevice
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new <code>IBeaconDevice</code>.
+   * An iBeacon device represents an Apple conform iBeacon announcing its presence via Bluetooth advertising packets. 
+   * @alias module:model/IBeaconDevice
+   * @class
+   * @extends module:model/Device
+   * @param deviceType {module:model/DeviceType} 
+   * @param proximityUUID {String} The UUID of the beacon, the purpose is to distinguish iBeacons in your network, from all other beacons in networks outside your control. 
+   * @param major {Number} Major values are intended to identify and distinguish a group. 
+   * @param minor {Number} Minor values are intended to identify and distinguish an individual. 
+   */
+  var exports = function(deviceType, proximityUUID, major, minor) {
+    var _this = this;
+    Device.call(_this, deviceType);
+    _this['proximityUUID'] = proximityUUID;
+    _this['major'] = major;
+    _this['minor'] = minor;
+  };
+
+  /**
+   * Constructs a <code>IBeaconDevice</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/IBeaconDevice} obj Optional instance to populate.
+   * @return {module:model/IBeaconDevice} The populated <code>IBeaconDevice</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+      Device.constructFromObject(data, obj);
+      if (data.hasOwnProperty('proximityUUID')) {
+        obj['proximityUUID'] = ApiClient.convertToType(data['proximityUUID'], 'String');
+      }
+      if (data.hasOwnProperty('major')) {
+        obj['major'] = ApiClient.convertToType(data['major'], 'Number');
+      }
+      if (data.hasOwnProperty('minor')) {
+        obj['minor'] = ApiClient.convertToType(data['minor'], 'Number');
+      }
+    }
+    return obj;
+  }
+
+  exports.prototype = Object.create(Device.prototype);
+  exports.prototype.constructor = exports;
+
+  /**
+   * The UUID of the beacon, the purpose is to distinguish iBeacons in your network, from all other beacons in networks outside your control. 
+   * @member {String} proximityUUID
+   */
+  exports.prototype['proximityUUID'] = undefined;
+  /**
+   * Major values are intended to identify and distinguish a group. 
+   * @member {Number} major
+   */
+  exports.prototype['major'] = undefined;
+  /**
+   * Minor values are intended to identify and distinguish an individual. 
+   * @member {Number} minor
+   */
+  exports.prototype['minor'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":15,"./Device":23,"./DeviceType":24}],28:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.IBeaconTriple = factory(root.MatchmoreAlpsCoreRestApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+
+
+  /**
+   * The IBeaconTriple model module.
+   * @module model/IBeaconTriple
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new <code>IBeaconTriple</code>.
+   * @alias module:model/IBeaconTriple
+   * @class
+   */
+  var exports = function() {
+    var _this = this;
+
+
+
+
+
+  };
+
+  /**
+   * Constructs a <code>IBeaconTriple</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/IBeaconTriple} obj Optional instance to populate.
+   * @return {module:model/IBeaconTriple} The populated <code>IBeaconTriple</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('deviceId')) {
+        obj['deviceId'] = ApiClient.convertToType(data['deviceId'], 'String');
+      }
+      if (data.hasOwnProperty('proximityUUID')) {
+        obj['proximityUUID'] = ApiClient.convertToType(data['proximityUUID'], 'String');
+      }
+      if (data.hasOwnProperty('major')) {
+        obj['major'] = ApiClient.convertToType(data['major'], 'Number');
+      }
+      if (data.hasOwnProperty('minor')) {
+        obj['minor'] = ApiClient.convertToType(data['minor'], 'Number');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * The deviceId of the beacon. 
+   * @member {String} deviceId
+   */
+  exports.prototype['deviceId'] = undefined;
+  /**
+   * The UUID of the beacon, the purpose is to distinguish iBeacons in your network, from all other beacons in networks outside your control. 
+   * @member {String} proximityUUID
+   */
+  exports.prototype['proximityUUID'] = undefined;
+  /**
+   * Major values are intended to identify and distinguish a group. 
+   * @member {Number} major
+   */
+  exports.prototype['major'] = undefined;
+  /**
+   * Minor values are intended to identify and distinguish an individual. 
+   * @member {Number} minor
+   */
+  exports.prototype['minor'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":15}],29:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/IBeaconTriple'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./IBeaconTriple'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.IBeaconTriples = factory(root.MatchmoreAlpsCoreRestApi.ApiClient, root.MatchmoreAlpsCoreRestApi.IBeaconTriple);
+  }
+}(this, function(ApiClient, IBeaconTriple) {
+  'use strict';
+
+
+
+
+  /**
+   * The IBeaconTriples model module.
+   * @module model/IBeaconTriples
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new <code>IBeaconTriples</code>.
+   * @alias module:model/IBeaconTriples
+   * @class
+   * @extends Array
+   */
+  var exports = function() {
+    var _this = this;
+    _this = new Array();
+    Object.setPrototypeOf(_this, exports);
+
+    return _this;
+  };
+
+  /**
+   * Constructs a <code>IBeaconTriples</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/IBeaconTriples} obj Optional instance to populate.
+   * @return {module:model/IBeaconTriples} The populated <code>IBeaconTriples</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+      ApiClient.constructFromObject(data, obj, 'IBeaconTriple');
+
+    }
+    return obj;
+  }
+
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":15,"./IBeaconTriple":28}],30:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.Location = factory(root.MatchmoreAlpsCoreRestApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+
+
+  /**
+   * The Location model module.
+   * @module model/Location
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new <code>Location</code>.
+   * @alias module:model/Location
+   * @class
+   * @param latitude {Number} The latitude of the device in degrees, for instance '46.5333' (Lausanne, Switzerland). 
+   * @param longitude {Number} The longitude of the device in degrees, for instance '6.6667' (Lausanne, Switzerland). 
+   * @param altitude {Number} The altitude of the device in meters, for instance '495.0' (Lausanne, Switzerland). 
+   */
+  var exports = function(latitude, longitude, altitude) {
+    var _this = this;
+
+
+    _this['latitude'] = latitude;
+    _this['longitude'] = longitude;
+    _this['altitude'] = altitude;
+
+
+  };
+
+  /**
+   * Constructs a <code>Location</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/Location} obj Optional instance to populate.
+   * @return {module:model/Location} The populated <code>Location</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('createdAt')) {
+        obj['createdAt'] = ApiClient.convertToType(data['createdAt'], 'Number');
+      }
+      if (data.hasOwnProperty('latitude')) {
+        obj['latitude'] = ApiClient.convertToType(data['latitude'], 'Number');
+      }
+      if (data.hasOwnProperty('longitude')) {
+        obj['longitude'] = ApiClient.convertToType(data['longitude'], 'Number');
+      }
+      if (data.hasOwnProperty('altitude')) {
+        obj['altitude'] = ApiClient.convertToType(data['altitude'], 'Number');
+      }
+      if (data.hasOwnProperty('horizontalAccuracy')) {
+        obj['horizontalAccuracy'] = ApiClient.convertToType(data['horizontalAccuracy'], 'Number');
+      }
+      if (data.hasOwnProperty('verticalAccuracy')) {
+        obj['verticalAccuracy'] = ApiClient.convertToType(data['verticalAccuracy'], 'Number');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * The timestamp of the location creation in seconds since Jan 01 1970 (UTC). 
+   * @member {Number} createdAt
+   */
+  exports.prototype['createdAt'] = undefined;
+  /**
+   * The latitude of the device in degrees, for instance '46.5333' (Lausanne, Switzerland). 
+   * @member {Number} latitude
+   * @default 0.0
+   */
+  exports.prototype['latitude'] = 0.0;
+  /**
+   * The longitude of the device in degrees, for instance '6.6667' (Lausanne, Switzerland). 
+   * @member {Number} longitude
+   * @default 0.0
+   */
+  exports.prototype['longitude'] = 0.0;
+  /**
+   * The altitude of the device in meters, for instance '495.0' (Lausanne, Switzerland). 
+   * @member {Number} altitude
+   * @default 0.0
+   */
+  exports.prototype['altitude'] = 0.0;
+  /**
+   * The horizontal accuracy of the location, measured on a scale from '0.0' to '1.0', '1.0' being the most accurate. If this value is not specified then the default value of '1.0' is used. 
+   * @member {Number} horizontalAccuracy
+   * @default 1.0
+   */
+  exports.prototype['horizontalAccuracy'] = 1.0;
+  /**
+   * The vertical accuracy of the location, measured on a scale from '0.0' to '1.0', '1.0' being the most accurate. If this value is not specified then the default value of '1.0' is used. 
+   * @member {Number} verticalAccuracy
+   * @default 1.0
+   */
+  exports.prototype['verticalAccuracy'] = 1.0;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":15}],31:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/Publication', 'model/Subscription'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./Publication'), require('./Subscription'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.Match = factory(root.MatchmoreAlpsCoreRestApi.ApiClient, root.MatchmoreAlpsCoreRestApi.Publication, root.MatchmoreAlpsCoreRestApi.Subscription);
+  }
+}(this, function(ApiClient, Publication, Subscription) {
+  'use strict';
+
+
+
+
+  /**
+   * The Match model module.
+   * @module model/Match
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new <code>Match</code>.
+   * An object representing a match between a subscription and a publication.
+   * @alias module:model/Match
+   * @class
+   * @param publication {module:model/Publication} 
+   * @param subscription {module:model/Subscription} 
+   */
+  var exports = function(publication, subscription) {
+    var _this = this;
+
+
+
+    _this['publication'] = publication;
+    _this['subscription'] = subscription;
+  };
+
+  /**
+   * Constructs a <code>Match</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/Match} obj Optional instance to populate.
+   * @return {module:model/Match} The populated <code>Match</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('id')) {
+        obj['id'] = ApiClient.convertToType(data['id'], 'String');
+      }
+      if (data.hasOwnProperty('createdAt')) {
+        obj['createdAt'] = ApiClient.convertToType(data['createdAt'], 'Number');
+      }
+      if (data.hasOwnProperty('publication')) {
+        obj['publication'] = Publication.constructFromObject(data['publication']);
+      }
+      if (data.hasOwnProperty('subscription')) {
+        obj['subscription'] = Subscription.constructFromObject(data['subscription']);
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * The id (UUID) of the match.
+   * @member {String} id
+   */
+  exports.prototype['id'] = undefined;
+  /**
+   * The timestamp of the match in seconds since Jan 01 1970 (UTC).
+   * @member {Number} createdAt
+   */
+  exports.prototype['createdAt'] = undefined;
+  /**
+   * @member {module:model/Publication} publication
+   */
+  exports.prototype['publication'] = undefined;
+  /**
+   * @member {module:model/Subscription} subscription
+   */
+  exports.prototype['subscription'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":15,"./Publication":36,"./Subscription":38}],32:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/Match'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./Match'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.Matches = factory(root.MatchmoreAlpsCoreRestApi.ApiClient, root.MatchmoreAlpsCoreRestApi.Match);
+  }
+}(this, function(ApiClient, Match) {
+  'use strict';
+
+
+
+
+  /**
+   * The Matches model module.
+   * @module model/Matches
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new <code>Matches</code>.
+   * @alias module:model/Matches
+   * @class
+   * @extends Array
+   */
+  var exports = function() {
+    var _this = this;
+    _this = new Array();
+    Object.setPrototypeOf(_this, exports);
+
+    return _this;
+  };
+
+  /**
+   * Constructs a <code>Matches</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/Matches} obj Optional instance to populate.
+   * @return {module:model/Matches} The populated <code>Matches</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+      ApiClient.constructFromObject(data, obj, 'Match');
+
+    }
+    return obj;
+  }
+
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":15,"./Match":31}],33:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/Device', 'model/DeviceType', 'model/Location'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./Device'), require('./DeviceType'), require('./Location'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.MobileDevice = factory(root.MatchmoreAlpsCoreRestApi.ApiClient, root.MatchmoreAlpsCoreRestApi.Device, root.MatchmoreAlpsCoreRestApi.DeviceType, root.MatchmoreAlpsCoreRestApi.Location);
+  }
+}(this, function(ApiClient, Device, DeviceType, Location) {
+  'use strict';
+
+
+
+
+  /**
+   * The MobileDevice model module.
+   * @module model/MobileDevice
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new <code>MobileDevice</code>.
+   * A mobile device is one that potentially moves together with its user and therefore has a geographical location associated with it. 
+   * @alias module:model/MobileDevice
+   * @class
+   * @extends module:model/Device
+   * @param deviceType {module:model/DeviceType} 
+   * @param platform {String} The platform of the device, this can be any string representing the platform type, for instance 'iOS'. 
+   * @param deviceToken {String} The deviceToken is the device push notification token given to this device by the OS, either iOS or Android for identifying the device with push notification services. 
+   * @param location {module:model/Location} 
+   */
+  var exports = function(deviceType, platform, deviceToken, location) {
+    var _this = this;
+    Device.call(_this, deviceType);
+    _this['platform'] = platform;
+    _this['deviceToken'] = deviceToken;
+    _this['location'] = location;
+  };
+
+  /**
+   * Constructs a <code>MobileDevice</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/MobileDevice} obj Optional instance to populate.
+   * @return {module:model/MobileDevice} The populated <code>MobileDevice</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+      Device.constructFromObject(data, obj);
+      if (data.hasOwnProperty('platform')) {
+        obj['platform'] = ApiClient.convertToType(data['platform'], 'String');
+      }
+      if (data.hasOwnProperty('deviceToken')) {
+        obj['deviceToken'] = ApiClient.convertToType(data['deviceToken'], 'String');
+      }
+      if (data.hasOwnProperty('location')) {
+        obj['location'] = Location.constructFromObject(data['location']);
+      }
+    }
+    return obj;
+  }
+
+  exports.prototype = Object.create(Device.prototype);
+  exports.prototype.constructor = exports;
+
+  /**
+   * The platform of the device, this can be any string representing the platform type, for instance 'iOS'. 
+   * @member {String} platform
+   */
+  exports.prototype['platform'] = undefined;
+  /**
+   * The deviceToken is the device push notification token given to this device by the OS, either iOS or Android for identifying the device with push notification services. 
+   * @member {String} deviceToken
+   */
+  exports.prototype['deviceToken'] = undefined;
+  /**
+   * @member {module:model/Location} location
+   */
+  exports.prototype['location'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":15,"./Device":23,"./DeviceType":24,"./Location":30}],34:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/Device', 'model/DeviceType', 'model/Location'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./Device'), require('./DeviceType'), require('./Location'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.PinDevice = factory(root.MatchmoreAlpsCoreRestApi.ApiClient, root.MatchmoreAlpsCoreRestApi.Device, root.MatchmoreAlpsCoreRestApi.DeviceType, root.MatchmoreAlpsCoreRestApi.Location);
+  }
+}(this, function(ApiClient, Device, DeviceType, Location) {
+  'use strict';
+
+
+
+
+  /**
+   * The PinDevice model module.
+   * @module model/PinDevice
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new <code>PinDevice</code>.
+   * A pin device is one that has geographical location associated with it but is not represented by any object in the physical world. 
+   * @alias module:model/PinDevice
+   * @class
+   * @extends module:model/Device
+   * @param deviceType {module:model/DeviceType} 
+   * @param location {module:model/Location} 
+   */
+  var exports = function(deviceType, location) {
+    var _this = this;
+    Device.call(_this, deviceType);
+    _this['location'] = location;
+  };
+
+  /**
+   * Constructs a <code>PinDevice</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/PinDevice} obj Optional instance to populate.
+   * @return {module:model/PinDevice} The populated <code>PinDevice</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+      Device.constructFromObject(data, obj);
+      if (data.hasOwnProperty('location')) {
+        obj['location'] = Location.constructFromObject(data['location']);
+      }
+    }
+    return obj;
+  }
+
+  exports.prototype = Object.create(Device.prototype);
+  exports.prototype.constructor = exports;
+
+  /**
+   * @member {module:model/Location} location
+   */
+  exports.prototype['location'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":15,"./Device":23,"./DeviceType":24,"./Location":30}],35:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.ProximityEvent = factory(root.MatchmoreAlpsCoreRestApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+
+
+  /**
+   * The ProximityEvent model module.
+   * @module model/ProximityEvent
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new <code>ProximityEvent</code>.
+   * A proximity event is triggered to the core when a mobile device detects an iBeacon device in his Bluetooth Low Energy(BLE) range. 
+   * @alias module:model/ProximityEvent
+   * @class
+   * @param deviceId {String} The id (UUID) of the iBeacon to trigger a proximity event to.
+   * @param distance {Number} Distance between the mobile device that trigger the proximity event and the ranged iBeacon. This distance is automatically generated by the SDK based upon the CLProximity. 
+   */
+  var exports = function(deviceId, distance) {
+    var _this = this;
+
+
+
+    _this['deviceId'] = deviceId;
+    _this['distance'] = distance;
+  };
+
+  /**
+   * Constructs a <code>ProximityEvent</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/ProximityEvent} obj Optional instance to populate.
+   * @return {module:model/ProximityEvent} The populated <code>ProximityEvent</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('id')) {
+        obj['id'] = ApiClient.convertToType(data['id'], 'String');
+      }
+      if (data.hasOwnProperty('createdAt')) {
+        obj['createdAt'] = ApiClient.convertToType(data['createdAt'], 'Number');
+      }
+      if (data.hasOwnProperty('deviceId')) {
+        obj['deviceId'] = ApiClient.convertToType(data['deviceId'], 'String');
+      }
+      if (data.hasOwnProperty('distance')) {
+        obj['distance'] = ApiClient.convertToType(data['distance'], 'Number');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * The id (UUID) of the proximity event.
+   * @member {String} id
+   */
+  exports.prototype['id'] = undefined;
+  /**
+   * The timestamp of the proximity event in seconds since Jan 01 1970 (UTC). 
+   * @member {Number} createdAt
+   */
+  exports.prototype['createdAt'] = undefined;
+  /**
+   * The id (UUID) of the iBeacon to trigger a proximity event to.
+   * @member {String} deviceId
+   */
+  exports.prototype['deviceId'] = undefined;
+  /**
+   * Distance between the mobile device that trigger the proximity event and the ranged iBeacon. This distance is automatically generated by the SDK based upon the CLProximity. 
+   * @member {Number} distance
+   */
+  exports.prototype['distance'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":15}],36:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.Publication = factory(root.MatchmoreAlpsCoreRestApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+
+
+  /**
+   * The Publication model module.
+   * @module model/Publication
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new <code>Publication</code>.
+   * A publication can be seen as a JavaMessagingService (JMS) publication extended with the notion of a geographical zone. The zone is defined as circle with a center at the given location and a range around that location. 
+   * @alias module:model/Publication
+   * @class
+   * @param worldId {String} The id (UUID) of the world that contains device to attach a publication to.
+   * @param deviceId {String} The id (UUID) of the device to attach a publication to.
+   * @param topic {String} The topic of the publication. This will act as a first match filter. For a subscription to be able to match a publication they must have the exact same topic. 
+   * @param range {Number} The range of the publication in meters. This is the range around the device holding the publication in which matches with subscriptions can be triggered. 
+   * @param duration {Number} The duration of the publication in seconds. If set to '0' it will be instant at the time of publication. Negative values are not allowed. 
+   * @param properties {Object} The dictionary of key, value pairs. Allowed values are number, boolean, string and array of afformentioned types
+   */
+  var exports = function(worldId, deviceId, topic, range, duration, properties) {
+    var _this = this;
+
+
+
+    _this['worldId'] = worldId;
+    _this['deviceId'] = deviceId;
+    _this['topic'] = topic;
+    _this['range'] = range;
+    _this['duration'] = duration;
+    _this['properties'] = properties;
+  };
+
+  /**
+   * Constructs a <code>Publication</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/Publication} obj Optional instance to populate.
+   * @return {module:model/Publication} The populated <code>Publication</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('id')) {
+        obj['id'] = ApiClient.convertToType(data['id'], 'String');
+      }
+      if (data.hasOwnProperty('createdAt')) {
+        obj['createdAt'] = ApiClient.convertToType(data['createdAt'], 'Number');
+      }
+      if (data.hasOwnProperty('worldId')) {
+        obj['worldId'] = ApiClient.convertToType(data['worldId'], 'String');
+      }
+      if (data.hasOwnProperty('deviceId')) {
+        obj['deviceId'] = ApiClient.convertToType(data['deviceId'], 'String');
+      }
+      if (data.hasOwnProperty('topic')) {
+        obj['topic'] = ApiClient.convertToType(data['topic'], 'String');
+      }
+      if (data.hasOwnProperty('range')) {
+        obj['range'] = ApiClient.convertToType(data['range'], 'Number');
+      }
+      if (data.hasOwnProperty('duration')) {
+        obj['duration'] = ApiClient.convertToType(data['duration'], 'Number');
+      }
+      if (data.hasOwnProperty('properties')) {
+        obj['properties'] = ApiClient.convertToType(data['properties'], Object);
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * The id (UUID) of the publication.
+   * @member {String} id
+   */
+  exports.prototype['id'] = undefined;
+  /**
+   * The timestamp of the publication creation in seconds since Jan 01 1970 (UTC). 
+   * @member {Number} createdAt
+   */
+  exports.prototype['createdAt'] = undefined;
+  /**
+   * The id (UUID) of the world that contains device to attach a publication to.
+   * @member {String} worldId
+   */
+  exports.prototype['worldId'] = undefined;
+  /**
+   * The id (UUID) of the device to attach a publication to.
+   * @member {String} deviceId
+   */
+  exports.prototype['deviceId'] = undefined;
+  /**
+   * The topic of the publication. This will act as a first match filter. For a subscription to be able to match a publication they must have the exact same topic. 
+   * @member {String} topic
+   */
+  exports.prototype['topic'] = undefined;
+  /**
+   * The range of the publication in meters. This is the range around the device holding the publication in which matches with subscriptions can be triggered. 
+   * @member {Number} range
+   */
+  exports.prototype['range'] = undefined;
+  /**
+   * The duration of the publication in seconds. If set to '0' it will be instant at the time of publication. Negative values are not allowed. 
+   * @member {Number} duration
+   */
+  exports.prototype['duration'] = undefined;
+  /**
+   * The dictionary of key, value pairs. Allowed values are number, boolean, string and array of afformentioned types
+   * @member {Object} properties
+   */
+  exports.prototype['properties'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":15}],37:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/Publication'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./Publication'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.Publications = factory(root.MatchmoreAlpsCoreRestApi.ApiClient, root.MatchmoreAlpsCoreRestApi.Publication);
+  }
+}(this, function(ApiClient, Publication) {
+  'use strict';
+
+
+
+
+  /**
+   * The Publications model module.
+   * @module model/Publications
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new <code>Publications</code>.
+   * @alias module:model/Publications
+   * @class
+   * @extends Array
+   */
+  var exports = function() {
+    var _this = this;
+    _this = new Array();
+    Object.setPrototypeOf(_this, exports);
+
+    return _this;
+  };
+
+  /**
+   * Constructs a <code>Publications</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/Publications} obj Optional instance to populate.
+   * @return {module:model/Publications} The populated <code>Publications</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+      ApiClient.constructFromObject(data, obj, 'Publication');
+
+    }
+    return obj;
+  }
+
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":15,"./Publication":36}],38:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.Subscription = factory(root.MatchmoreAlpsCoreRestApi.ApiClient);
+  }
+}(this, function(ApiClient) {
+  'use strict';
+
+
+
+
+  /**
+   * The Subscription model module.
+   * @module model/Subscription
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new <code>Subscription</code>.
+   * A subscription can be seen as a JMS subscription extended with the notion of geographical zone. The zone again being defined as circle with a center at the given location and a range around that location. 
+   * @alias module:model/Subscription
+   * @class
+   * @param worldId {String} The id (UUID) of the world that contains device to attach a subscription to.
+   * @param deviceId {String} The id (UUID) of the device to attach a subscription to.
+   * @param topic {String} The topic of the subscription. This will act as a first match filter. For a subscription to be able to match a publication they must have the exact same topic. 
+   * @param selector {String} This is an expression to filter the publications. For instance 'job='developer'' will allow matching only with publications containing a 'job' key with a value of 'developer'. 
+   * @param range {Number} The range of the subscription in meters. This is the range around the device holding the subscription in which matches with publications can be triggered. 
+   * @param duration {Number} The duration of the subscription in seconds. If set to '0' it will be instant at the time of subscription. Negative values are not allowed. 
+   */
+  var exports = function(worldId, deviceId, topic, selector, range, duration) {
+    var _this = this;
+
+
+
+    _this['worldId'] = worldId;
+    _this['deviceId'] = deviceId;
+    _this['topic'] = topic;
+    _this['selector'] = selector;
+    _this['range'] = range;
+    _this['duration'] = duration;
+
+
+  };
+
+  /**
+   * Constructs a <code>Subscription</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/Subscription} obj Optional instance to populate.
+   * @return {module:model/Subscription} The populated <code>Subscription</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('id')) {
+        obj['id'] = ApiClient.convertToType(data['id'], 'String');
+      }
+      if (data.hasOwnProperty('createdAt')) {
+        obj['createdAt'] = ApiClient.convertToType(data['createdAt'], 'Number');
+      }
+      if (data.hasOwnProperty('worldId')) {
+        obj['worldId'] = ApiClient.convertToType(data['worldId'], 'String');
+      }
+      if (data.hasOwnProperty('deviceId')) {
+        obj['deviceId'] = ApiClient.convertToType(data['deviceId'], 'String');
+      }
+      if (data.hasOwnProperty('topic')) {
+        obj['topic'] = ApiClient.convertToType(data['topic'], 'String');
+      }
+      if (data.hasOwnProperty('selector')) {
+        obj['selector'] = ApiClient.convertToType(data['selector'], 'String');
+      }
+      if (data.hasOwnProperty('range')) {
+        obj['range'] = ApiClient.convertToType(data['range'], 'Number');
+      }
+      if (data.hasOwnProperty('duration')) {
+        obj['duration'] = ApiClient.convertToType(data['duration'], 'Number');
+      }
+      if (data.hasOwnProperty('matchTTL')) {
+        obj['matchTTL'] = ApiClient.convertToType(data['matchTTL'], 'Number');
+      }
+      if (data.hasOwnProperty('pushers')) {
+        obj['pushers'] = ApiClient.convertToType(data['pushers'], ['String']);
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * The id (UUID) of the subscription.
+   * @member {String} id
+   */
+  exports.prototype['id'] = undefined;
+  /**
+   * The timestamp of the subscription creation in seconds since Jan 01 1970 (UTC). 
+   * @member {Number} createdAt
+   */
+  exports.prototype['createdAt'] = undefined;
+  /**
+   * The id (UUID) of the world that contains device to attach a subscription to.
+   * @member {String} worldId
+   */
+  exports.prototype['worldId'] = undefined;
+  /**
+   * The id (UUID) of the device to attach a subscription to.
+   * @member {String} deviceId
+   */
+  exports.prototype['deviceId'] = undefined;
+  /**
+   * The topic of the subscription. This will act as a first match filter. For a subscription to be able to match a publication they must have the exact same topic. 
+   * @member {String} topic
+   */
+  exports.prototype['topic'] = undefined;
+  /**
+   * This is an expression to filter the publications. For instance 'job='developer'' will allow matching only with publications containing a 'job' key with a value of 'developer'. 
+   * @member {String} selector
+   */
+  exports.prototype['selector'] = undefined;
+  /**
+   * The range of the subscription in meters. This is the range around the device holding the subscription in which matches with publications can be triggered. 
+   * @member {Number} range
+   */
+  exports.prototype['range'] = undefined;
+  /**
+   * The duration of the subscription in seconds. If set to '0' it will be instant at the time of subscription. Negative values are not allowed. 
+   * @member {Number} duration
+   */
+  exports.prototype['duration'] = undefined;
+  /**
+   * The duration of the match in seconds, this describes how often you will get matches when publication and subscription are moving in each other range. If set to '0' you will get matches every time publication or subscription in range will move. Negative values are not allowed. 
+   * @member {Number} matchTTL
+   */
+  exports.prototype['matchTTL'] = undefined;
+  /**
+   * When match will occurs, they will be notified on these provided URI(s) address(es) in the pushers array. 
+   * @member {Array.<String>} pushers
+   */
+  exports.prototype['pushers'] = undefined;
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":15}],39:[function(require,module,exports){
+/**
+ * MATCHMORE ALPS Core REST API
+ * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
+ *
+ * OpenAPI spec version: 0.5.0
+ * Contact: support@matchmore.com
+ *
+ * NOTE: This class is auto generated by the swagger code generator program.
+ * https://github.com/swagger-api/swagger-codegen.git
+ *
+ * Swagger Codegen version: 2.3.1
+ *
+ * Do not edit the class manually.
+ *
+ */
+
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['ApiClient', 'model/Subscription'], factory);
+  } else if (typeof module === 'object' && module.exports) {
+    // CommonJS-like environments that support module.exports, like Node.
+    module.exports = factory(require('../ApiClient'), require('./Subscription'));
+  } else {
+    // Browser globals (root is window)
+    if (!root.MatchmoreAlpsCoreRestApi) {
+      root.MatchmoreAlpsCoreRestApi = {};
+    }
+    root.MatchmoreAlpsCoreRestApi.Subscriptions = factory(root.MatchmoreAlpsCoreRestApi.ApiClient, root.MatchmoreAlpsCoreRestApi.Subscription);
+  }
+}(this, function(ApiClient, Subscription) {
+  'use strict';
+
+
+
+
+  /**
+   * The Subscriptions model module.
+   * @module model/Subscriptions
+   * @version 0.5.0
+   */
+
+  /**
+   * Constructs a new <code>Subscriptions</code>.
+   * @alias module:model/Subscriptions
+   * @class
+   * @extends Array
+   */
+  var exports = function() {
+    var _this = this;
+    _this = new Array();
+    Object.setPrototypeOf(_this, exports);
+
+    return _this;
+  };
+
+  /**
+   * Constructs a <code>Subscriptions</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/Subscriptions} obj Optional instance to populate.
+   * @return {module:model/Subscriptions} The populated <code>Subscriptions</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+      ApiClient.constructFromObject(data, obj, 'Subscription');
+
+    }
+    return obj;
+  }
+
+
+
+
+  return exports;
+}));
+
+
+
+},{"../ApiClient":15,"./Subscription":38}],40:[function(require,module,exports){
+;(function () {
+
+  var object =
+    typeof exports != 'undefined' ? exports :
+    typeof self != 'undefined' ? self : // #8: web workers
+    $.global; // #31: ExtendScript
+
+  var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+
+  function InvalidCharacterError(message) {
+    this.message = message;
+  }
+  InvalidCharacterError.prototype = new Error;
+  InvalidCharacterError.prototype.name = 'InvalidCharacterError';
+
+  // encoder
+  // [https://gist.github.com/999166] by [https://github.com/nignag]
+  object.btoa || (
+  object.btoa = function (input) {
+    var str = String(input);
+    for (
+      // initialize result and counter
+      var block, charCode, idx = 0, map = chars, output = '';
+      // if the next str index does not exist:
+      //   change the mapping table to "="
+      //   check if d has no fractional digits
+      str.charAt(idx | 0) || (map = '=', idx % 1);
+      // "8 - idx % 1 * 8" generates the sequence 2, 4, 6, 8
+      output += map.charAt(63 & block >> 8 - idx % 1 * 8)
+    ) {
+      charCode = str.charCodeAt(idx += 3/4);
+      if (charCode > 0xFF) {
+        throw new InvalidCharacterError("'btoa' failed: The string to be encoded contains characters outside of the Latin1 range.");
+      }
+      block = block << 8 | charCode;
+    }
+    return output;
+  });
+
+  // decoder
+  // [https://gist.github.com/1020396] by [https://github.com/atk]
+  object.atob || (
+  object.atob = function (input) {
+    var str = String(input).replace(/[=]+$/, ''); // #31: ExtendScript bad parse of /=
+    if (str.length % 4 == 1) {
+      throw new InvalidCharacterError("'atob' failed: The string to be decoded is not correctly encoded.");
+    }
+    for (
+      // initialize result and counters
+      var bc = 0, bs, buffer, idx = 0, output = '';
+      // get next character
+      buffer = str.charAt(idx++);
+      // character found in table? initialize bit storage and add its ascii value;
+      ~buffer && (bs = bc % 4 ? bs * 64 + buffer : buffer,
+        // and if not first of each 4 characters,
+        // convert the first 8 bits to one ascii character
+        bc++ % 4) ? output += String.fromCharCode(255 & bs >> (-2 * bc & 6)) : 0
+    ) {
+      // try to find character in table (0-63, not found => -1)
+      buffer = chars.indexOf(buffer);
+    }
+    return output;
+  });
+
+}());
+
+},{}],41:[function(require,module,exports){
 'use strict'
 
 exports.byteLength = byteLength
@@ -17,6 +6942,8 @@ for (var i = 0, len = code.length; i < len; ++i) {
   revLookup[code.charCodeAt(i)] = i
 }
 
+// Support decoding URL-safe base64 strings, as Node.js does.
+// See: https://en.wikipedia.org/wiki/Base64#URL_applications
 revLookup['-'.charCodeAt(0)] = 62
 revLookup['_'.charCodeAt(0)] = 63
 
@@ -36,22 +6963,22 @@ function placeHoldersCount (b64) {
 
 function byteLength (b64) {
   // base64 is 4/3 + up to two characters of the original data
-  return b64.length * 3 / 4 - placeHoldersCount(b64)
+  return (b64.length * 3 / 4) - placeHoldersCount(b64)
 }
 
 function toByteArray (b64) {
-  var i, j, l, tmp, placeHolders, arr
+  var i, l, tmp, placeHolders, arr
   var len = b64.length
   placeHolders = placeHoldersCount(b64)
 
-  arr = new Arr(len * 3 / 4 - placeHolders)
+  arr = new Arr((len * 3 / 4) - placeHolders)
 
   // if there are placeholders, only get up to the last complete 4 chars
   l = placeHolders > 0 ? len - 4 : len
 
   var L = 0
 
-  for (i = 0, j = 0; i < l; i += 4, j += 3) {
+  for (i = 0; i < l; i += 4) {
     tmp = (revLookup[b64.charCodeAt(i)] << 18) | (revLookup[b64.charCodeAt(i + 1)] << 12) | (revLookup[b64.charCodeAt(i + 2)] << 6) | revLookup[b64.charCodeAt(i + 3)]
     arr[L++] = (tmp >> 16) & 0xFF
     arr[L++] = (tmp >> 8) & 0xFF
@@ -78,7 +7005,7 @@ function encodeChunk (uint8, start, end) {
   var tmp
   var output = []
   for (var i = start; i < end; i += 3) {
-    tmp = (uint8[i] << 16) + (uint8[i + 1] << 8) + (uint8[i + 2])
+    tmp = ((uint8[i] << 16) & 0xFF0000) + ((uint8[i + 1] << 8) & 0xFF00) + (uint8[i + 2] & 0xFF)
     output.push(tripletToBase64(tmp))
   }
   return output.join('')
@@ -116,11 +7043,13 @@ function fromByteArray (uint8) {
   return parts.join('')
 }
 
-},{}],3:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
+
+},{}],43:[function(require,module,exports){
 /*!
  * The buffer module from node.js, for the browser.
  *
- * @author   Feross Aboukhadijeh <feross@feross.org> <http://feross.org>
+ * @author   Feross Aboukhadijeh <https://feross.org>
  * @license  MIT
  */
 /* eslint-disable no-proto */
@@ -171,6 +7100,24 @@ function typedArraySupport () {
     return false
   }
 }
+
+Object.defineProperty(Buffer.prototype, 'parent', {
+  get: function () {
+    if (!(this instanceof Buffer)) {
+      return undefined
+    }
+    return this.buffer
+  }
+})
+
+Object.defineProperty(Buffer.prototype, 'offset', {
+  get: function () {
+    if (!(this instanceof Buffer)) {
+      return undefined
+    }
+    return this.byteOffset
+  }
+})
 
 function createBuffer (length) {
   if (length > K_MAX_LENGTH) {
@@ -223,7 +7170,7 @@ function from (value, encodingOrOffset, length) {
     throw new TypeError('"value" argument must not be a number')
   }
 
-  if (value instanceof ArrayBuffer) {
+  if (isArrayBuffer(value) || (value && isArrayBuffer(value.buffer))) {
     return fromArrayBuffer(value, encodingOrOffset, length)
   }
 
@@ -253,7 +7200,7 @@ Buffer.__proto__ = Uint8Array
 
 function assertSize (size) {
   if (typeof size !== 'number') {
-    throw new TypeError('"size" argument must be a number')
+    throw new TypeError('"size" argument must be of type number')
   } else if (size < 0) {
     throw new RangeError('"size" argument must not be negative')
   }
@@ -307,7 +7254,7 @@ function fromString (string, encoding) {
   }
 
   if (!Buffer.isEncoding(encoding)) {
-    throw new TypeError('"encoding" must be a valid string encoding')
+    throw new TypeError('Unknown encoding: ' + encoding)
   }
 
   var length = byteLength(string, encoding) | 0
@@ -336,11 +7283,11 @@ function fromArrayLike (array) {
 
 function fromArrayBuffer (array, byteOffset, length) {
   if (byteOffset < 0 || array.byteLength < byteOffset) {
-    throw new RangeError('\'offset\' is out of bounds')
+    throw new RangeError('"offset" is outside of buffer bounds')
   }
 
   if (array.byteLength < byteOffset + (length || 0)) {
-    throw new RangeError('\'length\' is out of bounds')
+    throw new RangeError('"length" is outside of buffer bounds')
   }
 
   var buf
@@ -372,7 +7319,7 @@ function fromObject (obj) {
 
   if (obj) {
     if (ArrayBuffer.isView(obj) || 'length' in obj) {
-      if (typeof obj.length !== 'number' || isnan(obj.length)) {
+      if (typeof obj.length !== 'number' || numberIsNaN(obj.length)) {
         return createBuffer(0)
       }
       return fromArrayLike(obj)
@@ -383,7 +7330,7 @@ function fromObject (obj) {
     }
   }
 
-  throw new TypeError('First argument must be a string, Buffer, ArrayBuffer, Array, or array-like object.')
+  throw new TypeError('The first argument must be one of type string, Buffer, ArrayBuffer, Array, or Array-like Object.')
 }
 
 function checked (length) {
@@ -470,6 +7417,9 @@ Buffer.concat = function concat (list, length) {
   var pos = 0
   for (i = 0; i < list.length; ++i) {
     var buf = list[i]
+    if (ArrayBuffer.isView(buf)) {
+      buf = Buffer.from(buf)
+    }
     if (!Buffer.isBuffer(buf)) {
       throw new TypeError('"list" argument must be an Array of Buffers')
     }
@@ -483,7 +7433,7 @@ function byteLength (string, encoding) {
   if (Buffer.isBuffer(string)) {
     return string.length
   }
-  if (ArrayBuffer.isView(string) || string instanceof ArrayBuffer) {
+  if (ArrayBuffer.isView(string) || isArrayBuffer(string)) {
     return string.byteLength
   }
   if (typeof string !== 'string') {
@@ -651,6 +7601,8 @@ Buffer.prototype.toString = function toString () {
   return slowToString.apply(this, arguments)
 }
 
+Buffer.prototype.toLocaleString = Buffer.prototype.toString
+
 Buffer.prototype.equals = function equals (b) {
   if (!Buffer.isBuffer(b)) throw new TypeError('Argument must be a Buffer')
   if (this === b) return true
@@ -749,7 +7701,7 @@ function bidirectionalIndexOf (buffer, val, byteOffset, encoding, dir) {
     byteOffset = -0x80000000
   }
   byteOffset = +byteOffset  // Coerce to Number.
-  if (isNaN(byteOffset)) {
+  if (numberIsNaN(byteOffset)) {
     // byteOffset: it it's undefined, null, NaN, "foo", etc, search whole buffer
     byteOffset = dir ? 0 : (buffer.length - 1)
   }
@@ -871,16 +7823,14 @@ function hexWrite (buf, string, offset, length) {
     }
   }
 
-  // must be an even number of digits
   var strLen = string.length
-  if (strLen % 2 !== 0) throw new TypeError('Invalid hex string')
 
   if (length > strLen / 2) {
     length = strLen / 2
   }
   for (var i = 0; i < length; ++i) {
     var parsed = parseInt(string.substr(i * 2, 2), 16)
-    if (isNaN(parsed)) return i
+    if (numberIsNaN(parsed)) return i
     buf[offset + i] = parsed
   }
   return i
@@ -1566,6 +8516,7 @@ Buffer.prototype.writeDoubleBE = function writeDoubleBE (value, offset, noAssert
 
 // copy(targetBuffer, targetStart=0, sourceStart=0, sourceEnd=buffer.length)
 Buffer.prototype.copy = function copy (target, targetStart, start, end) {
+  if (!Buffer.isBuffer(target)) throw new TypeError('argument should be a Buffer')
   if (!start) start = 0
   if (!end && end !== 0) end = this.length
   if (targetStart >= target.length) targetStart = target.length
@@ -1580,7 +8531,7 @@ Buffer.prototype.copy = function copy (target, targetStart, start, end) {
   if (targetStart < 0) {
     throw new RangeError('targetStart out of bounds')
   }
-  if (start < 0 || start >= this.length) throw new RangeError('sourceStart out of bounds')
+  if (start < 0 || start >= this.length) throw new RangeError('Index out of range')
   if (end < 0) throw new RangeError('sourceEnd out of bounds')
 
   // Are we oob?
@@ -1590,22 +8541,19 @@ Buffer.prototype.copy = function copy (target, targetStart, start, end) {
   }
 
   var len = end - start
-  var i
 
-  if (this === target && start < targetStart && targetStart < end) {
+  if (this === target && typeof Uint8Array.prototype.copyWithin === 'function') {
+    // Use built-in when available, missing from IE11
+    this.copyWithin(targetStart, start, end)
+  } else if (this === target && start < targetStart && targetStart < end) {
     // descending copy from end
-    for (i = len - 1; i >= 0; --i) {
-      target[i + targetStart] = this[i + start]
-    }
-  } else if (len < 1000) {
-    // ascending copy from start
-    for (i = 0; i < len; ++i) {
+    for (var i = len - 1; i >= 0; --i) {
       target[i + targetStart] = this[i + start]
     }
   } else {
     Uint8Array.prototype.set.call(
       target,
-      this.subarray(start, start + len),
+      this.subarray(start, end),
       targetStart
     )
   }
@@ -1628,17 +8576,19 @@ Buffer.prototype.fill = function fill (val, start, end, encoding) {
       encoding = end
       end = this.length
     }
-    if (val.length === 1) {
-      var code = val.charCodeAt(0)
-      if (code < 256) {
-        val = code
-      }
-    }
     if (encoding !== undefined && typeof encoding !== 'string') {
       throw new TypeError('encoding must be a string')
     }
     if (typeof encoding === 'string' && !Buffer.isEncoding(encoding)) {
       throw new TypeError('Unknown encoding: ' + encoding)
+    }
+    if (val.length === 1) {
+      var code = val.charCodeAt(0)
+      if ((encoding === 'utf8' && code < 128) ||
+          encoding === 'latin1') {
+        // Fast path: If `val` fits into a single byte, use that numeric value.
+        val = code
+      }
     }
   } else if (typeof val === 'number') {
     val = val & 255
@@ -1668,6 +8618,10 @@ Buffer.prototype.fill = function fill (val, start, end, encoding) {
       ? val
       : new Buffer(val, encoding)
     var len = bytes.length
+    if (len === 0) {
+      throw new TypeError('The value "' + val +
+        '" is invalid for argument "value"')
+    }
     for (i = 0; i < end - start; ++i) {
       this[i + start] = bytes[i % len]
     }
@@ -1682,8 +8636,10 @@ Buffer.prototype.fill = function fill (val, start, end, encoding) {
 var INVALID_BASE64_RE = /[^+/0-9A-Za-z-_]/g
 
 function base64clean (str) {
+  // Node takes equal signs as end of the Base64 encoding
+  str = str.split('=')[0]
   // Node strips out invalid characters like \n and \t from the string, base64-js does not
-  str = stringtrim(str).replace(INVALID_BASE64_RE, '')
+  str = str.trim().replace(INVALID_BASE64_RE, '')
   // Node converts strings with length < 2 to ''
   if (str.length < 2) return ''
   // Node allows for non-padded base64 strings (missing trailing ===), base64-js does not
@@ -1691,11 +8647,6 @@ function base64clean (str) {
     str = str + '='
   }
   return str
-}
-
-function stringtrim (str) {
-  if (str.trim) return str.trim()
-  return str.replace(/^\s+|\s+$/g, '')
 }
 
 function toHex (n) {
@@ -1820,14 +8771,22 @@ function blitBuffer (src, dst, offset, length) {
   return i
 }
 
-function isnan (val) {
-  return val !== val // eslint-disable-line no-self-compare
+// ArrayBuffers from another context (i.e. an iframe) do not pass the `instanceof` check
+// but they should be treated as valid. See: https://github.com/feross/buffer/issues/166
+function isArrayBuffer (obj) {
+  return obj instanceof ArrayBuffer ||
+    (obj != null && obj.constructor != null && obj.constructor.name === 'ArrayBuffer' &&
+      typeof obj.byteLength === 'number')
 }
 
-},{"base64-js":2,"ieee754":4}],4:[function(require,module,exports){
+function numberIsNaN (obj) {
+  return obj !== obj // eslint-disable-line no-self-compare
+}
+
+},{"base64-js":41,"ieee754":44}],44:[function(require,module,exports){
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
   var e, m
-  var eLen = nBytes * 8 - mLen - 1
+  var eLen = (nBytes * 8) - mLen - 1
   var eMax = (1 << eLen) - 1
   var eBias = eMax >> 1
   var nBits = -7
@@ -1840,12 +8799,12 @@ exports.read = function (buffer, offset, isLE, mLen, nBytes) {
   e = s & ((1 << (-nBits)) - 1)
   s >>= (-nBits)
   nBits += eLen
-  for (; nBits > 0; e = e * 256 + buffer[offset + i], i += d, nBits -= 8) {}
+  for (; nBits > 0; e = (e * 256) + buffer[offset + i], i += d, nBits -= 8) {}
 
   m = e & ((1 << (-nBits)) - 1)
   e >>= (-nBits)
   nBits += mLen
-  for (; nBits > 0; m = m * 256 + buffer[offset + i], i += d, nBits -= 8) {}
+  for (; nBits > 0; m = (m * 256) + buffer[offset + i], i += d, nBits -= 8) {}
 
   if (e === 0) {
     e = 1 - eBias
@@ -1860,7 +8819,7 @@ exports.read = function (buffer, offset, isLE, mLen, nBytes) {
 
 exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
   var e, m, c
-  var eLen = nBytes * 8 - mLen - 1
+  var eLen = (nBytes * 8) - mLen - 1
   var eMax = (1 << eLen) - 1
   var eBias = eMax >> 1
   var rt = (mLen === 23 ? Math.pow(2, -24) - Math.pow(2, -77) : 0)
@@ -1893,7 +8852,7 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
       m = 0
       e = eMax
     } else if (e + eBias >= 1) {
-      m = (value * c - 1) * Math.pow(2, mLen)
+      m = ((value * c) - 1) * Math.pow(2, mLen)
       e = e + eBias
     } else {
       m = value * Math.pow(2, eBias - 1) * Math.pow(2, mLen)
@@ -1910,5622 +8869,184 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128
 }
 
-},{}],5:[function(require,module,exports){
-"use strict";
-exports.__esModule = true;
-var LocationManager = (function () {
-    function LocationManager(manager) {
-        this.init(manager);
-    }
-    LocationManager.prototype.init = function (manager) {
-        this.manager = manager;
-    };
-    LocationManager.prototype.startUpdatingLocation = function () {
-        var _this = this;
-        if (navigator.geolocation) {
-            this.geoId = navigator.geolocation.watchPosition(function (loc) { _this.onLocationReceived(loc); }, this.onError);
-        }
-        else {
-            throw new Error("Geolocation is not supported in this browser/app");
-        }
-    };
-    LocationManager.prototype.stopUpdatingLocation = function () {
-        if (navigator.geolocation) {
-            navigator.geolocation.clearWatch(this.geoId);
-        }
-        else {
-            throw new Error("Geolocation is not supported in this browser/app");
-        }
-    };
-    LocationManager.prototype.onLocationReceived = function (loc) {
-        if (!loc.coords)
-            return;
-        var latitude, longitude, altitude;
-        if (loc.coords.latitude)
-            latitude = parseFloat(loc.coords.latitude);
-        else
-            return;
-        if (loc.coords.longitude)
-            longitude = parseFloat(loc.coords.longitude);
-        else
-            return;
-        if (loc.coords.altitude)
-            altitude = parseFloat(loc.coords.altitude);
-        else
-            altitude = 0;
-        this.onLocationUpdate(loc);
-        this.manager.updateLocation(latitude, longitude, altitude, 1.0, 1.0);
-    };
-    LocationManager.prototype.onError = function (error) {
-        switch (error.code) {
-            case error.PERMISSION_DENIED:
-                throw new Error("User denied the request for Geolocation.");
-            case error.POSITION_UNAVAILABLE:
-                throw new Error("Location information is unavailable.");
-            case error.TIMEOUT:
-                throw new Error("The request to get user location timed out.");
-            case error.UNKNOWN_ERROR:
-                throw new Error("An unknown error occurred.");
-        }
-    };
-    return LocationManager;
-}());
-exports.LocationManager = LocationManager;
+},{}],45:[function(require,module,exports){
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-},{}],6:[function(require,module,exports){
-"use strict";
-exports.__esModule = true;
-var ScalpsCoreRestApi = require("scalps_core_rest_api");
-var matchmonitor_1 = require("./matchmonitor");
-var locationmanager_1 = require("./locationmanager");
-var Manager = (function () {
-    function Manager(apiKey, apiUrlOverride) {
-        this.apiKey = apiKey;
-        this.users = [];
-        this.devices = [];
-        this.publications = [];
-        this.subscriptions = [];
-        this.locations = [];
-        this.init(apiUrlOverride);
-    }
-    Manager.prototype.init = function (apiUrlOverride) {
-        this.defaultClient = ScalpsCoreRestApi.ApiClient.instance;
-        this.defaultClient.authentications['api-key'].apiKey = this.apiKey;
-        if (apiUrlOverride)
-            this.defaultClient.basePath = apiUrlOverride;
-        this.matchMonitor = new matchmonitor_1.MatchMonitor(this);
-        this.locationManager = new locationmanager_1.LocationManager(this);
-    };
-    Manager.prototype.createUser = function (userName, completion) {
-        var _this = this;
-        var p = new Promise(function (resolve, reject) {
-            var api = new ScalpsCoreRestApi.UsersApi();
-            var callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while creating user '" + userName + "' :" + error);
-                }
-                else {
-                    resolve(JSON.parse(response.text));
-                }
-            };
-            api.createUser(userName, callback);
-        });
-        p.then(function (user) {
-            _this.users.push(user);
-            _this.defaultUser = _this.users[0];
-            if (completion)
-                completion(user);
-        });
-        return p;
-    };
-    Manager.prototype.createDevice = function (deviceName, platform, deviceToken, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completion) {
-        if (this.defaultUser) {
-            return this.createAnyDevice(this.defaultUser.userId, deviceName, platform, deviceToken, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completion);
-        }
-        else {
-            throw new Error("There is no default user available, please call createUser before createDevice");
-        }
-    };
-    Manager.prototype.createAnyDevice = function (userId, deviceName, platform, deviceToken, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completion) {
-        var _this = this;
-        var p = new Promise(function (resolve, reject) {
-            var api = new ScalpsCoreRestApi.DeviceApi();
-            var callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while creating device '" + deviceName + "' :" + error);
-                }
-                else {
-                    resolve(JSON.parse(response.text));
-                }
-            };
-            var opts = {
-                'horizontalAccuracy': horizontalAccuracy,
-                'verticalAccuracy': verticalAccuracy
-            };
-            api.createDevice(userId, deviceName, platform, deviceToken, latitude, longitude, altitude, opts, callback);
-        });
-        p.then(function (device) {
-            _this.devices.push(device);
-            _this.defaultDevice = _this.devices[0];
-            if (completion)
-                completion(device);
-        });
-        return p;
-    };
-    Manager.prototype.createPublication = function (topic, range, duration, properties, completion) {
-        if (this.defaultUser && this.defaultDevice) {
-            return this.createAnyPublication(this.defaultUser.userId, this.defaultDevice.deviceId, topic, range, duration, properties, completion);
-        }
-        else {
-            throw new Error("There is no default user or device available, please call createUser and createDevice before createPublication");
-        }
-    };
-    Manager.prototype.createAnyPublication = function (userId, deviceId, topic, range, duration, properties, completion) {
-        var _this = this;
-        var p = new Promise(function (resolve, reject) {
-            var api = new ScalpsCoreRestApi.PublicationApi();
-            var callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while creating publication '" + topic + "' :" + error);
-                }
-                else {
-                    resolve(JSON.parse(response.text));
-                }
-            };
-            api.createPublication(userId, deviceId, topic, range, duration, properties, callback);
-        });
-        p.then(function (publication) {
-            _this.publications.push(publication);
-            if (completion)
-                completion(publication);
-        });
-        return p;
-    };
-    Manager.prototype.createSubscription = function (topic, selector, range, duration, completion) {
-        if (this.defaultUser && this.defaultDevice) {
-            return this.createAnySubscription(this.defaultUser.userId, this.defaultDevice.deviceId, topic, selector, range, duration, completion);
-        }
-        else {
-            throw new Error("There is no default user or device available, please call createUser and createDevice before createSubscription");
-        }
-    };
-    Manager.prototype.createAnySubscription = function (userId, deviceId, topic, selector, range, duration, completion) {
-        var _this = this;
-        var p = new Promise(function (resolve, reject) {
-            var api = new ScalpsCoreRestApi.SubscriptionApi();
-            var callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while creating subscription '" + topic + "' :" + error);
-                }
-                else {
-                    resolve(JSON.parse(response.text));
-                }
-            };
-            api.createSubscription(userId, deviceId, topic, selector, range, duration, callback);
-        });
-        p.then(function (subscription) {
-            _this.subscriptions.push(subscription);
-            if (completion)
-                completion(subscription);
-        });
-        return p;
-    };
-    Manager.prototype.updateLocation = function (latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completion) {
-        if (this.defaultUser && this.defaultDevice) {
-            return this.updateAnyLocation(this.defaultUser.userId, this.defaultDevice.deviceId, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completion);
-        }
-        else {
-            throw new Error("There is no default user or device available, please call createUser and createDevice before updateLocation");
-        }
-    };
-    Manager.prototype.updateAnyLocation = function (userId, deviceId, latitude, longitude, altitude, horizontalAccuracy, verticalAccuracy, completion) {
-        var _this = this;
-        var p = new Promise(function (resolve, reject) {
-            var api = new ScalpsCoreRestApi.LocationApi();
-            var callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while creating location ['" + latitude + "','" + longitude + "']  :" + error);
-                }
-                else {
-                    resolve(JSON.parse(response.text));
-                }
-            };
-            var opts = {
-                'horizontalAccuracy': horizontalAccuracy,
-                'verticalAccuracy': verticalAccuracy
-            };
-            api.createLocation(userId, deviceId, latitude, longitude, altitude, opts, callback);
-        });
-        p.then(function (location) {
-            _this.locations.push(location);
-            if (completion)
-                completion(location);
-        });
-        return p;
-    };
-    Manager.prototype.getAllMatches = function (completion) {
-        if (this.defaultUser && this.defaultDevice) {
-            return this.getAllMatchesForAny(this.defaultUser.userId, this.defaultDevice.deviceId);
-        }
-        else {
-            throw new Error("There is no default user or device available, please call createUser and createDevice before getAllMatches");
-        }
-    };
-    Manager.prototype.getAllMatchesForAny = function (userId, deviceId, completion) {
-        var p = new Promise(function (resolve, reject) {
-            var api = new ScalpsCoreRestApi.DeviceApi();
-            var callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while fetching matches: " + error);
-                }
-                else {
-                    resolve(JSON.parse(response.text));
-                }
-            };
-            api.getMatches(userId, deviceId, callback);
-        });
-        p.then(function (matches) {
-            if (completion)
-                completion(matches);
-        });
-        return p;
-    };
-    Manager.prototype.getAllPublicationsForDevice = function (userId, deviceId, completion) {
-        var p = new Promise(function (resolve, reject) {
-            var api = new ScalpsCoreRestApi.DeviceApi();
-            var callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while fetching publications: " + error);
-                }
-                else {
-                    resolve(JSON.parse(response.text));
-                }
-            };
-            api.getPublications(userId, deviceId, callback);
-        });
-        return p;
-    };
-    Manager.prototype.getAllSubscriptionsForDevice = function (userId, deviceId, completion) {
-        var p = new Promise(function (resolve, reject) {
-            var api = new ScalpsCoreRestApi.DeviceApi();
-            var callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while fetching subscriptions: " + error);
-                }
-                else {
-                    resolve(JSON.parse(response.text));
-                }
-            };
-            api.getSubscriptions(userId, deviceId, callback);
-        });
-        return p;
-    };
-    Manager.prototype.onMatch = function (completion) {
-        this.matchMonitor.onMatch = completion;
-    };
-    Manager.prototype.onLocationUpdate = function (completion) {
-        this.locationManager.onLocationUpdate = completion;
-    };
-    Manager.prototype.startMonitoringMatches = function () {
-        this.matchMonitor.startMonitoringMatches();
-    };
-    Manager.prototype.stopMonitoringMatches = function () {
-        this.matchMonitor.stopMonitoringMatches();
-    };
-    Manager.prototype.startUpdatingLocation = function () {
-        this.locationManager.startUpdatingLocation();
-    };
-    Manager.prototype.stopUpdatingLocation = function () {
-        this.locationManager.stopUpdatingLocation();
-    };
-    return Manager;
-}());
-exports.Manager = Manager;
+'use strict';
 
-},{"./locationmanager":5,"./matchmonitor":7,"scalps_core_rest_api":18}],7:[function(require,module,exports){
-"use strict";
-exports.__esModule = true;
-var MatchMonitor = (function () {
-    function MatchMonitor(manager) {
-        this.deliveredMatches = [];
-        this.init(manager);
-    }
-    MatchMonitor.prototype.init = function (manager) {
-        this.manager = manager;
-        this.onMatch = function (match) { };
-    };
-    MatchMonitor.prototype.startMonitoringMatches = function () {
-        var _this = this;
-        this.stopMonitoringMatches();
-        this.timerId = setInterval(function () { _this.checkMatches(); }, 1000);
-    };
-    MatchMonitor.prototype.stopMonitoringMatches = function () {
-        if (this.timerId) {
-            clearInterval(this.timerId);
-        }
-    };
-    MatchMonitor.prototype.checkMatches = function () {
-        var _this = this;
-        this.manager.getAllMatches().then(function (matches) {
-            for (var idx in matches) {
-                var match = matches[idx];
-                if (_this.hasNotBeenDelivered(match)) {
-                    _this.deliveredMatches.push(match);
-                    _this.onMatch(match);
-                }
-            }
-        });
-    };
-    MatchMonitor.prototype.hasNotBeenDelivered = function (match) {
-        for (var idx in this.deliveredMatches) {
-            var deliveredMatch = this.deliveredMatches[idx];
-            if (deliveredMatch.matchId == match.matchId)
-                return false;
-        }
-        return true;
-    };
-    return MatchMonitor;
-}());
-exports.MatchMonitor = MatchMonitor;
-
-},{}],8:[function(require,module,exports){
-
-/**
- * Expose `Emitter`.
- */
-
-if (typeof module !== 'undefined') {
-  module.exports = Emitter;
+// If obj.hasOwnProperty has been overridden, then calling
+// obj.hasOwnProperty(prop) will break.
+// See: https://github.com/joyent/node/issues/1707
+function hasOwnProperty(obj, prop) {
+  return Object.prototype.hasOwnProperty.call(obj, prop);
 }
 
-/**
- * Initialize a new `Emitter`.
- *
- * @api public
- */
-
-function Emitter(obj) {
-  if (obj) return mixin(obj);
-};
-
-/**
- * Mixin the emitter properties.
- *
- * @param {Object} obj
- * @return {Object}
- * @api private
- */
-
-function mixin(obj) {
-  for (var key in Emitter.prototype) {
-    obj[key] = Emitter.prototype[key];
-  }
-  return obj;
-}
-
-/**
- * Listen on the given `event` with `fn`.
- *
- * @param {String} event
- * @param {Function} fn
- * @return {Emitter}
- * @api public
- */
-
-Emitter.prototype.on =
-Emitter.prototype.addEventListener = function(event, fn){
-  this._callbacks = this._callbacks || {};
-  (this._callbacks['$' + event] = this._callbacks['$' + event] || [])
-    .push(fn);
-  return this;
-};
-
-/**
- * Adds an `event` listener that will be invoked a single
- * time then automatically removed.
- *
- * @param {String} event
- * @param {Function} fn
- * @return {Emitter}
- * @api public
- */
-
-Emitter.prototype.once = function(event, fn){
-  function on() {
-    this.off(event, on);
-    fn.apply(this, arguments);
-  }
-
-  on.fn = fn;
-  this.on(event, on);
-  return this;
-};
-
-/**
- * Remove the given callback for `event` or all
- * registered callbacks.
- *
- * @param {String} event
- * @param {Function} fn
- * @return {Emitter}
- * @api public
- */
-
-Emitter.prototype.off =
-Emitter.prototype.removeListener =
-Emitter.prototype.removeAllListeners =
-Emitter.prototype.removeEventListener = function(event, fn){
-  this._callbacks = this._callbacks || {};
-
-  // all
-  if (0 == arguments.length) {
-    this._callbacks = {};
-    return this;
-  }
-
-  // specific event
-  var callbacks = this._callbacks['$' + event];
-  if (!callbacks) return this;
-
-  // remove all handlers
-  if (1 == arguments.length) {
-    delete this._callbacks['$' + event];
-    return this;
-  }
-
-  // remove specific handler
-  var cb;
-  for (var i = 0; i < callbacks.length; i++) {
-    cb = callbacks[i];
-    if (cb === fn || cb.fn === fn) {
-      callbacks.splice(i, 1);
-      break;
-    }
-  }
-  return this;
-};
-
-/**
- * Emit `event` with the given args.
- *
- * @param {String} event
- * @param {Mixed} ...
- * @return {Emitter}
- */
-
-Emitter.prototype.emit = function(event){
-  this._callbacks = this._callbacks || {};
-  var args = [].slice.call(arguments, 1)
-    , callbacks = this._callbacks['$' + event];
-
-  if (callbacks) {
-    callbacks = callbacks.slice(0);
-    for (var i = 0, len = callbacks.length; i < len; ++i) {
-      callbacks[i].apply(this, args);
-    }
-  }
-
-  return this;
-};
-
-/**
- * Return array of callbacks for `event`.
- *
- * @param {String} event
- * @return {Array}
- * @api public
- */
-
-Emitter.prototype.listeners = function(event){
-  this._callbacks = this._callbacks || {};
-  return this._callbacks['$' + event] || [];
-};
-
-/**
- * Check if this emitter has `event` handlers.
- *
- * @param {String} event
- * @return {Boolean}
- * @api public
- */
-
-Emitter.prototype.hasListeners = function(event){
-  return !! this.listeners(event).length;
-};
-
-},{}],9:[function(require,module,exports){
-
-/**
- * Reduce `arr` with `fn`.
- *
- * @param {Array} arr
- * @param {Function} fn
- * @param {Mixed} initial
- *
- * TODO: combatible error handling?
- */
-
-module.exports = function(arr, fn, initial){  
-  var idx = 0;
-  var len = arr.length;
-  var curr = arguments.length == 3
-    ? initial
-    : arr[idx++];
-
-  while (idx < len) {
-    curr = fn.call(null, curr, arr[idx], ++idx, arr);
-  }
-  
-  return curr;
-};
-},{}],10:[function(require,module,exports){
-(function (Buffer){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['superagent'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('superagent'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.ScalpsCoreRestApi) {
-      root.ScalpsCoreRestApi = {};
-    }
-    root.ScalpsCoreRestApi.ApiClient = factory(root.superagent);
-  }
-}(this, function(superagent) {
-  'use strict';
-
-  /**
-   * @module ApiClient
-   * @version 0.1.0
-   */
-
-  /**
-   * Manages low level client-server communications, parameter marshalling, etc. There should not be any need for an
-   * application to use this class directly - the *Api and model classes provide the public API for the service. The
-   * contents of this file should be regarded as internal but are documented for completeness.
-   * @alias module:ApiClient
-   * @class
-   */
-  var exports = function() {
-    /**
-     * The base URL against which to resolve every API call's (relative) path.
-     * @type {String}
-     * @default http://api.matchmore.io/v5
-     */
-    this.basePath = 'http://api.matchmore.io/v5'.replace(/\/+$/, '');
-
-    /**
-     * The authentication methods to be included for all API calls.
-     * @type {Array.<String>}
-     */
-    this.authentications = {
-      'api-key': {type: 'apiKey', 'in': 'header', name: 'api-key'}
-    };
-    /**
-     * The default HTTP headers to be included for all API calls.
-     * @type {Array.<String>}
-     * @default {}
-     */
-    this.defaultHeaders = {};
-
-    /**
-     * The default HTTP timeout for all API calls.
-     * @type {Number}
-     * @default 60000
-     */
-    this.timeout = 60000;
-
-    /**
-     * If set to false an additional timestamp parameter is added to all API GET calls to
-     * prevent browser caching
-     * @type {Boolean}
-     * @default true
-     */
-    this.cache = true;
-  };
-
-  /**
-   * Returns a string representation for an actual parameter.
-   * @param param The actual parameter.
-   * @returns {String} The string representation of <code>param</code>.
-   */
-  exports.prototype.paramToString = function(param) {
-    if (param == undefined || param == null) {
-      return '';
-    }
-    if (param instanceof Date) {
-      return param.toJSON();
-    }
-    return param.toString();
-  };
-
-  /**
-   * Builds full URL by appending the given path to the base URL and replacing path parameter place-holders with parameter values.
-   * NOTE: query parameters are not handled here.
-   * @param {String} path The path to append to the base URL.
-   * @param {Object} pathParams The parameter values to append.
-   * @returns {String} The encoded path with parameter values substituted.
-   */
-  exports.prototype.buildUrl = function(path, pathParams) {
-    if (!path.match(/^\//)) {
-      path = '/' + path;
-    }
-    var url = this.basePath + path;
-    var _this = this;
-    url = url.replace(/\{([\w-]+)\}/g, function(fullMatch, key) {
-      var value;
-      if (pathParams.hasOwnProperty(key)) {
-        value = _this.paramToString(pathParams[key]);
-      } else {
-        value = fullMatch;
-      }
-      return encodeURIComponent(value);
-    });
-    return url;
-  };
-
-  /**
-   * Checks whether the given content type represents JSON.<br>
-   * JSON content type examples:<br>
-   * <ul>
-   * <li>application/json</li>
-   * <li>application/json; charset=UTF8</li>
-   * <li>APPLICATION/JSON</li>
-   * </ul>
-   * @param {String} contentType The MIME content type to check.
-   * @returns {Boolean} <code>true</code> if <code>contentType</code> represents JSON, otherwise <code>false</code>.
-   */
-  exports.prototype.isJsonMime = function(contentType) {
-    return Boolean(contentType != null && contentType.match(/^application\/json(;.*)?$/i));
-  };
-
-  /**
-   * Chooses a content type from the given array, with JSON preferred; i.e. return JSON if included, otherwise return the first.
-   * @param {Array.<String>} contentTypes
-   * @returns {String} The chosen content type, preferring JSON.
-   */
-  exports.prototype.jsonPreferredMime = function(contentTypes) {
-    for (var i = 0; i < contentTypes.length; i++) {
-      if (this.isJsonMime(contentTypes[i])) {
-        return contentTypes[i];
-      }
-    }
-    return contentTypes[0];
-  };
-
-  /**
-   * Checks whether the given parameter value represents file-like content.
-   * @param param The parameter to check.
-   * @returns {Boolean} <code>true</code> if <code>param</code> represents a file.
-   */
-  exports.prototype.isFileParam = function(param) {
-    // fs.ReadStream in Node.js (but not in runtime like browserify)
-    if (typeof window === 'undefined' &&
-        typeof require === 'function' &&
-        require('fs') &&
-        param instanceof require('fs').ReadStream) {
-      return true;
-    }
-    // Buffer in Node.js
-    if (typeof Buffer === 'function' && param instanceof Buffer) {
-      return true;
-    }
-    // Blob in browser
-    if (typeof Blob === 'function' && param instanceof Blob) {
-      return true;
-    }
-    // File in browser (it seems File object is also instance of Blob, but keep this for safe)
-    if (typeof File === 'function' && param instanceof File) {
-      return true;
-    }
-    return false;
-  };
-
-  /**
-   * Normalizes parameter values:
-   * <ul>
-   * <li>remove nils</li>
-   * <li>keep files and arrays</li>
-   * <li>format to string with `paramToString` for other cases</li>
-   * </ul>
-   * @param {Object.<String, Object>} params The parameters as object properties.
-   * @returns {Object.<String, Object>} normalized parameters.
-   */
-  exports.prototype.normalizeParams = function(params) {
-    var newParams = {};
-    for (var key in params) {
-      if (params.hasOwnProperty(key) && params[key] != undefined && params[key] != null) {
-        var value = params[key];
-        if (this.isFileParam(value) || Array.isArray(value)) {
-          newParams[key] = value;
-        } else {
-          newParams[key] = this.paramToString(value);
-        }
-      }
-    }
-    return newParams;
-  };
-
-  /**
-   * Enumeration of collection format separator strategies.
-   * @enum {String}
-   * @readonly
-   */
-  exports.CollectionFormatEnum = {
-    /**
-     * Comma-separated values. Value: <code>csv</code>
-     * @const
-     */
-    CSV: ',',
-    /**
-     * Space-separated values. Value: <code>ssv</code>
-     * @const
-     */
-    SSV: ' ',
-    /**
-     * Tab-separated values. Value: <code>tsv</code>
-     * @const
-     */
-    TSV: '\t',
-    /**
-     * Pipe(|)-separated values. Value: <code>pipes</code>
-     * @const
-     */
-    PIPES: '|',
-    /**
-     * Native array. Value: <code>multi</code>
-     * @const
-     */
-    MULTI: 'multi'
-  };
-
-  /**
-   * Builds a string representation of an array-type actual parameter, according to the given collection format.
-   * @param {Array} param An array parameter.
-   * @param {module:ApiClient.CollectionFormatEnum} collectionFormat The array element separator strategy.
-   * @returns {String|Array} A string representation of the supplied collection, using the specified delimiter. Returns
-   * <code>param</code> as is if <code>collectionFormat</code> is <code>multi</code>.
-   */
-  exports.prototype.buildCollectionParam = function buildCollectionParam(param, collectionFormat) {
-    if (param == null) {
-      return null;
-    }
-    switch (collectionFormat) {
-      case 'csv':
-        return param.map(this.paramToString).join(',');
-      case 'ssv':
-        return param.map(this.paramToString).join(' ');
-      case 'tsv':
-        return param.map(this.paramToString).join('\t');
-      case 'pipes':
-        return param.map(this.paramToString).join('|');
-      case 'multi':
-        // return the array directly as SuperAgent will handle it as expected
-        return param.map(this.paramToString);
-      default:
-        throw new Error('Unknown collection format: ' + collectionFormat);
-    }
-  };
-
-  /**
-   * Applies authentication headers to the request.
-   * @param {Object} request The request object created by a <code>superagent()</code> call.
-   * @param {Array.<String>} authNames An array of authentication method names.
-   */
-  exports.prototype.applyAuthToRequest = function(request, authNames) {
-    var _this = this;
-    authNames.forEach(function(authName) {
-      var auth = _this.authentications[authName];
-      switch (auth.type) {
-        case 'basic':
-          if (auth.username || auth.password) {
-            request.auth(auth.username || '', auth.password || '');
-          }
-          break;
-        case 'apiKey':
-          if (auth.apiKey) {
-            var data = {};
-            if (auth.apiKeyPrefix) {
-              data[auth.name] = auth.apiKeyPrefix + ' ' + auth.apiKey;
-            } else {
-              data[auth.name] = auth.apiKey;
-            }
-            if (auth['in'] === 'header') {
-              request.set(data);
-            } else {
-              request.query(data);
-            }
-          }
-          break;
-        case 'oauth2':
-          if (auth.accessToken) {
-            request.set({'Authorization': 'Bearer ' + auth.accessToken});
-          }
-          break;
-        default:
-          throw new Error('Unknown authentication type: ' + auth.type);
-      }
-    });
-  };
-
-  /**
-   * Deserializes an HTTP response body into a value of the specified type.
-   * @param {Object} response A SuperAgent response object.
-   * @param {(String|Array.<String>|Object.<String, Object>|Function)} returnType The type to return. Pass a string for simple types
-   * or the constructor function for a complex type. Pass an array containing the type name to return an array of that type. To
-   * return an object, pass an object with one property whose name is the key type and whose value is the corresponding value type:
-   * all properties on <code>data<code> will be converted to this type.
-   * @returns A value of the specified type.
-   */
-  exports.prototype.deserialize = function deserialize(response, returnType) {
-    if (response == null || returnType == null || response.status == 204) {
-      return null;
-    }
-    // Rely on SuperAgent for parsing response body.
-    // See http://visionmedia.github.io/superagent/#parsing-response-bodies
-    var data = response.body;
-    if (data == null || (typeof data === 'object' && typeof data.length === 'undefined' && !Object.keys(data).length)) {
-      // SuperAgent does not always produce a body; use the unparsed response as a fallback
-      data = response.text;
-    }
-    return exports.convertToType(data, returnType);
-  };
-
-  /**
-   * Callback function to receive the result of the operation.
-   * @callback module:ApiClient~callApiCallback
-   * @param {String} error Error message, if any.
-   * @param data The data returned by the service call.
-   * @param {String} response The complete HTTP response.
-   */
-
-  /**
-   * Invokes the REST service using the supplied settings and parameters.
-   * @param {String} path The base URL to invoke.
-   * @param {String} httpMethod The HTTP method to use.
-   * @param {Object.<String, String>} pathParams A map of path parameters and their values.
-   * @param {Object.<String, Object>} queryParams A map of query parameters and their values.
-   * @param {Object.<String, Object>} headerParams A map of header parameters and their values.
-   * @param {Object.<String, Object>} formParams A map of form parameters and their values.
-   * @param {Object} bodyParam The value to pass as the request body.
-   * @param {Array.<String>} authNames An array of authentication type names.
-   * @param {Array.<String>} contentTypes An array of request MIME types.
-   * @param {Array.<String>} accepts An array of acceptable response MIME types.
-   * @param {(String|Array|ObjectFunction)} returnType The required type to return; can be a string for simple types or the
-   * constructor for a complex type.
-   * @param {module:ApiClient~callApiCallback} callback The callback function.
-   * @returns {Object} The SuperAgent request object.
-   */
-  exports.prototype.callApi = function callApi(path, httpMethod, pathParams,
-      queryParams, headerParams, formParams, bodyParam, authNames, contentTypes, accepts,
-      returnType, callback) {
-
-    var _this = this;
-    var url = this.buildUrl(path, pathParams);
-    var request = superagent(httpMethod, url);
-
-	  // Hack to force body param
-	  bodyParam = formParams;
-
-    // apply authentications
-    this.applyAuthToRequest(request, authNames);
-
-    // set query parameters
-    if (httpMethod.toUpperCase() === 'GET' && this.cache === false) {
-        queryParams['_'] = new Date().getTime();
-    }
-    request.query(this.normalizeParams(queryParams));
-
-    // set header parameters
-    request.set(this.defaultHeaders).set(this.normalizeParams(headerParams));
-
-    // set request timeout
-    request.timeout(this.timeout);
-
-    var contentType = this.jsonPreferredMime(contentTypes);
-    if (contentType) {
-      // Issue with superagent and multipart/form-data (https://github.com/visionmedia/superagent/issues/746)
-      if(contentType != 'multipart/form-data') {
-        request.type(contentType);
-      }
-    } else if (!request.header['Content-Type']) {
-      request.type('application/json');
-    }
-
-    if (contentType === 'application/x-www-form-urlencoded') {
-      request.send(this.normalizeParams(formParams));
-    } else if (contentType == 'multipart/form-data') {
-      var _formParams = this.normalizeParams(formParams);
-      for (var key in _formParams) {
-        if (_formParams.hasOwnProperty(key)) {
-          if (this.isFileParam(_formParams[key])) {
-            // file field
-            request.attach(key, _formParams[key]);
-          } else {
-            request.field(key, _formParams[key]);
-          }
-        }
-      }
-    } else if (bodyParam) {
-      request.send(bodyParam);
-    }
-
-    var accept = this.jsonPreferredMime(accepts);
-    if (accept) {
-      request.accept(accept);
-    }
-
-
-    request.end(function(error, response) {
-      if (callback) {
-        var data = null;
-        if (!error) {
-          try {
-            data = _this.deserialize(response, returnType);
-          } catch (err) {
-            error = err;
-          }
-        }
-        callback(error, data, response);
-      }
-    });
-
-    return request;
-  };
-
-  /**
-   * Parses an ISO-8601 string representation of a date value.
-   * @param {String} str The date value as a string.
-   * @returns {Date} The parsed date object.
-   */
-  exports.parseDate = function(str) {
-    return new Date(str.replace(/T/i, ' '));
-  };
-
-  /**
-   * Converts a value to the specified type.
-   * @param {(String|Object)} data The data to convert, as a string or object.
-   * @param {(String|Array.<String>|Object.<String, Object>|Function)} type The type to return. Pass a string for simple types
-   * or the constructor function for a complex type. Pass an array containing the type name to return an array of that type. To
-   * return an object, pass an object with one property whose name is the key type and whose value is the corresponding value type:
-   * all properties on <code>data<code> will be converted to this type.
-   * @returns An instance of the specified type.
-   */
-  exports.convertToType = function(data, type) {
-    switch (type) {
-      case 'Boolean':
-        return Boolean(data);
-      case 'Integer':
-        return parseInt(data, 10);
-      case 'Number':
-        return parseFloat(data);
-      case 'String':
-        return String(data);
-      case 'Date':
-        return this.parseDate(String(data));
-      default:
-        if (type === Object) {
-          // generic object, return directly
-          return data;
-        } else if (typeof type === 'function') {
-          // for model type like: User
-          return type.constructFromObject(data);
-        } else if (Array.isArray(type)) {
-          // for array type like: ['String']
-          var itemType = type[0];
-          return data.map(function(item) {
-            return exports.convertToType(item, itemType);
-          });
-        } else if (typeof type === 'object') {
-          // for plain object type like: {'String': 'Integer'}
-          var keyType, valueType;
-          for (var k in type) {
-            if (type.hasOwnProperty(k)) {
-              keyType = k;
-              valueType = type[k];
-              break;
-            }
-          }
-          var result = {};
-          for (var k in data) {
-            if (data.hasOwnProperty(k)) {
-              var key = exports.convertToType(k, keyType);
-              var value = exports.convertToType(data[k], valueType);
-              result[key] = value;
-            }
-          }
-          return result;
-        } else {
-          // for unknown type, return the data directly
-          return data;
-        }
-    }
-  };
-
-  /**
-   * Constructs a new map or array model from REST data.
-   * @param data {Object|Array} The REST data.
-   * @param obj {Object|Array} The target object or array.
-   */
-  exports.constructFromObject = function(data, obj, itemType) {
-    if (Array.isArray(data)) {
-      for (var i = 0; i < data.length; i++) {
-        if (data.hasOwnProperty(i))
-          obj[i] = exports.convertToType(data[i], itemType);
-      }
-    } else {
-      for (var k in data) {
-        if (data.hasOwnProperty(k))
-          obj[k] = exports.convertToType(data[k], itemType);
-      }
-    }
-  };
-
-  /**
-   * The default API client implementation.
-   * @type {module:ApiClient}
-   */
-  exports.instance = new exports();
-
-  return exports;
-}));
-
-}).call(this,require("buffer").Buffer)
-},{"buffer":3,"fs":1,"superagent":31}],11:[function(require,module,exports){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/APIError', 'model/Device', 'model/DeviceLocation', 'model/Matches', 'model/Publication', 'model/Publications', 'model/Subscription', 'model/Subscriptions'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('../model/APIError'), require('../model/Device'), require('../model/DeviceLocation'), require('../model/Matches'), require('../model/Publication'), require('../model/Publications'), require('../model/Subscription'), require('../model/Subscriptions'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.ScalpsCoreRestApi) {
-      root.ScalpsCoreRestApi = {};
-    }
-    root.ScalpsCoreRestApi.DeviceApi = factory(root.ScalpsCoreRestApi.ApiClient, root.ScalpsCoreRestApi.APIError, root.ScalpsCoreRestApi.Device, root.ScalpsCoreRestApi.DeviceLocation, root.ScalpsCoreRestApi.Matches, root.ScalpsCoreRestApi.Publication, root.ScalpsCoreRestApi.Publications, root.ScalpsCoreRestApi.Subscription, root.ScalpsCoreRestApi.Subscriptions);
-  }
-}(this, function(ApiClient, APIError, Device, DeviceLocation, Matches, Publication, Publications, Subscription, Subscriptions) {
-  'use strict';
-
-  /**
-   * Device service.
-   * @module api/DeviceApi
-   * @version 0.1.0
-   */
-
-  /**
-   * Constructs a new DeviceApi. 
-   * @alias module:api/DeviceApi
-   * @class
-   * @param {module:ApiClient} apiClient Optional API client implementation to use,
-   * default to {@link module:ApiClient#instance} if unspecified.
-   */
-  var exports = function(apiClient) {
-    this.apiClient = apiClient || ApiClient.instance;
-
-
-    /**
-     * Callback function to receive the result of the createDevice operation.
-     * @callback module:api/DeviceApi~createDeviceCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Device} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Create device for a user
-     * @param {String} userId The id (UUID) of the user for which to create a device
-     * @param {String} name The name of the device
-     * @param {String} platform  The platform of the device, this can be any string representing the platform type, for instance &#39;iOS 9.3&#39; 
-     * @param {String} deviceToken  The deviceToken is the device push notification token given to this device by the OS, either iOS or Android, for identifying the device with push notification services. 
-     * @param {Number} latitude The latitude of the device. 
-     * @param {Number} longitude The longitude of the device. 
-     * @param {Number} altitude The altitude of the device. 
-     * @param {Object} opts Optional parameters
-     * @param {Number} opts.horizontalAccuracy  The horizontal accuracy of the location, measured on a scale from &#39;0.0&#39; to &#39;1.0&#39;, &#39;1.0&#39; being the most accurate. If this value is not specified then the default value of &#39;1.0&#39; is used  (default to 5)
-     * @param {Number} opts.verticalAccuracy  The vertical accuracy of the location, measured on a scale from &#39;0.0&#39; to &#39;1.0&#39;, &#39;1.0&#39; being the most accurate. If this value is not specified then the default value of &#39;1.0&#39; is used  (default to 5)
-     * @param {module:api/DeviceApi~createDeviceCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Device}
-     */
-    this.createDevice = function(userId, name, platform, deviceToken, latitude, longitude, altitude, opts, callback) {
-      opts = opts || {};
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling createDevice");
-      }
-
-      // verify the required parameter 'name' is set
-      if (name == undefined || name == null) {
-        throw new Error("Missing the required parameter 'name' when calling createDevice");
-      }
-
-      // verify the required parameter 'platform' is set
-      if (platform == undefined || platform == null) {
-        throw new Error("Missing the required parameter 'platform' when calling createDevice");
-      }
-
-      // verify the required parameter 'deviceToken' is set
-      if (deviceToken == undefined || deviceToken == null) {
-        throw new Error("Missing the required parameter 'deviceToken' when calling createDevice");
-      }
-
-      // verify the required parameter 'latitude' is set
-      if (latitude == undefined || latitude == null) {
-        throw new Error("Missing the required parameter 'latitude' when calling createDevice");
-      }
-
-      // verify the required parameter 'longitude' is set
-      if (longitude == undefined || longitude == null) {
-        throw new Error("Missing the required parameter 'longitude' when calling createDevice");
-      }
-
-      // verify the required parameter 'altitude' is set
-      if (altitude == undefined || altitude == null) {
-        throw new Error("Missing the required parameter 'altitude' when calling createDevice");
-      }
-
-
-      var pathParams = {
-        'userId': userId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-        'name': name,
-        'platform': platform,
-        'deviceToken': deviceToken,
-        'latitude': latitude,
-        'longitude': longitude,
-        'altitude': altitude,
-        'horizontalAccuracy': opts['horizontalAccuracy'],
-        'verticalAccuracy': opts['verticalAccuracy']
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json', 'application/x-www-form-urlencoded'];
-      var accepts = ['application/json'];
-      var returnType = Device;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices', 'POST',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the createLocation operation.
-     * @callback module:api/DeviceApi~createLocationCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/DeviceLocation} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Create a new location for a device
-     * @param {String} userId The id (UUID) of the user
-     * @param {String} deviceId The id (UUID) of the device
-     * @param {Number} latitude The latitude of the device. 
-     * @param {Number} longitude The longitude of the device. 
-     * @param {Number} altitude The altitude of the device. 
-     * @param {Object} opts Optional parameters
-     * @param {Number} opts.horizontalAccuracy  The horizontal accuracy of the location, measured on a scale from &#39;0.0&#39; to &#39;1.0&#39;, &#39;1.0&#39; being the most accurate. If this value is not specified then the default value of &#39;1.0&#39; is used  (default to 5)
-     * @param {Number} opts.verticalAccuracy  The vertical accuracy of the location, measured on a scale from &#39;0.0&#39; to &#39;1.0&#39;, &#39;1.0&#39; being the most accurate. If this value is not specified then the default value of &#39;1.0&#39; is used  (default to 5)
-     * @param {module:api/DeviceApi~createLocationCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/DeviceLocation}
-     */
-    this.createLocation = function(userId, deviceId, latitude, longitude, altitude, opts, callback) {
-      opts = opts || {};
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling createLocation");
-      }
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId == undefined || deviceId == null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling createLocation");
-      }
-
-      // verify the required parameter 'latitude' is set
-      if (latitude == undefined || latitude == null) {
-        throw new Error("Missing the required parameter 'latitude' when calling createLocation");
-      }
-
-      // verify the required parameter 'longitude' is set
-      if (longitude == undefined || longitude == null) {
-        throw new Error("Missing the required parameter 'longitude' when calling createLocation");
-      }
-
-      // verify the required parameter 'altitude' is set
-      if (altitude == undefined || altitude == null) {
-        throw new Error("Missing the required parameter 'altitude' when calling createLocation");
-      }
-
-
-      var pathParams = {
-        'userId': userId,
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-        'latitude': latitude,
-        'longitude': longitude,
-        'altitude': altitude,
-        'horizontalAccuracy': opts['horizontalAccuracy'],
-        'verticalAccuracy': opts['verticalAccuracy']
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = DeviceLocation;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices/{deviceId}/locations', 'POST',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the createPublication operation.
-     * @callback module:api/DeviceApi~createPublicationCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Publication} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Create a publication for a device for a user
-     * @param {String} userId The id (UUID) of the user to create a device for
-     * @param {String} deviceId The id (UUID) of the user device
-     * @param {String} topic The topic of the publication. This will act as a first match filter. For a subscription to be able to match a publication they must have the exact same topic 
-     * @param {Number} range The range of the publication in meters. This is the range around the device holding the publication in which matches with subscriptions can be triggered 
-     * @param {Number} duration The duration of the publication in seconds. If set to &#39;-1&#39; the publication will live forever and if set to &#39;0&#39; it will be instant at the time of publication. 
-     * @param {String} properties  A string representing a map of (key, value) pairs in JSON format:  &#x60;{\&quot;key1\&quot;: \&quot;value1\&quot;, \&quot;key2\&quot;: \&quot;value2\&quot;}&#x60; 
-     * @param {module:api/DeviceApi~createPublicationCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Publication}
-     */
-    this.createPublication = function(userId, deviceId, topic, range, duration, properties, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling createPublication");
-      }
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId == undefined || deviceId == null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling createPublication");
-      }
-
-      // verify the required parameter 'topic' is set
-      if (topic == undefined || topic == null) {
-        throw new Error("Missing the required parameter 'topic' when calling createPublication");
-      }
-
-      // verify the required parameter 'range' is set
-      if (range == undefined || range == null) {
-        throw new Error("Missing the required parameter 'range' when calling createPublication");
-      }
-
-      // verify the required parameter 'duration' is set
-      if (duration == undefined || duration == null) {
-        throw new Error("Missing the required parameter 'duration' when calling createPublication");
-      }
-
-      // verify the required parameter 'properties' is set
-      if (properties == undefined || properties == null) {
-        throw new Error("Missing the required parameter 'properties' when calling createPublication");
-      }
-
-
-      var pathParams = {
-        'userId': userId,
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-        'topic': topic,
-        'range': range,
-        'duration': duration,
-        'properties': properties
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Publication;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices/{deviceId}/publications', 'POST',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the createSubscription operation.
-     * @callback module:api/DeviceApi~createSubscriptionCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Subscription} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Create a subscription for a device for a user
-     * @param {String} userId  The id (UUID) of the user to create a device for 
-     * @param {String} deviceId  The id (UUID) of the user device 
-     * @param {String} topic  The topic of the subscription. This will act as a first match filter. For a subscription to be able to match a publication they must have the exact same topic 
-     * @param {String} selector  This is an expression to filter the publications. For instance &#39;job&#x3D;&#39;developer&#39;&#39; will allow matching only with publications containing a &#39;job&#39; key with a value of &#39;developer&#39; 
-     * @param {Number} range  The range of the subscription in meters. This is the range around the device holding the subscription in which matches with publications can be triggered 
-     * @param {Number} duration  The duration of the subscription in seconds. If set to &#39;-1&#39; the subscription will live forever and if set to &#39;0&#39; it will be instant at the time of subscription. 
-     * @param {module:api/DeviceApi~createSubscriptionCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Subscription}
-     */
-    this.createSubscription = function(userId, deviceId, topic, selector, range, duration, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling createSubscription");
-      }
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId == undefined || deviceId == null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling createSubscription");
-      }
-
-      // verify the required parameter 'topic' is set
-      if (topic == undefined || topic == null) {
-        throw new Error("Missing the required parameter 'topic' when calling createSubscription");
-      }
-
-      // verify the required parameter 'selector' is set
-      if (selector == undefined || selector == null) {
-        throw new Error("Missing the required parameter 'selector' when calling createSubscription");
-      }
-
-      // verify the required parameter 'range' is set
-      if (range == undefined || range == null) {
-        throw new Error("Missing the required parameter 'range' when calling createSubscription");
-      }
-
-      // verify the required parameter 'duration' is set
-      if (duration == undefined || duration == null) {
-        throw new Error("Missing the required parameter 'duration' when calling createSubscription");
-      }
-
-
-      var pathParams = {
-        'userId': userId,
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-        'topic': topic,
-        'selector': selector,
-        'range': range,
-        'duration': duration
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Subscription;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices/{deviceId}/subscriptions', 'POST',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the getDevice operation.
-     * @callback module:api/DeviceApi~getDeviceCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Device} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Info about a device of a user
-     * @param {String} userId The id (UUID) of the user of the device
-     * @param {String} deviceId The id (UUID) of the user device
-     * @param {module:api/DeviceApi~getDeviceCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Device}
-     */
-    this.getDevice = function(userId, deviceId, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling getDevice");
-      }
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId == undefined || deviceId == null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling getDevice");
-      }
-
-
-      var pathParams = {
-        'userId': userId,
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Device;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices/{deviceId}', 'GET',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the getMatches operation.
-     * @callback module:api/DeviceApi~getMatchesCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Matches} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Get matches for the device
-     * @param {String} userId The id (UUID) of the user of the device
-     * @param {String} deviceId The id (UUID) of the user device
-     * @param {module:api/DeviceApi~getMatchesCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Matches}
-     */
-    this.getMatches = function(userId, deviceId, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling getMatches");
-      }
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId == undefined || deviceId == null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling getMatches");
-      }
-
-
-      var pathParams = {
-        'userId': userId,
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Matches;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices/{deviceId}/matches', 'GET',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the getPublications operation.
-     * @callback module:api/DeviceApi~getPublicationsCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Publications} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Get all publications for a device
-     * @param {String} userId The id (UUID) of the user
-     * @param {String} deviceId The id (UUID) of the device
-     * @param {module:api/DeviceApi~getPublicationsCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Publications}
-     */
-    this.getPublications = function(userId, deviceId, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling getPublications");
-      }
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId == undefined || deviceId == null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling getPublications");
-      }
-
-
-      var pathParams = {
-        'userId': userId,
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Publications;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices/{deviceId}/publications', 'GET',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the getSubscriptions operation.
-     * @callback module:api/DeviceApi~getSubscriptionsCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Subscriptions} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Get all subscriptions for a device
-     * @param {String} userId The id (UUID) of the user
-     * @param {String} deviceId The id (UUID) of the device
-     * @param {module:api/DeviceApi~getSubscriptionsCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Subscriptions}
-     */
-    this.getSubscriptions = function(userId, deviceId, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling getSubscriptions");
-      }
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId == undefined || deviceId == null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling getSubscriptions");
-      }
-
-
-      var pathParams = {
-        'userId': userId,
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Subscriptions;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices/{deviceId}/subscriptions', 'GET',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-  };
-
-  return exports;
-}));
-
-},{"../ApiClient":10,"../model/APIError":19,"../model/Device":20,"../model/DeviceLocation":21,"../model/Matches":24,"../model/Publication":25,"../model/Publications":26,"../model/Subscription":27,"../model/Subscriptions":28}],12:[function(require,module,exports){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/APIError', 'model/DeviceLocation'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('../model/APIError'), require('../model/DeviceLocation'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.ScalpsCoreRestApi) {
-      root.ScalpsCoreRestApi = {};
-    }
-    root.ScalpsCoreRestApi.LocationApi = factory(root.ScalpsCoreRestApi.ApiClient, root.ScalpsCoreRestApi.APIError, root.ScalpsCoreRestApi.DeviceLocation);
-  }
-}(this, function(ApiClient, APIError, DeviceLocation) {
-  'use strict';
-
-  /**
-   * Location service.
-   * @module api/LocationApi
-   * @version 0.1.0
-   */
-
-  /**
-   * Constructs a new LocationApi. 
-   * @alias module:api/LocationApi
-   * @class
-   * @param {module:ApiClient} apiClient Optional API client implementation to use,
-   * default to {@link module:ApiClient#instance} if unspecified.
-   */
-  var exports = function(apiClient) {
-    this.apiClient = apiClient || ApiClient.instance;
-
-
-    /**
-     * Callback function to receive the result of the createLocation operation.
-     * @callback module:api/LocationApi~createLocationCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/DeviceLocation} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Create a new location for a device
-     * @param {String} userId The id (UUID) of the user
-     * @param {String} deviceId The id (UUID) of the device
-     * @param {Number} latitude The latitude of the device. 
-     * @param {Number} longitude The longitude of the device. 
-     * @param {Number} altitude The altitude of the device. 
-     * @param {Object} opts Optional parameters
-     * @param {Number} opts.horizontalAccuracy  The horizontal accuracy of the location, measured on a scale from &#39;0.0&#39; to &#39;1.0&#39;, &#39;1.0&#39; being the most accurate. If this value is not specified then the default value of &#39;1.0&#39; is used  (default to 5)
-     * @param {Number} opts.verticalAccuracy  The vertical accuracy of the location, measured on a scale from &#39;0.0&#39; to &#39;1.0&#39;, &#39;1.0&#39; being the most accurate. If this value is not specified then the default value of &#39;1.0&#39; is used  (default to 5)
-     * @param {module:api/LocationApi~createLocationCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/DeviceLocation}
-     */
-    this.createLocation = function(userId, deviceId, latitude, longitude, altitude, opts, callback) {
-      opts = opts || {};
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling createLocation");
-      }
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId == undefined || deviceId == null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling createLocation");
-      }
-
-      // verify the required parameter 'latitude' is set
-      if (latitude == undefined || latitude == null) {
-        throw new Error("Missing the required parameter 'latitude' when calling createLocation");
-      }
-
-      // verify the required parameter 'longitude' is set
-      if (longitude == undefined || longitude == null) {
-        throw new Error("Missing the required parameter 'longitude' when calling createLocation");
-      }
-
-      // verify the required parameter 'altitude' is set
-      if (altitude == undefined || altitude == null) {
-        throw new Error("Missing the required parameter 'altitude' when calling createLocation");
-      }
-
-
-      var pathParams = {
-        'userId': userId,
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-        'latitude': latitude,
-        'longitude': longitude,
-        'altitude': altitude,
-        'horizontalAccuracy': opts['horizontalAccuracy'],
-        'verticalAccuracy': opts['verticalAccuracy']
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = DeviceLocation;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices/{deviceId}/locations', 'POST',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-  };
-
-  return exports;
-}));
-
-},{"../ApiClient":10,"../model/APIError":19,"../model/DeviceLocation":21}],13:[function(require,module,exports){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/APIError', 'model/Matches'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('../model/APIError'), require('../model/Matches'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.ScalpsCoreRestApi) {
-      root.ScalpsCoreRestApi = {};
-    }
-    root.ScalpsCoreRestApi.MatchesApi = factory(root.ScalpsCoreRestApi.ApiClient, root.ScalpsCoreRestApi.APIError, root.ScalpsCoreRestApi.Matches);
-  }
-}(this, function(ApiClient, APIError, Matches) {
-  'use strict';
-
-  /**
-   * Matches service.
-   * @module api/MatchesApi
-   * @version 0.1.0
-   */
-
-  /**
-   * Constructs a new MatchesApi. 
-   * @alias module:api/MatchesApi
-   * @class
-   * @param {module:ApiClient} apiClient Optional API client implementation to use,
-   * default to {@link module:ApiClient#instance} if unspecified.
-   */
-  var exports = function(apiClient) {
-    this.apiClient = apiClient || ApiClient.instance;
-
-
-    /**
-     * Callback function to receive the result of the getMatches operation.
-     * @callback module:api/MatchesApi~getMatchesCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Matches} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Get matches for the device
-     * @param {String} userId The id (UUID) of the user of the device
-     * @param {String} deviceId The id (UUID) of the user device
-     * @param {module:api/MatchesApi~getMatchesCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Matches}
-     */
-    this.getMatches = function(userId, deviceId, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling getMatches");
-      }
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId == undefined || deviceId == null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling getMatches");
-      }
-
-
-      var pathParams = {
-        'userId': userId,
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Matches;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices/{deviceId}/matches', 'GET',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-  };
-
-  return exports;
-}));
-
-},{"../ApiClient":10,"../model/APIError":19,"../model/Matches":24}],14:[function(require,module,exports){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/APIError', 'model/Publication', 'model/Publications'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('../model/APIError'), require('../model/Publication'), require('../model/Publications'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.ScalpsCoreRestApi) {
-      root.ScalpsCoreRestApi = {};
-    }
-    root.ScalpsCoreRestApi.PublicationApi = factory(root.ScalpsCoreRestApi.ApiClient, root.ScalpsCoreRestApi.APIError, root.ScalpsCoreRestApi.Publication, root.ScalpsCoreRestApi.Publications);
-  }
-}(this, function(ApiClient, APIError, Publication, Publications) {
-  'use strict';
-
-  /**
-   * Publication service.
-   * @module api/PublicationApi
-   * @version 0.1.0
-   */
-
-  /**
-   * Constructs a new PublicationApi. 
-   * @alias module:api/PublicationApi
-   * @class
-   * @param {module:ApiClient} apiClient Optional API client implementation to use,
-   * default to {@link module:ApiClient#instance} if unspecified.
-   */
-  var exports = function(apiClient) {
-    this.apiClient = apiClient || ApiClient.instance;
-
-
-    /**
-     * Callback function to receive the result of the createPublication operation.
-     * @callback module:api/PublicationApi~createPublicationCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Publication} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Create a publication for a device for a user
-     * @param {String} userId The id (UUID) of the user to create a device for
-     * @param {String} deviceId The id (UUID) of the user device
-     * @param {String} topic The topic of the publication. This will act as a first match filter. For a subscription to be able to match a publication they must have the exact same topic 
-     * @param {Number} range The range of the publication in meters. This is the range around the device holding the publication in which matches with subscriptions can be triggered 
-     * @param {Number} duration The duration of the publication in seconds. If set to &#39;-1&#39; the publication will live forever and if set to &#39;0&#39; it will be instant at the time of publication. 
-     * @param {String} properties  A string representing a map of (key, value) pairs in JSON format:  &#x60;{\&quot;key1\&quot;: \&quot;value1\&quot;, \&quot;key2\&quot;: \&quot;value2\&quot;}&#x60; 
-     * @param {module:api/PublicationApi~createPublicationCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Publication}
-     */
-    this.createPublication = function(userId, deviceId, topic, range, duration, properties, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling createPublication");
-      }
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId == undefined || deviceId == null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling createPublication");
-      }
-
-      // verify the required parameter 'topic' is set
-      if (topic == undefined || topic == null) {
-        throw new Error("Missing the required parameter 'topic' when calling createPublication");
-      }
-
-      // verify the required parameter 'range' is set
-      if (range == undefined || range == null) {
-        throw new Error("Missing the required parameter 'range' when calling createPublication");
-      }
-
-      // verify the required parameter 'duration' is set
-      if (duration == undefined || duration == null) {
-        throw new Error("Missing the required parameter 'duration' when calling createPublication");
-      }
-
-      // verify the required parameter 'properties' is set
-      if (properties == undefined || properties == null) {
-        throw new Error("Missing the required parameter 'properties' when calling createPublication");
-      }
-
-
-      var pathParams = {
-        'userId': userId,
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-        'topic': topic,
-        'range': range,
-        'duration': duration,
-        'properties': properties
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Publication;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices/{deviceId}/publications', 'POST',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the getPublications operation.
-     * @callback module:api/PublicationApi~getPublicationsCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Publications} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Get all publications for a device
-     * @param {String} userId The id (UUID) of the user
-     * @param {String} deviceId The id (UUID) of the device
-     * @param {module:api/PublicationApi~getPublicationsCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Publications}
-     */
-    this.getPublications = function(userId, deviceId, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling getPublications");
-      }
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId == undefined || deviceId == null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling getPublications");
-      }
-
-
-      var pathParams = {
-        'userId': userId,
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Publications;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices/{deviceId}/publications', 'GET',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-  };
-
-  return exports;
-}));
-
-},{"../ApiClient":10,"../model/APIError":19,"../model/Publication":25,"../model/Publications":26}],15:[function(require,module,exports){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/APIError', 'model/Subscription', 'model/Subscriptions'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('../model/APIError'), require('../model/Subscription'), require('../model/Subscriptions'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.ScalpsCoreRestApi) {
-      root.ScalpsCoreRestApi = {};
-    }
-    root.ScalpsCoreRestApi.SubscriptionApi = factory(root.ScalpsCoreRestApi.ApiClient, root.ScalpsCoreRestApi.APIError, root.ScalpsCoreRestApi.Subscription, root.ScalpsCoreRestApi.Subscriptions);
-  }
-}(this, function(ApiClient, APIError, Subscription, Subscriptions) {
-  'use strict';
-
-  /**
-   * Subscription service.
-   * @module api/SubscriptionApi
-   * @version 0.1.0
-   */
-
-  /**
-   * Constructs a new SubscriptionApi. 
-   * @alias module:api/SubscriptionApi
-   * @class
-   * @param {module:ApiClient} apiClient Optional API client implementation to use,
-   * default to {@link module:ApiClient#instance} if unspecified.
-   */
-  var exports = function(apiClient) {
-    this.apiClient = apiClient || ApiClient.instance;
-
-
-    /**
-     * Callback function to receive the result of the createSubscription operation.
-     * @callback module:api/SubscriptionApi~createSubscriptionCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Subscription} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Create a subscription for a device for a user
-     * @param {String} userId  The id (UUID) of the user to create a device for 
-     * @param {String} deviceId  The id (UUID) of the user device 
-     * @param {String} topic  The topic of the subscription. This will act as a first match filter. For a subscription to be able to match a publication they must have the exact same topic 
-     * @param {String} selector  This is an expression to filter the publications. For instance &#39;job&#x3D;&#39;developer&#39;&#39; will allow matching only with publications containing a &#39;job&#39; key with a value of &#39;developer&#39; 
-     * @param {Number} range  The range of the subscription in meters. This is the range around the device holding the subscription in which matches with publications can be triggered 
-     * @param {Number} duration  The duration of the subscription in seconds. If set to &#39;-1&#39; the subscription will live forever and if set to &#39;0&#39; it will be instant at the time of subscription. 
-     * @param {module:api/SubscriptionApi~createSubscriptionCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Subscription}
-     */
-    this.createSubscription = function(userId, deviceId, topic, selector, range, duration, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling createSubscription");
-      }
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId == undefined || deviceId == null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling createSubscription");
-      }
-
-      // verify the required parameter 'topic' is set
-      if (topic == undefined || topic == null) {
-        throw new Error("Missing the required parameter 'topic' when calling createSubscription");
-      }
-
-      // verify the required parameter 'selector' is set
-      if (selector == undefined || selector == null) {
-        throw new Error("Missing the required parameter 'selector' when calling createSubscription");
-      }
-
-      // verify the required parameter 'range' is set
-      if (range == undefined || range == null) {
-        throw new Error("Missing the required parameter 'range' when calling createSubscription");
-      }
-
-      // verify the required parameter 'duration' is set
-      if (duration == undefined || duration == null) {
-        throw new Error("Missing the required parameter 'duration' when calling createSubscription");
-      }
-
-
-      var pathParams = {
-        'userId': userId,
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-        'topic': topic,
-        'selector': selector,
-        'range': range,
-        'duration': duration
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Subscription;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices/{deviceId}/subscriptions', 'POST',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the getSubscriptions operation.
-     * @callback module:api/SubscriptionApi~getSubscriptionsCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Subscriptions} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Get all subscriptions for a device
-     * @param {String} userId The id (UUID) of the user
-     * @param {String} deviceId The id (UUID) of the device
-     * @param {module:api/SubscriptionApi~getSubscriptionsCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Subscriptions}
-     */
-    this.getSubscriptions = function(userId, deviceId, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling getSubscriptions");
-      }
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId == undefined || deviceId == null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling getSubscriptions");
-      }
-
-
-      var pathParams = {
-        'userId': userId,
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Subscriptions;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices/{deviceId}/subscriptions', 'GET',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-  };
-
-  return exports;
-}));
-
-},{"../ApiClient":10,"../model/APIError":19,"../model/Subscription":27,"../model/Subscriptions":28}],16:[function(require,module,exports){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/APIError', 'model/Device', 'model/DeviceLocation', 'model/Publication', 'model/Publications', 'model/Subscription', 'model/Subscriptions', 'model/Users'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('../model/APIError'), require('../model/Device'), require('../model/DeviceLocation'), require('../model/Publication'), require('../model/Publications'), require('../model/Subscription'), require('../model/Subscriptions'), require('../model/Users'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.ScalpsCoreRestApi) {
-      root.ScalpsCoreRestApi = {};
-    }
-    root.ScalpsCoreRestApi.UserApi = factory(root.ScalpsCoreRestApi.ApiClient, root.ScalpsCoreRestApi.APIError, root.ScalpsCoreRestApi.Device, root.ScalpsCoreRestApi.DeviceLocation, root.ScalpsCoreRestApi.Publication, root.ScalpsCoreRestApi.Publications, root.ScalpsCoreRestApi.Subscription, root.ScalpsCoreRestApi.Subscriptions, root.ScalpsCoreRestApi.Users);
-  }
-}(this, function(ApiClient, APIError, Device, DeviceLocation, Publication, Publications, Subscription, Subscriptions, Users) {
-  'use strict';
-
-  /**
-   * User service.
-   * @module api/UserApi
-   * @version 0.1.0
-   */
-
-  /**
-   * Constructs a new UserApi. 
-   * @alias module:api/UserApi
-   * @class
-   * @param {module:ApiClient} apiClient Optional API client implementation to use,
-   * default to {@link module:ApiClient#instance} if unspecified.
-   */
-  var exports = function(apiClient) {
-    this.apiClient = apiClient || ApiClient.instance;
-
-
-    /**
-     * Callback function to receive the result of the createDevice operation.
-     * @callback module:api/UserApi~createDeviceCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Device} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Create device for a user
-     * @param {String} userId The id (UUID) of the user for which to create a device
-     * @param {String} name The name of the device
-     * @param {String} platform  The platform of the device, this can be any string representing the platform type, for instance &#39;iOS 9.3&#39; 
-     * @param {String} deviceToken  The deviceToken is the device push notification token given to this device by the OS, either iOS or Android, for identifying the device with push notification services. 
-     * @param {Number} latitude The latitude of the device. 
-     * @param {Number} longitude The longitude of the device. 
-     * @param {Number} altitude The altitude of the device. 
-     * @param {Object} opts Optional parameters
-     * @param {Number} opts.horizontalAccuracy  The horizontal accuracy of the location, measured on a scale from &#39;0.0&#39; to &#39;1.0&#39;, &#39;1.0&#39; being the most accurate. If this value is not specified then the default value of &#39;1.0&#39; is used  (default to 5)
-     * @param {Number} opts.verticalAccuracy  The vertical accuracy of the location, measured on a scale from &#39;0.0&#39; to &#39;1.0&#39;, &#39;1.0&#39; being the most accurate. If this value is not specified then the default value of &#39;1.0&#39; is used  (default to 5)
-     * @param {module:api/UserApi~createDeviceCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Device}
-     */
-    this.createDevice = function(userId, name, platform, deviceToken, latitude, longitude, altitude, opts, callback) {
-      opts = opts || {};
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling createDevice");
-      }
-
-      // verify the required parameter 'name' is set
-      if (name == undefined || name == null) {
-        throw new Error("Missing the required parameter 'name' when calling createDevice");
-      }
-
-      // verify the required parameter 'platform' is set
-      if (platform == undefined || platform == null) {
-        throw new Error("Missing the required parameter 'platform' when calling createDevice");
-      }
-
-      // verify the required parameter 'deviceToken' is set
-      if (deviceToken == undefined || deviceToken == null) {
-        throw new Error("Missing the required parameter 'deviceToken' when calling createDevice");
-      }
-
-      // verify the required parameter 'latitude' is set
-      if (latitude == undefined || latitude == null) {
-        throw new Error("Missing the required parameter 'latitude' when calling createDevice");
-      }
-
-      // verify the required parameter 'longitude' is set
-      if (longitude == undefined || longitude == null) {
-        throw new Error("Missing the required parameter 'longitude' when calling createDevice");
-      }
-
-      // verify the required parameter 'altitude' is set
-      if (altitude == undefined || altitude == null) {
-        throw new Error("Missing the required parameter 'altitude' when calling createDevice");
-      }
-
-
-      var pathParams = {
-        'userId': userId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-        'name': name,
-        'platform': platform,
-        'deviceToken': deviceToken,
-        'latitude': latitude,
-        'longitude': longitude,
-        'altitude': altitude,
-        'horizontalAccuracy': opts['horizontalAccuracy'],
-        'verticalAccuracy': opts['verticalAccuracy']
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json', 'application/x-www-form-urlencoded'];
-      var accepts = ['application/json'];
-      var returnType = Device;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices', 'POST',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the createLocation operation.
-     * @callback module:api/UserApi~createLocationCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/DeviceLocation} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Create a new location for a device
-     * @param {String} userId The id (UUID) of the user
-     * @param {String} deviceId The id (UUID) of the device
-     * @param {Number} latitude The latitude of the device. 
-     * @param {Number} longitude The longitude of the device. 
-     * @param {Number} altitude The altitude of the device. 
-     * @param {Object} opts Optional parameters
-     * @param {Number} opts.horizontalAccuracy  The horizontal accuracy of the location, measured on a scale from &#39;0.0&#39; to &#39;1.0&#39;, &#39;1.0&#39; being the most accurate. If this value is not specified then the default value of &#39;1.0&#39; is used  (default to 5)
-     * @param {Number} opts.verticalAccuracy  The vertical accuracy of the location, measured on a scale from &#39;0.0&#39; to &#39;1.0&#39;, &#39;1.0&#39; being the most accurate. If this value is not specified then the default value of &#39;1.0&#39; is used  (default to 5)
-     * @param {module:api/UserApi~createLocationCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/DeviceLocation}
-     */
-    this.createLocation = function(userId, deviceId, latitude, longitude, altitude, opts, callback) {
-      opts = opts || {};
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling createLocation");
-      }
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId == undefined || deviceId == null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling createLocation");
-      }
-
-      // verify the required parameter 'latitude' is set
-      if (latitude == undefined || latitude == null) {
-        throw new Error("Missing the required parameter 'latitude' when calling createLocation");
-      }
-
-      // verify the required parameter 'longitude' is set
-      if (longitude == undefined || longitude == null) {
-        throw new Error("Missing the required parameter 'longitude' when calling createLocation");
-      }
-
-      // verify the required parameter 'altitude' is set
-      if (altitude == undefined || altitude == null) {
-        throw new Error("Missing the required parameter 'altitude' when calling createLocation");
-      }
-
-
-      var pathParams = {
-        'userId': userId,
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-        'latitude': latitude,
-        'longitude': longitude,
-        'altitude': altitude,
-        'horizontalAccuracy': opts['horizontalAccuracy'],
-        'verticalAccuracy': opts['verticalAccuracy']
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = DeviceLocation;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices/{deviceId}/locations', 'POST',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the createPublication operation.
-     * @callback module:api/UserApi~createPublicationCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Publication} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Create a publication for a device for a user
-     * @param {String} userId The id (UUID) of the user to create a device for
-     * @param {String} deviceId The id (UUID) of the user device
-     * @param {String} topic The topic of the publication. This will act as a first match filter. For a subscription to be able to match a publication they must have the exact same topic 
-     * @param {Number} range The range of the publication in meters. This is the range around the device holding the publication in which matches with subscriptions can be triggered 
-     * @param {Number} duration The duration of the publication in seconds. If set to &#39;-1&#39; the publication will live forever and if set to &#39;0&#39; it will be instant at the time of publication. 
-     * @param {String} properties  A string representing a map of (key, value) pairs in JSON format:  &#x60;{\&quot;key1\&quot;: \&quot;value1\&quot;, \&quot;key2\&quot;: \&quot;value2\&quot;}&#x60; 
-     * @param {module:api/UserApi~createPublicationCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Publication}
-     */
-    this.createPublication = function(userId, deviceId, topic, range, duration, properties, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling createPublication");
-      }
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId == undefined || deviceId == null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling createPublication");
-      }
-
-      // verify the required parameter 'topic' is set
-      if (topic == undefined || topic == null) {
-        throw new Error("Missing the required parameter 'topic' when calling createPublication");
-      }
-
-      // verify the required parameter 'range' is set
-      if (range == undefined || range == null) {
-        throw new Error("Missing the required parameter 'range' when calling createPublication");
-      }
-
-      // verify the required parameter 'duration' is set
-      if (duration == undefined || duration == null) {
-        throw new Error("Missing the required parameter 'duration' when calling createPublication");
-      }
-
-      // verify the required parameter 'properties' is set
-      if (properties == undefined || properties == null) {
-        throw new Error("Missing the required parameter 'properties' when calling createPublication");
-      }
-
-
-      var pathParams = {
-        'userId': userId,
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-        'topic': topic,
-        'range': range,
-        'duration': duration,
-        'properties': properties
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Publication;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices/{deviceId}/publications', 'POST',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the createSubscription operation.
-     * @callback module:api/UserApi~createSubscriptionCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Subscription} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Create a subscription for a device for a user
-     * @param {String} userId  The id (UUID) of the user to create a device for 
-     * @param {String} deviceId  The id (UUID) of the user device 
-     * @param {String} topic  The topic of the subscription. This will act as a first match filter. For a subscription to be able to match a publication they must have the exact same topic 
-     * @param {String} selector  This is an expression to filter the publications. For instance &#39;job&#x3D;&#39;developer&#39;&#39; will allow matching only with publications containing a &#39;job&#39; key with a value of &#39;developer&#39; 
-     * @param {Number} range  The range of the subscription in meters. This is the range around the device holding the subscription in which matches with publications can be triggered 
-     * @param {Number} duration  The duration of the subscription in seconds. If set to &#39;-1&#39; the subscription will live forever and if set to &#39;0&#39; it will be instant at the time of subscription. 
-     * @param {module:api/UserApi~createSubscriptionCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Subscription}
-     */
-    this.createSubscription = function(userId, deviceId, topic, selector, range, duration, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling createSubscription");
-      }
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId == undefined || deviceId == null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling createSubscription");
-      }
-
-      // verify the required parameter 'topic' is set
-      if (topic == undefined || topic == null) {
-        throw new Error("Missing the required parameter 'topic' when calling createSubscription");
-      }
-
-      // verify the required parameter 'selector' is set
-      if (selector == undefined || selector == null) {
-        throw new Error("Missing the required parameter 'selector' when calling createSubscription");
-      }
-
-      // verify the required parameter 'range' is set
-      if (range == undefined || range == null) {
-        throw new Error("Missing the required parameter 'range' when calling createSubscription");
-      }
-
-      // verify the required parameter 'duration' is set
-      if (duration == undefined || duration == null) {
-        throw new Error("Missing the required parameter 'duration' when calling createSubscription");
-      }
-
-
-      var pathParams = {
-        'userId': userId,
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-        'topic': topic,
-        'selector': selector,
-        'range': range,
-        'duration': duration
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Subscription;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices/{deviceId}/subscriptions', 'POST',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the getDevice operation.
-     * @callback module:api/UserApi~getDeviceCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Device} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Info about a device of a user
-     * @param {String} userId The id (UUID) of the user of the device
-     * @param {String} deviceId The id (UUID) of the user device
-     * @param {module:api/UserApi~getDeviceCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Device}
-     */
-    this.getDevice = function(userId, deviceId, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling getDevice");
-      }
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId == undefined || deviceId == null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling getDevice");
-      }
-
-
-      var pathParams = {
-        'userId': userId,
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Device;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices/{deviceId}', 'GET',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the getPublications operation.
-     * @callback module:api/UserApi~getPublicationsCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Publications} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Get all publications for a device
-     * @param {String} userId The id (UUID) of the user
-     * @param {String} deviceId The id (UUID) of the device
-     * @param {module:api/UserApi~getPublicationsCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Publications}
-     */
-    this.getPublications = function(userId, deviceId, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling getPublications");
-      }
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId == undefined || deviceId == null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling getPublications");
-      }
-
-
-      var pathParams = {
-        'userId': userId,
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Publications;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices/{deviceId}/publications', 'GET',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the getSubscriptions operation.
-     * @callback module:api/UserApi~getSubscriptionsCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Subscriptions} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Get all subscriptions for a device
-     * @param {String} userId The id (UUID) of the user
-     * @param {String} deviceId The id (UUID) of the device
-     * @param {module:api/UserApi~getSubscriptionsCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Subscriptions}
-     */
-    this.getSubscriptions = function(userId, deviceId, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling getSubscriptions");
-      }
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId == undefined || deviceId == null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling getSubscriptions");
-      }
-
-
-      var pathParams = {
-        'userId': userId,
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Subscriptions;
-
-      return this.apiClient.callApi(
-        '/users/{userId}/devices/{deviceId}/subscriptions', 'GET',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the showUserById operation.
-     * @callback module:api/UserApi~showUserByIdCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Users} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Info about a user
-     * @param {String} userId The id (UUID) of the user to retrieve
-     * @param {module:api/UserApi~showUserByIdCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Users}
-     */
-    this.showUserById = function(userId, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'userId' is set
-      if (userId == undefined || userId == null) {
-        throw new Error("Missing the required parameter 'userId' when calling showUserById");
-      }
-
-
-      var pathParams = {
-        'userId': userId
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Users;
-
-      return this.apiClient.callApi(
-        '/users/{userId}', 'GET',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-  };
-
-  return exports;
-}));
-
-},{"../ApiClient":10,"../model/APIError":19,"../model/Device":20,"../model/DeviceLocation":21,"../model/Publication":25,"../model/Publications":26,"../model/Subscription":27,"../model/Subscriptions":28,"../model/Users":30}],17:[function(require,module,exports){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/APIError', 'model/User', 'model/Users'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('../model/APIError'), require('../model/User'), require('../model/Users'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.ScalpsCoreRestApi) {
-      root.ScalpsCoreRestApi = {};
-    }
-    root.ScalpsCoreRestApi.UsersApi = factory(root.ScalpsCoreRestApi.ApiClient, root.ScalpsCoreRestApi.APIError, root.ScalpsCoreRestApi.User, root.ScalpsCoreRestApi.Users);
-  }
-}(this, function(ApiClient, APIError, User, Users) {
-  'use strict';
-
-  /**
-   * Users service.
-   * @module api/UsersApi
-   * @version 0.1.0
-   */
-
-  /**
-   * Constructs a new UsersApi. 
-   * @alias module:api/UsersApi
-   * @class
-   * @param {module:ApiClient} apiClient Optional API client implementation to use,
-   * default to {@link module:ApiClient#instance} if unspecified.
-   */
-  var exports = function(apiClient) {
-    this.apiClient = apiClient || ApiClient.instance;
-
-
-    /**
-     * Callback function to receive the result of the createUser operation.
-     * @callback module:api/UsersApi~createUserCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/User} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Create a user
-     * @param {String} name The name of the user to be created
-     * @param {module:api/UsersApi~createUserCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/User}
-     */
-    this.createUser = function(name, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'name' is set
-      if (name == undefined || name == null) {
-        throw new Error("Missing the required parameter 'name' when calling createUser");
-      }
-
-
-      var pathParams = {
-      };
-      var queryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-        'name': name
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = User;
-
-      return this.apiClient.callApi(
-        '/users', 'POST',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the listUsers operation.
-     * @callback module:api/UsersApi~listUsersCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Users} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * List all users
-     * @param {Object} opts Optional parameters
-     * @param {Number} opts.limit How many items to return at one time (1-100, default 100)
-     * @param {module:api/UsersApi~listUsersCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Users}
-     */
-    this.listUsers = function(opts, callback) {
-      opts = opts || {};
-      var postBody = null;
-
-
-      var pathParams = {
-      };
-      var queryParams = {
-        'limit': opts['limit']
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Users;
-
-      return this.apiClient.callApi(
-        '/users', 'GET',
-        pathParams, queryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-  };
-
-  return exports;
-}));
-
-},{"../ApiClient":10,"../model/APIError":19,"../model/User":29,"../model/Users":30}],18:[function(require,module,exports){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/APIError', 'model/Device', 'model/DeviceLocation', 'model/Location', 'model/Match', 'model/Matches', 'model/Publication', 'model/Publications', 'model/Subscription', 'model/Subscriptions', 'model/User', 'model/Users', 'api/DeviceApi', 'api/LocationApi', 'api/MatchesApi', 'api/PublicationApi', 'api/SubscriptionApi', 'api/UserApi', 'api/UsersApi'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('./ApiClient'), require('./model/APIError'), require('./model/Device'), require('./model/DeviceLocation'), require('./model/Location'), require('./model/Match'), require('./model/Matches'), require('./model/Publication'), require('./model/Publications'), require('./model/Subscription'), require('./model/Subscriptions'), require('./model/User'), require('./model/Users'), require('./api/DeviceApi'), require('./api/LocationApi'), require('./api/MatchesApi'), require('./api/PublicationApi'), require('./api/SubscriptionApi'), require('./api/UserApi'), require('./api/UsersApi'));
-  }
-}(function(ApiClient, APIError, Device, DeviceLocation, Location, Match, Matches, Publication, Publications, Subscription, Subscriptions, User, Users, DeviceApi, LocationApi, MatchesApi, PublicationApi, SubscriptionApi, UserApi, UsersApi) {
-  'use strict';
-
-  /**
-   * __SCALPS_____We_connect_things_httpscalps_unil_chThe_first_version_of_the_SCALPS_API_is_an_exciting_step_to_allow_developers_use_a_context_aware_pubsub_cloud_service___A_lot_of_mobile_applications_and_their_use_cases_may_be_modeled_using_this_approach_and_can_therefore_profit_form_using_SCALPS_as_their_backend_service_Build_something_great_with_SCALPSOnce_youve__registered_your_client_httpscalps_unil_chaccountregister_its_easy_start_using_our_awesome_cloud_based_context_aware_pubsub__admitted_a_lot_of_buzzwords__RESTful_APIWe_do_our_best_to_have_all_our_URLs_be_RESTful_httpen_wikipedia_orgwikiRepresentational_state_transfer_Every_endpoint__URL_may_support_one_of_four_different_http_verbs__GETrequests_fetch_information_about_an_object_POST_requests_create_objectsPUT_requests_update_objects_and_finally_DELETE_requests_will_deleteobjects__Domain_model_User_Device_Location_Publication_Subscription_Match_More_about_SCALPS.<br>
-   * The <code>index</code> module provides access to constructors for all the classes which comprise the public API.
-   * <p>
-   * An AMD (recommended!) or CommonJS application will generally do something equivalent to the following:
-   * <pre>
-   * var ScalpsCoreRestApi = require('index'); // See note below*.
-   * var xxxSvc = new ScalpsCoreRestApi.XxxApi(); // Allocate the API class we're going to use.
-   * var yyyModel = new ScalpsCoreRestApi.Yyy(); // Construct a model instance.
-   * yyyModel.someProperty = 'someValue';
-   * ...
-   * var zzz = xxxSvc.doSomething(yyyModel); // Invoke the service.
-   * ...
-   * </pre>
-   * <em>*NOTE: For a top-level AMD script, use require(['index'], function(){...})
-   * and put the application logic within the callback function.</em>
-   * </p>
-   * <p>
-   * A non-AMD browser application (discouraged) might do something like this:
-   * <pre>
-   * var xxxSvc = new ScalpsCoreRestApi.XxxApi(); // Allocate the API class we're going to use.
-   * var yyy = new ScalpsCoreRestApi.Yyy(); // Construct a model instance.
-   * yyyModel.someProperty = 'someValue';
-   * ...
-   * var zzz = xxxSvc.doSomething(yyyModel); // Invoke the service.
-   * ...
-   * </pre>
-   * </p>
-   * @module index
-   * @version 0.1.0
-   */
-  var exports = {
-    /**
-     * The ApiClient constructor.
-     * @property {module:ApiClient}
-     */
-    ApiClient: ApiClient,
-    /**
-     * The APIError model constructor.
-     * @property {module:model/APIError}
-     */
-    APIError: APIError,
-    /**
-     * The Device model constructor.
-     * @property {module:model/Device}
-     */
-    Device: Device,
-    /**
-     * The DeviceLocation model constructor.
-     * @property {module:model/DeviceLocation}
-     */
-    DeviceLocation: DeviceLocation,
-    /**
-     * The Location model constructor.
-     * @property {module:model/Location}
-     */
-    Location: Location,
-    /**
-     * The Match model constructor.
-     * @property {module:model/Match}
-     */
-    Match: Match,
-    /**
-     * The Matches model constructor.
-     * @property {module:model/Matches}
-     */
-    Matches: Matches,
-    /**
-     * The Publication model constructor.
-     * @property {module:model/Publication}
-     */
-    Publication: Publication,
-    /**
-     * The Publications model constructor.
-     * @property {module:model/Publications}
-     */
-    Publications: Publications,
-    /**
-     * The Subscription model constructor.
-     * @property {module:model/Subscription}
-     */
-    Subscription: Subscription,
-    /**
-     * The Subscriptions model constructor.
-     * @property {module:model/Subscriptions}
-     */
-    Subscriptions: Subscriptions,
-    /**
-     * The User model constructor.
-     * @property {module:model/User}
-     */
-    User: User,
-    /**
-     * The Users model constructor.
-     * @property {module:model/Users}
-     */
-    Users: Users,
-    /**
-     * The DeviceApi service constructor.
-     * @property {module:api/DeviceApi}
-     */
-    DeviceApi: DeviceApi,
-    /**
-     * The LocationApi service constructor.
-     * @property {module:api/LocationApi}
-     */
-    LocationApi: LocationApi,
-    /**
-     * The MatchesApi service constructor.
-     * @property {module:api/MatchesApi}
-     */
-    MatchesApi: MatchesApi,
-    /**
-     * The PublicationApi service constructor.
-     * @property {module:api/PublicationApi}
-     */
-    PublicationApi: PublicationApi,
-    /**
-     * The SubscriptionApi service constructor.
-     * @property {module:api/SubscriptionApi}
-     */
-    SubscriptionApi: SubscriptionApi,
-    /**
-     * The UserApi service constructor.
-     * @property {module:api/UserApi}
-     */
-    UserApi: UserApi,
-    /**
-     * The UsersApi service constructor.
-     * @property {module:api/UsersApi}
-     */
-    UsersApi: UsersApi
-  };
-
-  return exports;
-}));
-
-},{"./ApiClient":10,"./api/DeviceApi":11,"./api/LocationApi":12,"./api/MatchesApi":13,"./api/PublicationApi":14,"./api/SubscriptionApi":15,"./api/UserApi":16,"./api/UsersApi":17,"./model/APIError":19,"./model/Device":20,"./model/DeviceLocation":21,"./model/Location":22,"./model/Match":23,"./model/Matches":24,"./model/Publication":25,"./model/Publications":26,"./model/Subscription":27,"./model/Subscriptions":28,"./model/User":29,"./model/Users":30}],19:[function(require,module,exports){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.ScalpsCoreRestApi) {
-      root.ScalpsCoreRestApi = {};
-    }
-    root.ScalpsCoreRestApi.APIError = factory(root.ScalpsCoreRestApi.ApiClient);
-  }
-}(this, function(ApiClient) {
-  'use strict';
-
-
-
-
-  /**
-   * The APIError model module.
-   * @module model/APIError
-   * @version 0.1.0
-   */
-
-  /**
-   * Constructs a new <code>APIError</code>.
-   * @alias module:model/APIError
-   * @class
-   * @param code {Number} 
-   * @param message {String} 
-   */
-  var exports = function(code, message) {
-    var _this = this;
-
-    _this['code'] = code;
-    _this['message'] = message;
-  };
-
-  /**
-   * Constructs a <code>APIError</code> from a plain JavaScript object, optionally creating a new instance.
-   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
-   * @param {Object} data The plain JavaScript object bearing properties of interest.
-   * @param {module:model/APIError} obj Optional instance to populate.
-   * @return {module:model/APIError} The populated <code>APIError</code> instance.
-   */
-  exports.constructFromObject = function(data, obj) {
-    if (data) {
-      obj = obj || new exports();
-
-      if (data.hasOwnProperty('code')) {
-        obj['code'] = ApiClient.convertToType(data['code'], 'Number');
-      }
-      if (data.hasOwnProperty('message')) {
-        obj['message'] = ApiClient.convertToType(data['message'], 'String');
-      }
-    }
-    return obj;
-  }
-
-  /**
-   * @member {Number} code
-   */
-  exports.prototype['code'] = undefined;
-  /**
-   * @member {String} message
-   */
-  exports.prototype['message'] = undefined;
-
-
-
-  return exports;
-}));
-
-
-
-},{"../ApiClient":10}],20:[function(require,module,exports){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/Location'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('./Location'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.ScalpsCoreRestApi) {
-      root.ScalpsCoreRestApi = {};
-    }
-    root.ScalpsCoreRestApi.Device = factory(root.ScalpsCoreRestApi.ApiClient, root.ScalpsCoreRestApi.Location);
-  }
-}(this, function(ApiClient, Location) {
-  'use strict';
-
-
-
-
-  /**
-   * The Device model module.
-   * @module model/Device
-   * @version 0.1.0
-   */
-
-  /**
-   * Constructs a new <code>Device</code>.
-   * @alias module:model/Device
-   * @class
-   * @param deviceId {String} The id (UUID) of the device
-   * @param name {String} The name of the device
-   * @param platform {String}  The platform of the device, this can be any string representing the platform type, for instance 'iOS' 
-   * @param deviceToken {String}  The deviceToken is the device push notification token given to this device by the OS, either iOS or Android for identifying the device with push notification services. 
-   * @param location {module:model/Location} 
-   */
-  var exports = function(deviceId, name, platform, deviceToken, location) {
-    var _this = this;
-
-    _this['deviceId'] = deviceId;
-    _this['name'] = name;
-    _this['platform'] = platform;
-    _this['deviceToken'] = deviceToken;
-    _this['location'] = location;
-  };
-
-  /**
-   * Constructs a <code>Device</code> from a plain JavaScript object, optionally creating a new instance.
-   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
-   * @param {Object} data The plain JavaScript object bearing properties of interest.
-   * @param {module:model/Device} obj Optional instance to populate.
-   * @return {module:model/Device} The populated <code>Device</code> instance.
-   */
-  exports.constructFromObject = function(data, obj) {
-    if (data) {
-      obj = obj || new exports();
-
-      if (data.hasOwnProperty('deviceId')) {
-        obj['deviceId'] = ApiClient.convertToType(data['deviceId'], 'String');
-      }
-      if (data.hasOwnProperty('name')) {
-        obj['name'] = ApiClient.convertToType(data['name'], 'String');
-      }
-      if (data.hasOwnProperty('platform')) {
-        obj['platform'] = ApiClient.convertToType(data['platform'], 'String');
-      }
-      if (data.hasOwnProperty('deviceToken')) {
-        obj['deviceToken'] = ApiClient.convertToType(data['deviceToken'], 'String');
-      }
-      if (data.hasOwnProperty('location')) {
-        obj['location'] = Location.constructFromObject(data['location']);
-      }
-    }
-    return obj;
-  }
-
-  /**
-   * The id (UUID) of the device
-   * @member {String} deviceId
-   */
-  exports.prototype['deviceId'] = undefined;
-  /**
-   * The name of the device
-   * @member {String} name
-   */
-  exports.prototype['name'] = undefined;
-  /**
-   *  The platform of the device, this can be any string representing the platform type, for instance 'iOS' 
-   * @member {String} platform
-   */
-  exports.prototype['platform'] = undefined;
-  /**
-   *  The deviceToken is the device push notification token given to this device by the OS, either iOS or Android for identifying the device with push notification services. 
-   * @member {String} deviceToken
-   */
-  exports.prototype['deviceToken'] = undefined;
-  /**
-   * @member {module:model/Location} location
-   */
-  exports.prototype['location'] = undefined;
-
-
-
-  return exports;
-}));
-
-
-
-},{"../ApiClient":10,"./Location":22}],21:[function(require,module,exports){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/Location'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('./Location'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.ScalpsCoreRestApi) {
-      root.ScalpsCoreRestApi = {};
-    }
-    root.ScalpsCoreRestApi.DeviceLocation = factory(root.ScalpsCoreRestApi.ApiClient, root.ScalpsCoreRestApi.Location);
-  }
-}(this, function(ApiClient, Location) {
-  'use strict';
-
-
-
-
-  /**
-   * The DeviceLocation model module.
-   * @module model/DeviceLocation
-   * @version 0.1.0
-   */
-
-  /**
-   * Constructs a new <code>DeviceLocation</code>.
-   * @alias module:model/DeviceLocation
-   * @class
-   * @param deviceId {String}  The id (UUID) of the device to create a device location for 
-   * @param location {module:model/Location} 
-   */
-  var exports = function(deviceId, location) {
-    var _this = this;
-
-    _this['deviceId'] = deviceId;
-    _this['location'] = location;
-  };
-
-  /**
-   * Constructs a <code>DeviceLocation</code> from a plain JavaScript object, optionally creating a new instance.
-   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
-   * @param {Object} data The plain JavaScript object bearing properties of interest.
-   * @param {module:model/DeviceLocation} obj Optional instance to populate.
-   * @return {module:model/DeviceLocation} The populated <code>DeviceLocation</code> instance.
-   */
-  exports.constructFromObject = function(data, obj) {
-    if (data) {
-      obj = obj || new exports();
-
-      if (data.hasOwnProperty('deviceId')) {
-        obj['deviceId'] = ApiClient.convertToType(data['deviceId'], 'String');
-      }
-      if (data.hasOwnProperty('location')) {
-        obj['location'] = Location.constructFromObject(data['location']);
-      }
-    }
-    return obj;
-  }
-
-  /**
-   *  The id (UUID) of the device to create a device location for 
-   * @member {String} deviceId
-   */
-  exports.prototype['deviceId'] = undefined;
-  /**
-   * @member {module:model/Location} location
-   */
-  exports.prototype['location'] = undefined;
-
-
-
-  return exports;
-}));
-
-
-
-},{"../ApiClient":10,"./Location":22}],22:[function(require,module,exports){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.ScalpsCoreRestApi) {
-      root.ScalpsCoreRestApi = {};
-    }
-    root.ScalpsCoreRestApi.Location = factory(root.ScalpsCoreRestApi.ApiClient);
-  }
-}(this, function(ApiClient) {
-  'use strict';
-
-
-
-
-  /**
-   * The Location model module.
-   * @module model/Location
-   * @version 0.1.0
-   */
-
-  /**
-   * Constructs a new <code>Location</code>.
-   * @alias module:model/Location
-   * @class
-   * @param latitude {Number} The latitude of the device in degrees, for instance '46.5333' (Lausanne, Switzerland) 
-   * @param longitude {Number} The longitude of the device in degrees, for instance '6.6667' (Lausanne, Switzerland) 
-   * @param altitude {Number} The altitude of the device in meters, for instance '495.0' (Lausanne, Switzerland) 
-   */
-  var exports = function(latitude, longitude, altitude) {
-    var _this = this;
-
-
-    _this['latitude'] = latitude;
-    _this['longitude'] = longitude;
-    _this['altitude'] = altitude;
-
-
-  };
-
-  /**
-   * Constructs a <code>Location</code> from a plain JavaScript object, optionally creating a new instance.
-   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
-   * @param {Object} data The plain JavaScript object bearing properties of interest.
-   * @param {module:model/Location} obj Optional instance to populate.
-   * @return {module:model/Location} The populated <code>Location</code> instance.
-   */
-  exports.constructFromObject = function(data, obj) {
-    if (data) {
-      obj = obj || new exports();
-
-      if (data.hasOwnProperty('timestamp')) {
-        obj['timestamp'] = ApiClient.convertToType(data['timestamp'], 'Number');
-      }
-      if (data.hasOwnProperty('latitude')) {
-        obj['latitude'] = ApiClient.convertToType(data['latitude'], 'Number');
-      }
-      if (data.hasOwnProperty('longitude')) {
-        obj['longitude'] = ApiClient.convertToType(data['longitude'], 'Number');
-      }
-      if (data.hasOwnProperty('altitude')) {
-        obj['altitude'] = ApiClient.convertToType(data['altitude'], 'Number');
-      }
-      if (data.hasOwnProperty('horizontalAccuracy')) {
-        obj['horizontalAccuracy'] = ApiClient.convertToType(data['horizontalAccuracy'], 'Number');
-      }
-      if (data.hasOwnProperty('verticalAccuracy')) {
-        obj['verticalAccuracy'] = ApiClient.convertToType(data['verticalAccuracy'], 'Number');
-      }
-    }
-    return obj;
-  }
-
-  /**
-   * The timestamp in seconds since Jan 01 1970. (UTC). If no timestamp is provided upon creation then the system uses the moment of the call to the api as a timestamp 
-   * @member {Number} timestamp
-   */
-  exports.prototype['timestamp'] = undefined;
-  /**
-   * The latitude of the device in degrees, for instance '46.5333' (Lausanne, Switzerland) 
-   * @member {Number} latitude
-   */
-  exports.prototype['latitude'] = undefined;
-  /**
-   * The longitude of the device in degrees, for instance '6.6667' (Lausanne, Switzerland) 
-   * @member {Number} longitude
-   */
-  exports.prototype['longitude'] = undefined;
-  /**
-   * The altitude of the device in meters, for instance '495.0' (Lausanne, Switzerland) 
-   * @member {Number} altitude
-   */
-  exports.prototype['altitude'] = undefined;
-  /**
-   * The horizontal accuracy of the location, measured on a scale from '0.0' to '1.0', '1.0' being the most accurate. If this value is not specified then the default value of '1.0' is used 
-   * @member {Number} horizontalAccuracy
-   * @default 1.0
-   */
-  exports.prototype['horizontalAccuracy'] = 1.0;
-  /**
-   * The vertical accuracy of the location, measured on a scale from '0.0' to '1.0', '1.0' being the most accurate. If this value is not specified then the default value of '1.0' is used 
-   * @member {Number} verticalAccuracy
-   * @default 1.0
-   */
-  exports.prototype['verticalAccuracy'] = 1.0;
-
-
-
-  return exports;
-}));
-
-
-
-},{"../ApiClient":10}],23:[function(require,module,exports){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/Publication', 'model/Subscription'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('./Publication'), require('./Subscription'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.ScalpsCoreRestApi) {
-      root.ScalpsCoreRestApi = {};
-    }
-    root.ScalpsCoreRestApi.Match = factory(root.ScalpsCoreRestApi.ApiClient, root.ScalpsCoreRestApi.Publication, root.ScalpsCoreRestApi.Subscription);
-  }
-}(this, function(ApiClient, Publication, Subscription) {
-  'use strict';
-
-
-
-
-  /**
-   * The Match model module.
-   * @module model/Match
-   * @version 0.1.0
-   */
-
-  /**
-   * Constructs a new <code>Match</code>.
-   * An object representing a match between a subscription and a publication.
-   * @alias module:model/Match
-   * @class
-   * @param matchId {String} The id (UUID) of the user
-   * @param timestamp {Number} The timestamp of the match in seconds since Jan 01 1970 (UTC).
-   * @param publication {module:model/Publication} 
-   * @param subscription {module:model/Subscription} 
-   */
-  var exports = function(matchId, timestamp, publication, subscription) {
-    var _this = this;
-
-    _this['matchId'] = matchId;
-    _this['timestamp'] = timestamp;
-    _this['publication'] = publication;
-    _this['subscription'] = subscription;
-  };
-
-  /**
-   * Constructs a <code>Match</code> from a plain JavaScript object, optionally creating a new instance.
-   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
-   * @param {Object} data The plain JavaScript object bearing properties of interest.
-   * @param {module:model/Match} obj Optional instance to populate.
-   * @return {module:model/Match} The populated <code>Match</code> instance.
-   */
-  exports.constructFromObject = function(data, obj) {
-    if (data) {
-      obj = obj || new exports();
-
-      if (data.hasOwnProperty('matchId')) {
-        obj['matchId'] = ApiClient.convertToType(data['matchId'], 'String');
-      }
-      if (data.hasOwnProperty('timestamp')) {
-        obj['timestamp'] = ApiClient.convertToType(data['timestamp'], 'Number');
-      }
-      if (data.hasOwnProperty('publication')) {
-        obj['publication'] = Publication.constructFromObject(data['publication']);
-      }
-      if (data.hasOwnProperty('subscription')) {
-        obj['subscription'] = Subscription.constructFromObject(data['subscription']);
-      }
-    }
-    return obj;
-  }
-
-  /**
-   * The id (UUID) of the user
-   * @member {String} matchId
-   */
-  exports.prototype['matchId'] = undefined;
-  /**
-   * The timestamp of the match in seconds since Jan 01 1970 (UTC).
-   * @member {Number} timestamp
-   */
-  exports.prototype['timestamp'] = undefined;
-  /**
-   * @member {module:model/Publication} publication
-   */
-  exports.prototype['publication'] = undefined;
-  /**
-   * @member {module:model/Subscription} subscription
-   */
-  exports.prototype['subscription'] = undefined;
-
-
-
-  return exports;
-}));
-
-
-
-},{"../ApiClient":10,"./Publication":25,"./Subscription":27}],24:[function(require,module,exports){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/Match'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('./Match'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.ScalpsCoreRestApi) {
-      root.ScalpsCoreRestApi = {};
-    }
-    root.ScalpsCoreRestApi.Matches = factory(root.ScalpsCoreRestApi.ApiClient, root.ScalpsCoreRestApi.Match);
-  }
-}(this, function(ApiClient, Match) {
-  'use strict';
-
-
-
-
-  /**
-   * The Matches model module.
-   * @module model/Matches
-   * @version 0.1.0
-   */
-
-  /**
-   * Constructs a new <code>Matches</code>.
-   * @alias module:model/Matches
-   * @class
-   * @extends Array
-   */
-  var exports = function() {
-    var _this = this;
-    _this = new Array();
-    Object.setPrototypeOf(_this, exports);
-
-    return _this;
-  };
-
-  /**
-   * Constructs a <code>Matches</code> from a plain JavaScript object, optionally creating a new instance.
-   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
-   * @param {Object} data The plain JavaScript object bearing properties of interest.
-   * @param {module:model/Matches} obj Optional instance to populate.
-   * @return {module:model/Matches} The populated <code>Matches</code> instance.
-   */
-  exports.constructFromObject = function(data, obj) {
-    if (data) {
-      obj = obj || new exports();
-      ApiClient.constructFromObject(data, obj, 'Match');
-
-    }
-    return obj;
-  }
-
-
-
-
-  return exports;
-}));
-
-
-
-},{"../ApiClient":10,"./Match":23}],25:[function(require,module,exports){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/Location'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('./Location'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.ScalpsCoreRestApi) {
-      root.ScalpsCoreRestApi = {};
-    }
-    root.ScalpsCoreRestApi.Publication = factory(root.ScalpsCoreRestApi.ApiClient, root.ScalpsCoreRestApi.Location);
-  }
-}(this, function(ApiClient, Location) {
-  'use strict';
-
-
-
-
-  /**
-   * The Publication model module.
-   * @module model/Publication
-   * @version 0.1.0
-   */
-
-  /**
-   * Constructs a new <code>Publication</code>.
-   * @alias module:model/Publication
-   * @class
-   * @param topic {String} The topic of the publication. This will act as a first match filter. For a subscription to be able to match a publication they must have the exact same topic
-   * @param range {Number} The range of the publication in meters. This is the range around the device holding the publication in which matches with subscriptions can be triggered
-   * @param duration {Number} The duration of the publication in seconds. If set to '-1' the publication will live forever and if set to '0' it will be instant at the time of publication.
-   * @param properties {String} The dictionary of key, value pairs.
-   */
-  var exports = function(topic, range, duration, properties) {
-    var _this = this;
-
-
-
-
-    _this['topic'] = topic;
-
-    _this['range'] = range;
-    _this['duration'] = duration;
-    _this['properties'] = properties;
-
-  };
-
-  /**
-   * Constructs a <code>Publication</code> from a plain JavaScript object, optionally creating a new instance.
-   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
-   * @param {Object} data The plain JavaScript object bearing properties of interest.
-   * @param {module:model/Publication} obj Optional instance to populate.
-   * @return {module:model/Publication} The populated <code>Publication</code> instance.
-   */
-  exports.constructFromObject = function(data, obj) {
-    if (data) {
-      obj = obj || new exports();
-
-      if (data.hasOwnProperty('timestamp')) {
-        obj['timestamp'] = ApiClient.convertToType(data['timestamp'], 'Number');
-      }
-      if (data.hasOwnProperty('publicationId')) {
-        obj['publicationId'] = ApiClient.convertToType(data['publicationId'], 'String');
-      }
-      if (data.hasOwnProperty('deviceId')) {
-        obj['deviceId'] = ApiClient.convertToType(data['deviceId'], 'String');
-      }
-      if (data.hasOwnProperty('topic')) {
-        obj['topic'] = ApiClient.convertToType(data['topic'], 'String');
-      }
-      if (data.hasOwnProperty('location')) {
-        obj['location'] = Location.constructFromObject(data['location']);
-      }
-      if (data.hasOwnProperty('range')) {
-        obj['range'] = ApiClient.convertToType(data['range'], 'Number');
-      }
-      if (data.hasOwnProperty('duration')) {
-        obj['duration'] = ApiClient.convertToType(data['duration'], 'Number');
-      }
-      if (data.hasOwnProperty('properties')) {
-        obj['properties'] = ApiClient.convertToType(data['properties'], 'String');
-      }
-      if (data.hasOwnProperty('op')) {
-        obj['op'] = ApiClient.convertToType(data['op'], 'String');
-      }
-    }
-    return obj;
-  }
-
-  /**
-   * The timestamp in seconds since Jan 01 1970. (UTC). If no timestamp is provided upon creation then the system uses the moment of the call to the api as a timestamp
-   * @member {Number} timestamp
-   */
-  exports.prototype['timestamp'] = undefined;
-  /**
-   * The id (UUID) of the publication
-   * @member {String} publicationId
-   */
-  exports.prototype['publicationId'] = undefined;
-  /**
-   * The id (UUID) of the device to attach a publication to
-   * @member {String} deviceId
-   */
-  exports.prototype['deviceId'] = undefined;
-  /**
-   * The topic of the publication. This will act as a first match filter. For a subscription to be able to match a publication they must have the exact same topic
-   * @member {String} topic
-   */
-  exports.prototype['topic'] = undefined;
-  /**
-   * @member {module:model/Location} location
-   */
-  exports.prototype['location'] = undefined;
-  /**
-   * The range of the publication in meters. This is the range around the device holding the publication in which matches with subscriptions can be triggered
-   * @member {Number} range
-   */
-  exports.prototype['range'] = undefined;
-  /**
-   * The duration of the publication in seconds. If set to '-1' the publication will live forever and if set to '0' it will be instant at the time of publication.
-   * @member {Number} duration
-   */
-  exports.prototype['duration'] = undefined;
-  /**
-   * The dictionary of key, value pairs.
-   * @member {String} properties
-   */
-  exports.prototype['properties'] = undefined;
-  /**
-   * The internal operation resulting from the API call. For instance 'create'
-   * @member {String} op
-   */
-  exports.prototype['op'] = undefined;
-
-
-
-  return exports;
-}));
-
-
-
-},{"../ApiClient":10,"./Location":22}],26:[function(require,module,exports){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/Publication'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('./Publication'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.ScalpsCoreRestApi) {
-      root.ScalpsCoreRestApi = {};
-    }
-    root.ScalpsCoreRestApi.Publications = factory(root.ScalpsCoreRestApi.ApiClient, root.ScalpsCoreRestApi.Publication);
-  }
-}(this, function(ApiClient, Publication) {
-  'use strict';
-
-
-
-
-  /**
-   * The Publications model module.
-   * @module model/Publications
-   * @version 0.1.0
-   */
-
-  /**
-   * Constructs a new <code>Publications</code>.
-   * @alias module:model/Publications
-   * @class
-   * @extends Array
-   */
-  var exports = function() {
-    var _this = this;
-    _this = new Array();
-    Object.setPrototypeOf(_this, exports);
-
-    return _this;
-  };
-
-  /**
-   * Constructs a <code>Publications</code> from a plain JavaScript object, optionally creating a new instance.
-   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
-   * @param {Object} data The plain JavaScript object bearing properties of interest.
-   * @param {module:model/Publications} obj Optional instance to populate.
-   * @return {module:model/Publications} The populated <code>Publications</code> instance.
-   */
-  exports.constructFromObject = function(data, obj) {
-    if (data) {
-      obj = obj || new exports();
-      ApiClient.constructFromObject(data, obj, 'Publication');
-
-    }
-    return obj;
-  }
-
-
-
-
-  return exports;
-}));
-
-
-
-},{"../ApiClient":10,"./Publication":25}],27:[function(require,module,exports){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/Location'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('./Location'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.ScalpsCoreRestApi) {
-      root.ScalpsCoreRestApi = {};
-    }
-    root.ScalpsCoreRestApi.Subscription = factory(root.ScalpsCoreRestApi.ApiClient, root.ScalpsCoreRestApi.Location);
-  }
-}(this, function(ApiClient, Location) {
-  'use strict';
-
-
-
-
-  /**
-   * The Subscription model module.
-   * @module model/Subscription
-   * @version 0.1.0
-   */
-
-  /**
-   * Constructs a new <code>Subscription</code>.
-   * @alias module:model/Subscription
-   * @class
-   * @param topic {String} The topic of the subscription. This will act as a first match filter. For a subscription to be able to match a publication they must have the exact same topic
-   * @param selector {String} This is an expression to filter the publications. For instance 'job='developer'' will allow matching only with publications containing a 'job' key with a value of 'developer'
-   * @param range {Number} The range of the subscription in meters. This is the range around the device holding the subscription in which matches with publications can be triggered
-   * @param duration {Number} The duration of the subscription in seconds. If set to '-1' the subscription will live forever and if set to '0' it will be instant at the time of subscription.
-   */
-  var exports = function(topic, selector, range, duration) {
-    var _this = this;
-
-
-
-
-    _this['topic'] = topic;
-    _this['selector'] = selector;
-
-    _this['range'] = range;
-    _this['duration'] = duration;
-
-  };
-
-  /**
-   * Constructs a <code>Subscription</code> from a plain JavaScript object, optionally creating a new instance.
-   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
-   * @param {Object} data The plain JavaScript object bearing properties of interest.
-   * @param {module:model/Subscription} obj Optional instance to populate.
-   * @return {module:model/Subscription} The populated <code>Subscription</code> instance.
-   */
-  exports.constructFromObject = function(data, obj) {
-    if (data) {
-      obj = obj || new exports();
-
-      if (data.hasOwnProperty('timestamp')) {
-        obj['timestamp'] = ApiClient.convertToType(data['timestamp'], 'Number');
-      }
-      if (data.hasOwnProperty('subscriptionId')) {
-        obj['subscriptionId'] = ApiClient.convertToType(data['subscriptionId'], 'String');
-      }
-      if (data.hasOwnProperty('deviceId')) {
-        obj['deviceId'] = ApiClient.convertToType(data['deviceId'], 'String');
-      }
-      if (data.hasOwnProperty('topic')) {
-        obj['topic'] = ApiClient.convertToType(data['topic'], 'String');
-      }
-      if (data.hasOwnProperty('selector')) {
-        obj['selector'] = ApiClient.convertToType(data['selector'], 'String');
-      }
-      if (data.hasOwnProperty('location')) {
-        obj['location'] = Location.constructFromObject(data['location']);
-      }
-      if (data.hasOwnProperty('range')) {
-        obj['range'] = ApiClient.convertToType(data['range'], 'Number');
-      }
-      if (data.hasOwnProperty('duration')) {
-        obj['duration'] = ApiClient.convertToType(data['duration'], 'Number');
-      }
-      if (data.hasOwnProperty('op')) {
-        obj['op'] = ApiClient.convertToType(data['op'], 'String');
-      }
-    }
-    return obj;
-  }
-
-  /**
-   * The timestamp in seconds since Jan 01 1970. (UTC). If no timestamp is provided upon creation then the system uses the moment of the call to the api as a timestamp
-   * @member {Number} timestamp
-   */
-  exports.prototype['timestamp'] = undefined;
-  /**
-   * The id (UUID) of the subscription
-   * @member {String} subscriptionId
-   */
-  exports.prototype['subscriptionId'] = undefined;
-  /**
-   * The id (UUID) of the device to attach a subscription to
-   * @member {String} deviceId
-   */
-  exports.prototype['deviceId'] = undefined;
-  /**
-   * The topic of the subscription. This will act as a first match filter. For a subscription to be able to match a publication they must have the exact same topic
-   * @member {String} topic
-   */
-  exports.prototype['topic'] = undefined;
-  /**
-   * This is an expression to filter the publications. For instance 'job='developer'' will allow matching only with publications containing a 'job' key with a value of 'developer'
-   * @member {String} selector
-   */
-  exports.prototype['selector'] = undefined;
-  /**
-   * @member {module:model/Location} location
-   */
-  exports.prototype['location'] = undefined;
-  /**
-   * The range of the subscription in meters. This is the range around the device holding the subscription in which matches with publications can be triggered
-   * @member {Number} range
-   */
-  exports.prototype['range'] = undefined;
-  /**
-   * The duration of the subscription in seconds. If set to '-1' the subscription will live forever and if set to '0' it will be instant at the time of subscription.
-   * @member {Number} duration
-   */
-  exports.prototype['duration'] = undefined;
-  /**
-   * The internal operation resulting from the API call. For instance 'create'
-   * @member {String} op
-   */
-  exports.prototype['op'] = undefined;
-
-
-
-  return exports;
-}));
-
-
-
-},{"../ApiClient":10,"./Location":22}],28:[function(require,module,exports){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/Subscription'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('./Subscription'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.ScalpsCoreRestApi) {
-      root.ScalpsCoreRestApi = {};
-    }
-    root.ScalpsCoreRestApi.Subscriptions = factory(root.ScalpsCoreRestApi.ApiClient, root.ScalpsCoreRestApi.Subscription);
-  }
-}(this, function(ApiClient, Subscription) {
-  'use strict';
-
-
-
-
-  /**
-   * The Subscriptions model module.
-   * @module model/Subscriptions
-   * @version 0.1.0
-   */
-
-  /**
-   * Constructs a new <code>Subscriptions</code>.
-   * @alias module:model/Subscriptions
-   * @class
-   * @extends Array
-   */
-  var exports = function() {
-    var _this = this;
-    _this = new Array();
-    Object.setPrototypeOf(_this, exports);
-
-    return _this;
-  };
-
-  /**
-   * Constructs a <code>Subscriptions</code> from a plain JavaScript object, optionally creating a new instance.
-   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
-   * @param {Object} data The plain JavaScript object bearing properties of interest.
-   * @param {module:model/Subscriptions} obj Optional instance to populate.
-   * @return {module:model/Subscriptions} The populated <code>Subscriptions</code> instance.
-   */
-  exports.constructFromObject = function(data, obj) {
-    if (data) {
-      obj = obj || new exports();
-      ApiClient.constructFromObject(data, obj, 'Subscription');
-
-    }
-    return obj;
-  }
-
-
-
-
-  return exports;
-}));
-
-
-
-},{"../ApiClient":10,"./Subscription":27}],29:[function(require,module,exports){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.ScalpsCoreRestApi) {
-      root.ScalpsCoreRestApi = {};
-    }
-    root.ScalpsCoreRestApi.User = factory(root.ScalpsCoreRestApi.ApiClient);
-  }
-}(this, function(ApiClient) {
-  'use strict';
-
-
-
-
-  /**
-   * The User model module.
-   * @module model/User
-   * @version 0.1.0
-   */
-
-  /**
-   * Constructs a new <code>User</code>.
-   * @alias module:model/User
-   * @class
-   */
-  var exports = function() {
-    var _this = this;
-
-
-
-  };
-
-  /**
-   * Constructs a <code>User</code> from a plain JavaScript object, optionally creating a new instance.
-   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
-   * @param {Object} data The plain JavaScript object bearing properties of interest.
-   * @param {module:model/User} obj Optional instance to populate.
-   * @return {module:model/User} The populated <code>User</code> instance.
-   */
-  exports.constructFromObject = function(data, obj) {
-    if (data) {
-      obj = obj || new exports();
-
-      if (data.hasOwnProperty('userId')) {
-        obj['userId'] = ApiClient.convertToType(data['userId'], 'String');
-      }
-      if (data.hasOwnProperty('name')) {
-        obj['name'] = ApiClient.convertToType(data['name'], 'String');
-      }
-    }
-    return obj;
-  }
-
-  /**
-   * The id (UUID) of the user
-   * @member {String} userId
-   */
-  exports.prototype['userId'] = undefined;
-  /**
-   * The name of the user
-   * @member {String} name
-   */
-  exports.prototype['name'] = undefined;
-
-
-
-  return exports;
-}));
-
-
-
-},{"../ApiClient":10}],30:[function(require,module,exports){
-/**
- * SCALPS Core REST API
- *  ## [SCALPS --- We connect things!](http://scalps.unil.ch) The first version of the SCALPS API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit form using SCALPS as their backend service.  **Build something great with SCALPS!**  Once you've [registered your client](http://scalps.unil.ch/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords). ## RESTful API We do our best to have all our URLs be [RESTful](http://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain model ### User ### Device ### Location ### Publication ### Subscription ### Match ## More about SCALPS 
- *
- * OpenAPI spec version: 0.1.0
- * 
- *
- * NOTE: This class is auto generated by the swagger code generator program.
- * https://github.com/swagger-api/swagger-codegen.git
- * Do not edit the class manually.
- *
- */
-
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/User'], factory);
-  } else if (typeof module === 'object' && module.exports) {
-    // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('./User'));
-  } else {
-    // Browser globals (root is window)
-    if (!root.ScalpsCoreRestApi) {
-      root.ScalpsCoreRestApi = {};
-    }
-    root.ScalpsCoreRestApi.Users = factory(root.ScalpsCoreRestApi.ApiClient, root.ScalpsCoreRestApi.User);
-  }
-}(this, function(ApiClient, User) {
-  'use strict';
-
-
-
-
-  /**
-   * The Users model module.
-   * @module model/Users
-   * @version 0.1.0
-   */
-
-  /**
-   * Constructs a new <code>Users</code>.
-   * @alias module:model/Users
-   * @class
-   * @extends Array
-   */
-  var exports = function() {
-    var _this = this;
-    _this = new Array();
-    Object.setPrototypeOf(_this, exports);
-
-    return _this;
-  };
-
-  /**
-   * Constructs a <code>Users</code> from a plain JavaScript object, optionally creating a new instance.
-   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
-   * @param {Object} data The plain JavaScript object bearing properties of interest.
-   * @param {module:model/Users} obj Optional instance to populate.
-   * @return {module:model/Users} The populated <code>Users</code> instance.
-   */
-  exports.constructFromObject = function(data, obj) {
-    if (data) {
-      obj = obj || new exports();
-      ApiClient.constructFromObject(data, obj, 'User');
-
-    }
-    return obj;
-  }
-
-
-
-
-  return exports;
-}));
-
-
-
-},{"../ApiClient":10,"./User":29}],31:[function(require,module,exports){
-/**
- * Module dependencies.
- */
-
-var Emitter = require('emitter');
-var reduce = require('reduce');
-
-/**
- * Root reference for iframes.
- */
-
-var root;
-if (typeof window !== 'undefined') { // Browser window
-  root = window;
-} else if (typeof self !== 'undefined') { // Web Worker
-  root = self;
-} else { // Other environments
-  root = this;
-}
-
-/**
- * Noop.
- */
-
-function noop(){};
-
-/**
- * Check if `obj` is a host object,
- * we don't want to serialize these :)
- *
- * TODO: future proof, move to compoent land
- *
- * @param {Object} obj
- * @return {Boolean}
- * @api private
- */
-
-function isHost(obj) {
-  var str = {}.toString.call(obj);
-
-  switch (str) {
-    case '[object File]':
-    case '[object Blob]':
-    case '[object FormData]':
-      return true;
-    default:
-      return false;
-  }
-}
-
-/**
- * Determine XHR.
- */
-
-request.getXHR = function () {
-  if (root.XMLHttpRequest
-      && (!root.location || 'file:' != root.location.protocol
-          || !root.ActiveXObject)) {
-    return new XMLHttpRequest;
-  } else {
-    try { return new ActiveXObject('Microsoft.XMLHTTP'); } catch(e) {}
-    try { return new ActiveXObject('Msxml2.XMLHTTP.6.0'); } catch(e) {}
-    try { return new ActiveXObject('Msxml2.XMLHTTP.3.0'); } catch(e) {}
-    try { return new ActiveXObject('Msxml2.XMLHTTP'); } catch(e) {}
-  }
-  return false;
-};
-
-/**
- * Removes leading and trailing whitespace, added to support IE.
- *
- * @param {String} s
- * @return {String}
- * @api private
- */
-
-var trim = ''.trim
-  ? function(s) { return s.trim(); }
-  : function(s) { return s.replace(/(^\s*|\s*$)/g, ''); };
-
-/**
- * Check if `obj` is an object.
- *
- * @param {Object} obj
- * @return {Boolean}
- * @api private
- */
-
-function isObject(obj) {
-  return obj === Object(obj);
-}
-
-/**
- * Serialize the given `obj`.
- *
- * @param {Object} obj
- * @return {String}
- * @api private
- */
-
-function serialize(obj) {
-  if (!isObject(obj)) return obj;
-  var pairs = [];
-  for (var key in obj) {
-    if (null != obj[key]) {
-      pushEncodedKeyValuePair(pairs, key, obj[key]);
-        }
-      }
-  return pairs.join('&');
-}
-
-/**
- * Helps 'serialize' with serializing arrays.
- * Mutates the pairs array.
- *
- * @param {Array} pairs
- * @param {String} key
- * @param {Mixed} val
- */
-
-function pushEncodedKeyValuePair(pairs, key, val) {
-  if (Array.isArray(val)) {
-    return val.forEach(function(v) {
-      pushEncodedKeyValuePair(pairs, key, v);
-    });
-  }
-  pairs.push(encodeURIComponent(key)
-    + '=' + encodeURIComponent(val));
-}
-
-/**
- * Expose serialization method.
- */
-
- request.serializeObject = serialize;
-
- /**
-  * Parse the given x-www-form-urlencoded `str`.
-  *
-  * @param {String} str
-  * @return {Object}
-  * @api private
-  */
-
-function parseString(str) {
+module.exports = function(qs, sep, eq, options) {
+  sep = sep || '&';
+  eq = eq || '=';
   var obj = {};
-  var pairs = str.split('&');
-  var parts;
-  var pair;
 
-  for (var i = 0, len = pairs.length; i < len; ++i) {
-    pair = pairs[i];
-    parts = pair.split('=');
-    obj[decodeURIComponent(parts[0])] = decodeURIComponent(parts[1]);
+  if (typeof qs !== 'string' || qs.length === 0) {
+    return obj;
+  }
+
+  var regexp = /\+/g;
+  qs = qs.split(sep);
+
+  var maxKeys = 1000;
+  if (options && typeof options.maxKeys === 'number') {
+    maxKeys = options.maxKeys;
+  }
+
+  var len = qs.length;
+  // maxKeys <= 0 means that we should not limit keys count
+  if (maxKeys > 0 && len > maxKeys) {
+    len = maxKeys;
+  }
+
+  for (var i = 0; i < len; ++i) {
+    var x = qs[i].replace(regexp, '%20'),
+        idx = x.indexOf(eq),
+        kstr, vstr, k, v;
+
+    if (idx >= 0) {
+      kstr = x.substr(0, idx);
+      vstr = x.substr(idx + 1);
+    } else {
+      kstr = x;
+      vstr = '';
+    }
+
+    k = decodeURIComponent(kstr);
+    v = decodeURIComponent(vstr);
+
+    if (!hasOwnProperty(obj, k)) {
+      obj[k] = v;
+    } else if (isArray(obj[k])) {
+      obj[k].push(v);
+    } else {
+      obj[k] = [obj[k], v];
+    }
   }
 
   return obj;
+};
+
+var isArray = Array.isArray || function (xs) {
+  return Object.prototype.toString.call(xs) === '[object Array]';
+};
+
+},{}],46:[function(require,module,exports){
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+'use strict';
+
+var stringifyPrimitive = function(v) {
+  switch (typeof v) {
+    case 'string':
+      return v;
+
+    case 'boolean':
+      return v ? 'true' : 'false';
+
+    case 'number':
+      return isFinite(v) ? v : '';
+
+    default:
+      return '';
+  }
+};
+
+module.exports = function(obj, sep, eq, name) {
+  sep = sep || '&';
+  eq = eq || '=';
+  if (obj === null) {
+    obj = undefined;
+  }
+
+  if (typeof obj === 'object') {
+    return map(objectKeys(obj), function(k) {
+      var ks = encodeURIComponent(stringifyPrimitive(k)) + eq;
+      if (isArray(obj[k])) {
+        return map(obj[k], function(v) {
+          return ks + encodeURIComponent(stringifyPrimitive(v));
+        }).join(sep);
+      } else {
+        return ks + encodeURIComponent(stringifyPrimitive(obj[k]));
+      }
+    }).join(sep);
+
+  }
+
+  if (!name) return '';
+  return encodeURIComponent(stringifyPrimitive(name)) + eq +
+         encodeURIComponent(stringifyPrimitive(obj));
+};
+
+var isArray = Array.isArray || function (xs) {
+  return Object.prototype.toString.call(xs) === '[object Array]';
+};
+
+function map (xs, f) {
+  if (xs.map) return xs.map(f);
+  var res = [];
+  for (var i = 0; i < xs.length; i++) {
+    res.push(f(xs[i], i));
+  }
+  return res;
 }
 
-/**
- * Expose parser.
- */
-
-request.parseString = parseString;
-
-/**
- * Default MIME type map.
- *
- *     superagent.types.xml = 'application/xml';
- *
- */
-
-request.types = {
-  html: 'text/html',
-  json: 'application/json',
-  xml: 'application/xml',
-  urlencoded: 'application/x-www-form-urlencoded',
-  'form': 'application/x-www-form-urlencoded',
-  'form-data': 'application/x-www-form-urlencoded'
-};
-
-/**
- * Default serialization map.
- *
- *     superagent.serialize['application/xml'] = function(obj){
- *       return 'generated xml here';
- *     };
- *
- */
-
- request.serialize = {
-   'application/x-www-form-urlencoded': serialize,
-   'application/json': JSON.stringify
- };
-
- /**
-  * Default parsers.
-  *
-  *     superagent.parse['application/xml'] = function(str){
-  *       return { object parsed from str };
-  *     };
-  *
-  */
-
-request.parse = {
-  'application/x-www-form-urlencoded': parseString,
-  'application/json': JSON.parse
-};
-
-/**
- * Parse the given header `str` into
- * an object containing the mapped fields.
- *
- * @param {String} str
- * @return {Object}
- * @api private
- */
-
-function parseHeader(str) {
-  var lines = str.split(/\r?\n/);
-  var fields = {};
-  var index;
-  var line;
-  var field;
-  var val;
-
-  lines.pop(); // trailing CRLF
-
-  for (var i = 0, len = lines.length; i < len; ++i) {
-    line = lines[i];
-    index = line.indexOf(':');
-    field = line.slice(0, index).toLowerCase();
-    val = trim(line.slice(index + 1));
-    fields[field] = val;
+var objectKeys = Object.keys || function (obj) {
+  var res = [];
+  for (var key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) res.push(key);
   }
-
-  return fields;
-}
-
-/**
- * Check if `mime` is json or has +json structured syntax suffix.
- *
- * @param {String} mime
- * @return {Boolean}
- * @api private
- */
-
-function isJSON(mime) {
-  return /[\/+]json\b/.test(mime);
-}
-
-/**
- * Return the mime type for the given `str`.
- *
- * @param {String} str
- * @return {String}
- * @api private
- */
-
-function type(str){
-  return str.split(/ *; */).shift();
+  return res;
 };
 
-/**
- * Return header field parameters.
- *
- * @param {String} str
- * @return {Object}
- * @api private
- */
+},{}],47:[function(require,module,exports){
+'use strict';
 
-function params(str){
-  return reduce(str.split(/ *; */), function(obj, str){
-    var parts = str.split(/ *= */)
-      , key = parts.shift()
-      , val = parts.shift();
+exports.decode = exports.parse = require('./decode');
+exports.encode = exports.stringify = require('./encode');
 
-    if (key && val) obj[key] = val;
-    return obj;
-  }, {});
-};
-
-/**
- * Initialize a new `Response` with the given `xhr`.
- *
- *  - set flags (.ok, .error, etc)
- *  - parse header
- *
- * Examples:
- *
- *  Aliasing `superagent` as `request` is nice:
- *
- *      request = superagent;
- *
- *  We can use the promise-like API, or pass callbacks:
- *
- *      request.get('/').end(function(res){});
- *      request.get('/', function(res){});
- *
- *  Sending data can be chained:
- *
- *      request
- *        .post('/user')
- *        .send({ name: 'tj' })
- *        .end(function(res){});
- *
- *  Or passed to `.send()`:
- *
- *      request
- *        .post('/user')
- *        .send({ name: 'tj' }, function(res){});
- *
- *  Or passed to `.post()`:
- *
- *      request
- *        .post('/user', { name: 'tj' })
- *        .end(function(res){});
- *
- * Or further reduced to a single call for simple cases:
- *
- *      request
- *        .post('/user', { name: 'tj' }, function(res){});
- *
- * @param {XMLHTTPRequest} xhr
- * @param {Object} options
- * @api private
- */
-
-function Response(req, options) {
-  options = options || {};
-  this.req = req;
-  this.xhr = this.req.xhr;
-  // responseText is accessible only if responseType is '' or 'text' and on older browsers
-  this.text = ((this.req.method !='HEAD' && (this.xhr.responseType === '' || this.xhr.responseType === 'text')) || typeof this.xhr.responseType === 'undefined')
-     ? this.xhr.responseText
-     : null;
-  this.statusText = this.req.xhr.statusText;
-  this.setStatusProperties(this.xhr.status);
-  this.header = this.headers = parseHeader(this.xhr.getAllResponseHeaders());
-  // getAllResponseHeaders sometimes falsely returns "" for CORS requests, but
-  // getResponseHeader still works. so we get content-type even if getting
-  // other headers fails.
-  this.header['content-type'] = this.xhr.getResponseHeader('content-type');
-  this.setHeaderProperties(this.header);
-  this.body = this.req.method != 'HEAD'
-    ? this.parseBody(this.text ? this.text : this.xhr.response)
-    : null;
-}
-
-/**
- * Get case-insensitive `field` value.
- *
- * @param {String} field
- * @return {String}
- * @api public
- */
-
-Response.prototype.get = function(field){
-  return this.header[field.toLowerCase()];
-};
-
-/**
- * Set header related properties:
- *
- *   - `.type` the content type without params
- *
- * A response of "Content-Type: text/plain; charset=utf-8"
- * will provide you with a `.type` of "text/plain".
- *
- * @param {Object} header
- * @api private
- */
-
-Response.prototype.setHeaderProperties = function(header){
-  // content-type
-  var ct = this.header['content-type'] || '';
-  this.type = type(ct);
-
-  // params
-  var obj = params(ct);
-  for (var key in obj) this[key] = obj[key];
-};
-
-/**
- * Parse the given body `str`.
- *
- * Used for auto-parsing of bodies. Parsers
- * are defined on the `superagent.parse` object.
- *
- * @param {String} str
- * @return {Mixed}
- * @api private
- */
-
-Response.prototype.parseBody = function(str){
-  var parse = request.parse[this.type];
-  return parse && str && (str.length || str instanceof Object)
-    ? parse(str)
-    : null;
-};
-
-/**
- * Set flags such as `.ok` based on `status`.
- *
- * For example a 2xx response will give you a `.ok` of __true__
- * whereas 5xx will be __false__ and `.error` will be __true__. The
- * `.clientError` and `.serverError` are also available to be more
- * specific, and `.statusType` is the class of error ranging from 1..5
- * sometimes useful for mapping respond colors etc.
- *
- * "sugar" properties are also defined for common cases. Currently providing:
- *
- *   - .noContent
- *   - .badRequest
- *   - .unauthorized
- *   - .notAcceptable
- *   - .notFound
- *
- * @param {Number} status
- * @api private
- */
-
-Response.prototype.setStatusProperties = function(status){
-  // handle IE9 bug: http://stackoverflow.com/questions/10046972/msie-returns-status-code-of-1223-for-ajax-request
-  if (status === 1223) {
-    status = 204;
-  }
-
-  var type = status / 100 | 0;
-
-  // status / class
-  this.status = this.statusCode = status;
-  this.statusType = type;
-
-  // basics
-  this.info = 1 == type;
-  this.ok = 2 == type;
-  this.clientError = 4 == type;
-  this.serverError = 5 == type;
-  this.error = (4 == type || 5 == type)
-    ? this.toError()
-    : false;
-
-  // sugar
-  this.accepted = 202 == status;
-  this.noContent = 204 == status;
-  this.badRequest = 400 == status;
-  this.unauthorized = 401 == status;
-  this.notAcceptable = 406 == status;
-  this.notFound = 404 == status;
-  this.forbidden = 403 == status;
-};
-
-/**
- * Return an `Error` representative of this response.
- *
- * @return {Error}
- * @api public
- */
-
-Response.prototype.toError = function(){
-  var req = this.req;
-  var method = req.method;
-  var url = req.url;
-
-  var msg = 'cannot ' + method + ' ' + url + ' (' + this.status + ')';
-  var err = new Error(msg);
-  err.status = this.status;
-  err.method = method;
-  err.url = url;
-
-  return err;
-};
-
-/**
- * Expose `Response`.
- */
-
-request.Response = Response;
-
-/**
- * Initialize a new `Request` with the given `method` and `url`.
- *
- * @param {String} method
- * @param {String} url
- * @api public
- */
-
-function Request(method, url) {
-  var self = this;
-  Emitter.call(this);
-  this._query = this._query || [];
-  this.method = method;
-  this.url = url;
-  this.header = {};
-  this._header = {};
-  this.on('end', function(){
-    var err = null;
-    var res = null;
-
-    try {
-      res = new Response(self);
-    } catch(e) {
-      err = new Error('Parser is unable to parse the response');
-      err.parse = true;
-      err.original = e;
-      // issue #675: return the raw response if the response parsing fails
-      err.rawResponse = self.xhr && self.xhr.responseText ? self.xhr.responseText : null;
-      return self.callback(err);
-    }
-
-    self.emit('response', res);
-
-    if (err) {
-      return self.callback(err, res);
-    }
-
-    if (res.status >= 200 && res.status < 300) {
-      return self.callback(err, res);
-    }
-
-    var new_err = new Error(res.statusText || 'Unsuccessful HTTP response');
-    new_err.original = err;
-    new_err.response = res;
-    new_err.status = res.status;
-
-    self.callback(new_err, res);
-  });
-}
-
-/**
- * Mixin `Emitter`.
- */
-
-Emitter(Request.prototype);
-
-/**
- * Allow for extension
- */
-
-Request.prototype.use = function(fn) {
-  fn(this);
-  return this;
-}
-
-/**
- * Set timeout to `ms`.
- *
- * @param {Number} ms
- * @return {Request} for chaining
- * @api public
- */
-
-Request.prototype.timeout = function(ms){
-  this._timeout = ms;
-  return this;
-};
-
-/**
- * Clear previous timeout.
- *
- * @return {Request} for chaining
- * @api public
- */
-
-Request.prototype.clearTimeout = function(){
-  this._timeout = 0;
-  clearTimeout(this._timer);
-  return this;
-};
-
-/**
- * Abort the request, and clear potential timeout.
- *
- * @return {Request}
- * @api public
- */
-
-Request.prototype.abort = function(){
-  if (this.aborted) return;
-  this.aborted = true;
-  this.xhr.abort();
-  this.clearTimeout();
-  this.emit('abort');
-  return this;
-};
-
-/**
- * Set header `field` to `val`, or multiple fields with one object.
- *
- * Examples:
- *
- *      req.get('/')
- *        .set('Accept', 'application/json')
- *        .set('X-API-Key', 'foobar')
- *        .end(callback);
- *
- *      req.get('/')
- *        .set({ Accept: 'application/json', 'X-API-Key': 'foobar' })
- *        .end(callback);
- *
- * @param {String|Object} field
- * @param {String} val
- * @return {Request} for chaining
- * @api public
- */
-
-Request.prototype.set = function(field, val){
-  if (isObject(field)) {
-    for (var key in field) {
-      this.set(key, field[key]);
-    }
-    return this;
-  }
-  this._header[field.toLowerCase()] = val;
-  this.header[field] = val;
-  return this;
-};
-
-/**
- * Remove header `field`.
- *
- * Example:
- *
- *      req.get('/')
- *        .unset('User-Agent')
- *        .end(callback);
- *
- * @param {String} field
- * @return {Request} for chaining
- * @api public
- */
-
-Request.prototype.unset = function(field){
-  delete this._header[field.toLowerCase()];
-  delete this.header[field];
-  return this;
-};
-
-/**
- * Get case-insensitive header `field` value.
- *
- * @param {String} field
- * @return {String}
- * @api private
- */
-
-Request.prototype.getHeader = function(field){
-  return this._header[field.toLowerCase()];
-};
-
-/**
- * Set Content-Type to `type`, mapping values from `request.types`.
- *
- * Examples:
- *
- *      superagent.types.xml = 'application/xml';
- *
- *      request.post('/')
- *        .type('xml')
- *        .send(xmlstring)
- *        .end(callback);
- *
- *      request.post('/')
- *        .type('application/xml')
- *        .send(xmlstring)
- *        .end(callback);
- *
- * @param {String} type
- * @return {Request} for chaining
- * @api public
- */
-
-Request.prototype.type = function(type){
-  this.set('Content-Type', request.types[type] || type);
-  return this;
-};
-
-/**
- * Force given parser
- *
- * Sets the body parser no matter type.
- *
- * @param {Function}
- * @api public
- */
-
-Request.prototype.parse = function(fn){
-  this._parser = fn;
-  return this;
-};
-
-/**
- * Set Accept to `type`, mapping values from `request.types`.
- *
- * Examples:
- *
- *      superagent.types.json = 'application/json';
- *
- *      request.get('/agent')
- *        .accept('json')
- *        .end(callback);
- *
- *      request.get('/agent')
- *        .accept('application/json')
- *        .end(callback);
- *
- * @param {String} accept
- * @return {Request} for chaining
- * @api public
- */
-
-Request.prototype.accept = function(type){
-  this.set('Accept', request.types[type] || type);
-  return this;
-};
-
-/**
- * Set Authorization field value with `user` and `pass`.
- *
- * @param {String} user
- * @param {String} pass
- * @return {Request} for chaining
- * @api public
- */
-
-Request.prototype.auth = function(user, pass){
-  var str = btoa(user + ':' + pass);
-  this.set('Authorization', 'Basic ' + str);
-  return this;
-};
-
-/**
-* Add query-string `val`.
-*
-* Examples:
-*
-*   request.get('/shoes')
-*     .query('size=10')
-*     .query({ color: 'blue' })
-*
-* @param {Object|String} val
-* @return {Request} for chaining
-* @api public
-*/
-
-Request.prototype.query = function(val){
-  if ('string' != typeof val) val = serialize(val);
-  if (val) this._query.push(val);
-  return this;
-};
-
-/**
- * Write the field `name` and `val` for "multipart/form-data"
- * request bodies.
- *
- * ``` js
- * request.post('/upload')
- *   .field('foo', 'bar')
- *   .end(callback);
- * ```
- *
- * @param {String} name
- * @param {String|Blob|File} val
- * @return {Request} for chaining
- * @api public
- */
-
-Request.prototype.field = function(name, val){
-  if (!this._formData) this._formData = new root.FormData();
-  this._formData.append(name, val);
-  return this;
-};
-
-/**
- * Queue the given `file` as an attachment to the specified `field`,
- * with optional `filename`.
- *
- * ``` js
- * request.post('/upload')
- *   .attach(new Blob(['<a id="a"><b id="b">hey!</b></a>'], { type: "text/html"}))
- *   .end(callback);
- * ```
- *
- * @param {String} field
- * @param {Blob|File} file
- * @param {String} filename
- * @return {Request} for chaining
- * @api public
- */
-
-Request.prototype.attach = function(field, file, filename){
-  if (!this._formData) this._formData = new root.FormData();
-  this._formData.append(field, file, filename || file.name);
-  return this;
-};
-
-/**
- * Send `data` as the request body, defaulting the `.type()` to "json" when
- * an object is given.
- *
- * Examples:
- *
- *       // manual json
- *       request.post('/user')
- *         .type('json')
- *         .send('{"name":"tj"}')
- *         .end(callback)
- *
- *       // auto json
- *       request.post('/user')
- *         .send({ name: 'tj' })
- *         .end(callback)
- *
- *       // manual x-www-form-urlencoded
- *       request.post('/user')
- *         .type('form')
- *         .send('name=tj')
- *         .end(callback)
- *
- *       // auto x-www-form-urlencoded
- *       request.post('/user')
- *         .type('form')
- *         .send({ name: 'tj' })
- *         .end(callback)
- *
- *       // defaults to x-www-form-urlencoded
-  *      request.post('/user')
-  *        .send('name=tobi')
-  *        .send('species=ferret')
-  *        .end(callback)
- *
- * @param {String|Object} data
- * @return {Request} for chaining
- * @api public
- */
-
-Request.prototype.send = function(data){
-  var obj = isObject(data);
-  var type = this.getHeader('Content-Type');
-
-  // merge
-  if (obj && isObject(this._data)) {
-    for (var key in data) {
-      this._data[key] = data[key];
-    }
-  } else if ('string' == typeof data) {
-    if (!type) this.type('form');
-    type = this.getHeader('Content-Type');
-    if ('application/x-www-form-urlencoded' == type) {
-      this._data = this._data
-        ? this._data + '&' + data
-        : data;
-    } else {
-      this._data = (this._data || '') + data;
-    }
-  } else {
-    this._data = data;
-  }
-
-  if (!obj || isHost(data)) return this;
-  if (!type) this.type('json');
-  return this;
-};
-
-/**
- * Invoke the callback with `err` and `res`
- * and handle arity check.
- *
- * @param {Error} err
- * @param {Response} res
- * @api private
- */
-
-Request.prototype.callback = function(err, res){
-  var fn = this._callback;
-  this.clearTimeout();
-  fn(err, res);
-};
-
-/**
- * Invoke callback with x-domain error.
- *
- * @api private
- */
-
-Request.prototype.crossDomainError = function(){
-  var err = new Error('Request has been terminated\nPossible causes: the network is offline, Origin is not allowed by Access-Control-Allow-Origin, the page is being unloaded, etc.');
-  err.crossDomain = true;
-
-  err.status = this.status;
-  err.method = this.method;
-  err.url = this.url;
-
-  this.callback(err);
-};
-
-/**
- * Invoke callback with timeout error.
- *
- * @api private
- */
-
-Request.prototype.timeoutError = function(){
-  var timeout = this._timeout;
-  var err = new Error('timeout of ' + timeout + 'ms exceeded');
-  err.timeout = timeout;
-  this.callback(err);
-};
-
-/**
- * Enable transmission of cookies with x-domain requests.
- *
- * Note that for this to work the origin must not be
- * using "Access-Control-Allow-Origin" with a wildcard,
- * and also must set "Access-Control-Allow-Credentials"
- * to "true".
- *
- * @api public
- */
-
-Request.prototype.withCredentials = function(){
-  this._withCredentials = true;
-  return this;
-};
-
-/**
- * Initiate request, invoking callback `fn(res)`
- * with an instanceof `Response`.
- *
- * @param {Function} fn
- * @return {Request} for chaining
- * @api public
- */
-
-Request.prototype.end = function(fn){
-  var self = this;
-  var xhr = this.xhr = request.getXHR();
-  var query = this._query.join('&');
-  var timeout = this._timeout;
-  var data = this._formData || this._data;
-
-  // store callback
-  this._callback = fn || noop;
-
-  // state change
-  xhr.onreadystatechange = function(){
-    if (4 != xhr.readyState) return;
-
-    // In IE9, reads to any property (e.g. status) off of an aborted XHR will
-    // result in the error "Could not complete the operation due to error c00c023f"
-    var status;
-    try { status = xhr.status } catch(e) { status = 0; }
-
-    if (0 == status) {
-      if (self.timedout) return self.timeoutError();
-      if (self.aborted) return;
-      return self.crossDomainError();
-    }
-    self.emit('end');
-  };
-
-  // progress
-  var handleProgress = function(e){
-    if (e.total > 0) {
-      e.percent = e.loaded / e.total * 100;
-    }
-    e.direction = 'download';
-    self.emit('progress', e);
-  };
-  if (this.hasListeners('progress')) {
-    xhr.onprogress = handleProgress;
-  }
-  try {
-    if (xhr.upload && this.hasListeners('progress')) {
-      xhr.upload.onprogress = handleProgress;
-    }
-  } catch(e) {
-    // Accessing xhr.upload fails in IE from a web worker, so just pretend it doesn't exist.
-    // Reported here:
-    // https://connect.microsoft.com/IE/feedback/details/837245/xmlhttprequest-upload-throws-invalid-argument-when-used-from-web-worker-context
-  }
-
-  // timeout
-  if (timeout && !this._timer) {
-    this._timer = setTimeout(function(){
-      self.timedout = true;
-      self.abort();
-    }, timeout);
-  }
-
-  // querystring
-  if (query) {
-    query = request.serializeObject(query);
-    this.url += ~this.url.indexOf('?')
-      ? '&' + query
-      : '?' + query;
-  }
-
-  // initiate request
-  xhr.open(this.method, this.url, true);
-
-  // CORS
-  if (this._withCredentials) xhr.withCredentials = true;
-
-  // body
-  if ('GET' != this.method && 'HEAD' != this.method && 'string' != typeof data && !isHost(data)) {
-    // serialize stuff
-    var contentType = this.getHeader('Content-Type');
-    var serialize = this._parser || request.serialize[contentType ? contentType.split(';')[0] : ''];
-    if (!serialize && isJSON(contentType)) serialize = request.serialize['application/json'];
-    if (serialize) data = serialize(data);
-  }
-
-  // set header fields
-  for (var field in this.header) {
-    if (null == this.header[field]) continue;
-    xhr.setRequestHeader(field, this.header[field]);
-  }
-
-  // send stuff
-  this.emit('request', this);
-
-  // IE11 xhr.send(undefined) sends 'undefined' string as POST payload (instead of nothing)
-  // We need null here if data is undefined
-  xhr.send(typeof data !== 'undefined' ? data : null);
-  return this;
-};
-
-/**
- * Faux promise support
- *
- * @param {Function} fulfill
- * @param {Function} reject
- * @return {Request}
- */
-
-Request.prototype.then = function (fulfill, reject) {
-  return this.end(function(err, res) {
-    err ? reject(err) : fulfill(res);
-  });
-}
-
-/**
- * Expose `Request`.
- */
-
-request.Request = Request;
-
-/**
- * Issue a request:
- *
- * Examples:
- *
- *    request('GET', '/users').end(callback)
- *    request('/users').end(callback)
- *    request('/users', callback)
- *
- * @param {String} method
- * @param {String|Function} url or callback
- * @return {Request}
- * @api public
- */
-
-function request(method, url) {
-  // callback
-  if ('function' == typeof url) {
-    return new Request('GET', method).end(url);
-  }
-
-  // url first
-  if (1 == arguments.length) {
-    return new Request('GET', method);
-  }
-
-  return new Request(method, url);
-}
-
-/**
- * GET `url` with optional callback `fn(res)`.
- *
- * @param {String} url
- * @param {Mixed|Function} data or fn
- * @param {Function} fn
- * @return {Request}
- * @api public
- */
-
-request.get = function(url, data, fn){
-  var req = request('GET', url);
-  if ('function' == typeof data) fn = data, data = null;
-  if (data) req.query(data);
-  if (fn) req.end(fn);
-  return req;
-};
-
-/**
- * HEAD `url` with optional callback `fn(res)`.
- *
- * @param {String} url
- * @param {Mixed|Function} data or fn
- * @param {Function} fn
- * @return {Request}
- * @api public
- */
-
-request.head = function(url, data, fn){
-  var req = request('HEAD', url);
-  if ('function' == typeof data) fn = data, data = null;
-  if (data) req.send(data);
-  if (fn) req.end(fn);
-  return req;
-};
-
-/**
- * DELETE `url` with optional callback `fn(res)`.
- *
- * @param {String} url
- * @param {Function} fn
- * @return {Request}
- * @api public
- */
-
-function del(url, fn){
-  var req = request('DELETE', url);
-  if (fn) req.end(fn);
-  return req;
-};
-
-request['del'] = del;
-request['delete'] = del;
-
-/**
- * PATCH `url` with optional `data` and callback `fn(res)`.
- *
- * @param {String} url
- * @param {Mixed} data
- * @param {Function} fn
- * @return {Request}
- * @api public
- */
-
-request.patch = function(url, data, fn){
-  var req = request('PATCH', url);
-  if ('function' == typeof data) fn = data, data = null;
-  if (data) req.send(data);
-  if (fn) req.end(fn);
-  return req;
-};
-
-/**
- * POST `url` with optional `data` and callback `fn(res)`.
- *
- * @param {String} url
- * @param {Mixed} data
- * @param {Function} fn
- * @return {Request}
- * @api public
- */
-
-request.post = function(url, data, fn){
-  var req = request('POST', url);
-  if ('function' == typeof data) fn = data, data = null;
-  if (data) req.send(data);
-  if (fn) req.end(fn);
-  return req;
-};
-
-/**
- * PUT `url` with optional `data` and callback `fn(res)`.
- *
- * @param {String} url
- * @param {Mixed|Function} data or fn
- * @param {Function} fn
- * @return {Request}
- * @api public
- */
-
-request.put = function(url, data, fn){
-  var req = request('PUT', url);
-  if ('function' == typeof data) fn = data, data = null;
-  if (data) req.send(data);
-  if (fn) req.end(fn);
-  return req;
-};
-
-/**
- * Expose `request`.
- */
-
-module.exports = request;
-
-},{"emitter":8,"reduce":9}]},{},[6])(6)
+},{"./decode":45,"./encode":46}]},{},[2])(2)
 });
