@@ -7,45 +7,16 @@ import chaiAsPromised = require("chai-as-promised");
 import "mocha";
 import { Manager } from "../src/manager";
 import * as models from "../src/model/models";
+import { MatchMonitorMode } from "../src/matchmonitor";
+import { sampleDevice, sampleSubscription, sampleLocation, samplePublication } from "./common";
+
 chai.should();
 chai.use(chaiAsPromised);
 
 const apiKey = environment.apiKey;
 const apiLocation = environment.apiLocation;
 
-// STUB OBJECTS
-
-let samplePublication = {
-  topic: "sampletopic",
-  range: 300,
-  duration: 60,
-  properties: { data1: "value1", data2: 1, data3: false }
-};
-
-let sampleSubscription = {
-  topic: "sampletopic",
-  selector: "data1='value1'",
-  range: 300,
-  duration: 60
-};
-
-let sampleLocation: models.Location = {
-  latitude: 0,
-  longitude: 0,
-  altitude: 0,
-  horizontalAccuracy: 1.0,
-  verticalAccuracy: 1.0
-};
-
-let sampleDevice: models.MobileDevice = {
-  name: "test",
-  platform: "iOS",
-  deviceToken: "f4eea68c-a349-4dbe-a395-c935abc7f6f2",
-  location: sampleLocation
-};
-
 describe("Manager", function() {
-  this.timeout(5000);
   describe("#instantiation", function() {
     it("should allow being instantiated with an apiKey", function() {
       let mgr = new Manager(apiKey, apiLocation);
@@ -66,14 +37,13 @@ describe("Manager", function() {
         sampleDevice.name,
         sampleDevice.platform,
         sampleDevice.deviceToken,
-        sampleDevice.location,
         completionDevice
       );
     });
     it('should define the "defaultDevice"', function(done) {
       let completionDevice = function(device) {
         mgr.should.have.property("defaultDevice");
-        mgr.defaultDevice.should.equal(device);
+        chai.assert.equal(mgr.defaultDevice, device);
         done();
       };
       let mgr = new Manager(apiKey, apiLocation);
@@ -81,7 +51,6 @@ describe("Manager", function() {
         sampleDevice.name,
         sampleDevice.platform,
         sampleDevice.deviceToken,
-        sampleDevice.location,
         completionDevice
       );
     });
@@ -91,8 +60,7 @@ describe("Manager", function() {
         .createMobileDevice(
           sampleDevice.name,
           sampleDevice.platform,
-          sampleDevice.deviceToken,
-          sampleDevice.location
+          sampleDevice.deviceToken
         )
         .then(device => {
           device.should.have.property("name");
@@ -106,8 +74,7 @@ describe("Manager", function() {
         .createMobileDevice(
           sampleDevice.name,
           sampleDevice.platform,
-          sampleDevice.deviceToken,
-          sampleDevice.location
+          sampleDevice.deviceToken
         )
         .then(device => {
           mgr.should.have.property("devices");
@@ -122,8 +89,7 @@ describe("Manager", function() {
         .createMobileDevice(
           sampleDevice.name,
           sampleDevice.platform,
-          sampleDevice.deviceToken,
-          sampleDevice.location
+          sampleDevice.deviceToken
         )
         .then(device => {
           return mgr
@@ -149,8 +115,7 @@ describe("Manager", function() {
         .createMobileDevice(
           sampleDevice.name,
           sampleDevice.platform,
-          sampleDevice.deviceToken,
-          sampleDevice.location
+          sampleDevice.deviceToken
         )
         .then(device => {
           return mgr
@@ -189,16 +154,15 @@ describe("Manager", function() {
         .createMobileDevice(
           sampleDevice.name,
           sampleDevice.platform,
-          sampleDevice.deviceToken,
-          sampleDevice.location
+          sampleDevice.deviceToken
         )
         .then(device => {
           return mgr
             .createSubscription(
               sampleSubscription.topic,
-              sampleSubscription.selector,
               sampleSubscription.range,
-              sampleSubscription.duration
+              sampleSubscription.duration,
+              sampleSubscription.selector
             )
             .then(subscription => {
               return subscription;
@@ -216,16 +180,15 @@ describe("Manager", function() {
         .createMobileDevice(
           sampleDevice.name,
           sampleDevice.platform,
-          sampleDevice.deviceToken,
-          sampleDevice.location
+          sampleDevice.deviceToken
         )
         .then(device => {
           return mgr
             .createSubscription(
               sampleSubscription.topic,
-              sampleSubscription.selector,
               sampleSubscription.range,
-              sampleSubscription.duration
+              sampleSubscription.duration,
+              sampleSubscription.selector
             )
             .then(subscription => {
               mgr.should.have.property("subscriptions");
@@ -240,9 +203,9 @@ describe("Manager", function() {
           .expect(() => {
             mgr.createSubscription(
               sampleSubscription.topic,
-              sampleSubscription.selector,
               sampleSubscription.range,
-              sampleSubscription.duration
+              sampleSubscription.duration,
+              sampleSubscription.selector
             );
           })
           .to.throw(Error);
@@ -256,14 +219,10 @@ describe("Manager", function() {
         .createMobileDevice(
           sampleDevice.name,
           sampleDevice.platform,
-          sampleDevice.deviceToken,
-          sampleDevice.location
+          sampleDevice.deviceToken
         )
         .then(device => {
-          return mgr
-            .updateLocation(
-              sampleLocation
-            );
+          return mgr.updateLocation(sampleLocation);
         });
     });
     it("should not allow to be called before  createMobileDevice", function() {
@@ -271,9 +230,7 @@ describe("Manager", function() {
         let mgr = new Manager(apiKey, apiLocation);
         chai
           .expect(() => {
-            mgr.updateLocation(
-              sampleLocation
-            );
+            mgr.updateLocation(sampleLocation);
           })
           .to.throw(Error);
       };
@@ -294,8 +251,7 @@ describe("Manager", function() {
         .createMobileDevice(
           sampleDevice.name,
           sampleDevice.platform,
-          sampleDevice.deviceToken,
-          sampleDevice.location
+          sampleDevice.deviceToken
         )
         .then(device => {
           return mgr.getAllMatches().then(matches => {
@@ -305,23 +261,20 @@ describe("Manager", function() {
         });
     });
   });
-  describe("getAllPublicationsForDevice()", function() {
+  describe("getAllPublications()", function() {
     it("should return an empty [] when no publication exist for a given device", function() {
       let mgr = new Manager(apiKey, apiLocation);
       return mgr
         .createMobileDevice(
           sampleDevice.name,
           sampleDevice.platform,
-          sampleDevice.deviceToken,
-          sampleDevice.location
+          sampleDevice.deviceToken
         )
         .then(device => {
-          return mgr
-            .getAllPublicationsForDevice(device.id)
-            .then(publications => {
-              publications.should.be.instanceof(Array);
-              publications.should.eql([]);
-            });
+          return mgr.getAllPublications(device.id).then(publications => {
+            publications.should.be.instanceof(Array);
+            publications.should.eql([]);
+          });
         });
     });
     it("should return a publication when it has been created for a given device", function() {
@@ -330,8 +283,7 @@ describe("Manager", function() {
         .createMobileDevice(
           sampleDevice.name,
           sampleDevice.platform,
-          sampleDevice.deviceToken,
-          sampleDevice.location
+          sampleDevice.deviceToken
         )
         .then(device => {
           return mgr
@@ -342,33 +294,28 @@ describe("Manager", function() {
               samplePublication.properties
             )
             .then(publication => {
-              return mgr
-                .getAllPublicationsForDevice(device.id)
-                .then(publications => {
-                  publications.should.be.instanceof(Array);
-                  publications.should.contain(publication);
-                });
+              return mgr.getAllPublications(device.id).then(publications => {
+                publications.should.be.instanceof(Array);
+                publications.should.contain(publication);
+              });
             });
         });
     });
   });
-  describe("getAllSubscriptionsForDevice()", function() {
+  describe("getAllSubscriptions()", function() {
     it("should return an empty [] when no publication exist for a given device", function() {
       let mgr = new Manager(apiKey, apiLocation);
       return mgr
         .createMobileDevice(
           sampleDevice.name,
           sampleDevice.platform,
-          sampleDevice.deviceToken,
-          sampleDevice.location
+          sampleDevice.deviceToken
         )
         .then(device => {
-          return mgr
-            .getAllSubscriptionsForDevice(device.id)
-            .then(subscriptions => {
-              subscriptions.should.be.instanceof(Array);
-              subscriptions.should.eql([]);
-            });
+          return mgr.getAllSubscriptions(device.id).then(subscriptions => {
+            subscriptions.should.be.instanceof(Array);
+            subscriptions.should.eql([]);
+          });
         });
     });
     it("should return a subscription when it has been created for a given device", function() {
@@ -377,24 +324,21 @@ describe("Manager", function() {
         .createMobileDevice(
           sampleDevice.name,
           sampleDevice.platform,
-          sampleDevice.deviceToken,
-          sampleDevice.location
+          sampleDevice.deviceToken
         )
         .then(device => {
           return mgr
             .createSubscription(
               sampleSubscription.topic,
-              sampleSubscription.selector,
               sampleSubscription.range,
-              sampleSubscription.duration
+              sampleSubscription.duration,
+              sampleSubscription.selector
             )
             .then(subscription => {
-              return mgr
-                .getAllSubscriptionsForDevice(device.id)
-                .then(subscriptions => {
-                  subscriptions.should.be.instanceof(Array);
-                  subscriptions.should.contain(subscription);
-                });
+              return mgr.getAllSubscriptions(device.id).then(subscriptions => {
+                subscriptions.should.be.instanceof(Array);
+                subscriptions.should.contain(subscription);
+              });
             });
         });
     });
