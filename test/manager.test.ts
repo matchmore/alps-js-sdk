@@ -183,7 +183,7 @@ describe("Manager", function() {
         .createMobileDevice(
           sampleDevice.name,
           sampleDevice.platform,
-          sampleDevice.deviceToken,
+          sampleDevice.deviceToken
         )
         .then(device => {
           return mgr
@@ -191,7 +191,7 @@ describe("Manager", function() {
               sampleSubscription.topic,
               sampleSubscription.range,
               sampleSubscription.duration,
-              sampleSubscription.selector,
+              sampleSubscription.selector
             )
             .then(subscription => {
               return subscription;
@@ -214,10 +214,10 @@ describe("Manager", function() {
         .then(device => {
           return mgr
             .createSubscription(
-              sampleSubscription.topic,              
+              sampleSubscription.topic,
               sampleSubscription.range,
               sampleSubscription.duration,
-              sampleSubscription.selector,
+              sampleSubscription.selector
             )
             .then(subscription => {
               mgr.should.have.property("subscriptions");
@@ -234,7 +234,7 @@ describe("Manager", function() {
               sampleSubscription.topic,
               sampleSubscription.range,
               sampleSubscription.duration,
-              sampleSubscription.selector,
+              sampleSubscription.selector
             );
           })
           .to.throw(Error);
@@ -251,10 +251,7 @@ describe("Manager", function() {
           sampleDevice.deviceToken
         )
         .then(device => {
-          return mgr
-            .updateLocation(
-              sampleLocation
-            );
+          return mgr.updateLocation(sampleLocation);
         });
     });
     it("should not allow to be called before  createMobileDevice", function() {
@@ -262,9 +259,7 @@ describe("Manager", function() {
         let mgr = new Manager(apiKey, apiLocation);
         chai
           .expect(() => {
-            mgr.updateLocation(
-              sampleLocation
-            );
+            mgr.updateLocation(sampleLocation);
           })
           .to.throw(Error);
       };
@@ -305,12 +300,10 @@ describe("Manager", function() {
           sampleDevice.deviceToken
         )
         .then(device => {
-          return mgr
-            .getAllPublications(device.id)
-            .then(publications => {
-              publications.should.be.instanceof(Array);
-              publications.should.eql([]);
-            });
+          return mgr.getAllPublications(device.id).then(publications => {
+            publications.should.be.instanceof(Array);
+            publications.should.eql([]);
+          });
         });
     });
     it("should return a publication when it has been created for a given device", function() {
@@ -330,12 +323,10 @@ describe("Manager", function() {
               samplePublication.properties
             )
             .then(publication => {
-              return mgr
-                .getAllPublications(device.id)
-                .then(publications => {
-                  publications.should.be.instanceof(Array);
-                  publications.should.contain(publication);
-                });
+              return mgr.getAllPublications(device.id).then(publications => {
+                publications.should.be.instanceof(Array);
+                publications.should.contain(publication);
+              });
             });
         });
     });
@@ -350,12 +341,10 @@ describe("Manager", function() {
           sampleDevice.deviceToken
         )
         .then(device => {
-          return mgr
-            .getAllSubscriptions(device.id)
-            .then(subscriptions => {
-              subscriptions.should.be.instanceof(Array);
-              subscriptions.should.eql([]);
-            });
+          return mgr.getAllSubscriptions(device.id).then(subscriptions => {
+            subscriptions.should.be.instanceof(Array);
+            subscriptions.should.eql([]);
+          });
         });
     });
     it("should return a subscription when it has been created for a given device", function() {
@@ -372,16 +361,78 @@ describe("Manager", function() {
               sampleSubscription.topic,
               sampleSubscription.range,
               sampleSubscription.duration,
-              sampleSubscription.selector,
+              sampleSubscription.selector
             )
             .then(subscription => {
-              return mgr
-                .getAllSubscriptions(device.id)
-                .then(subscriptions => {
-                  subscriptions.should.be.instanceof(Array);
-                  subscriptions.should.contain(subscription);
-                });
+              return mgr.getAllSubscriptions(device.id).then(subscriptions => {
+                subscriptions.should.be.instanceof(Array);
+                subscriptions.should.contain(subscription);
+              });
             });
+        });
+    });
+  });
+
+  describe("matches", function() {
+    it("should provide matches via polling", function() {
+      let mgr = new Manager(apiKey, apiLocation);
+      let loc: models.Location = {
+        latitude: 54.350115,
+        longitude: 18.558819,
+        altitude: 0
+      };
+      let deviceWithSub = mgr
+        .createMobileDevice(
+          sampleDevice.name,
+          sampleDevice.platform,
+          sampleDevice.deviceToken
+        )
+        .then(device => {
+          return mgr.createSubscription(
+            sampleSubscription.topic,
+            sampleSubscription.range,
+            sampleSubscription.duration,
+            sampleSubscription.selector
+          );
+        })
+        .then(sub => {
+          return mgr.updateLocation(loc, sub.deviceId).then(_ => sub);
+        });
+
+      let deviceWithPub = mgr
+        .createMobileDevice(
+          sampleDevice.name,
+          sampleDevice.platform,
+          sampleDevice.deviceToken
+        )
+        .then(device => {
+          return mgr.createPublication(
+            samplePublication.topic,
+            samplePublication.range,
+            samplePublication.duration,
+            samplePublication.properties
+          );
+        })
+        .then(pub => {
+          return mgr.updateLocation(loc, pub.deviceId).then(_ => pub);
+        });
+      return Promise.all([deviceWithPub, deviceWithSub])
+        .then(f => {
+          let sub = f[1];
+          return mgr.getAllMatches(sub.deviceId).then(matches =>{
+            return {matches: matches, pubsub: f};
+          });
+        })
+        .then(m => {
+          let matches = m.matches;
+          
+          matches.should.be.instanceof(Array);
+          matches.should.not.be.empty;
+          let pub = m.pubsub[0];
+          let sub = m.pubsub[1];
+          let newestMatch = matches.sort((l,r) => l.createdAt - r.createdAt)[0]
+          newestMatch.subscription.id.should.eql(sub.id);
+          newestMatch.publication.id.should.eql(pub.id);
         });
     });
   });
