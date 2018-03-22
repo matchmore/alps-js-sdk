@@ -3,6 +3,7 @@ import Base64 = require("Base64");
 import { MatchMonitor } from "./matchmonitor";
 import { LocationManager } from "./locationmanager";
 import * as models from "./model/models";
+import { IPersistenceManager, InMemoryPersistenceManager } from "./persistence";
 
 interface Token {
   sub: string;
@@ -11,17 +12,18 @@ interface Token {
 export class Manager {
   defaultClient: ScalpsCoreRestApi.ApiClient;
 
-  // Store all the objects created by the manager:
-  public devices: models.Device[] = [];
-  public publications: models.Publication[] = [];
-  public subscriptions: models.Subscription[] = [];
-  public defaultDevice: models.Device;
-
-  private matchMonitor: MatchMonitor;
-  private locationManager: LocationManager;
+  private _matchMonitor: MatchMonitor;
+  private _locationManager: LocationManager;
+  private _persistenceManager: IPersistenceManager;
   private token: Token;
 
-  constructor(public apiKey: string, apiUrlOverride?: string) {
+  constructor(
+    public apiKey: string,
+    apiUrlOverride?: string,
+    persistenceManager?: IPersistenceManager
+  ) {
+    this._persistenceManager =
+      persistenceManager || new InMemoryPersistenceManager();
     this.init(apiUrlOverride);
   }
 
@@ -33,8 +35,20 @@ export class Manager {
     this.defaultClient.authentications["api-key"].apiKey = this.apiKey;
     // Hack the api location (to use an overidden value if needed)
     if (apiUrlOverride) this.defaultClient.basePath = apiUrlOverride;
-    this.matchMonitor = new MatchMonitor(this);
-    this.locationManager = new LocationManager(this);
+    this._matchMonitor = new MatchMonitor(this);
+    this._locationManager = new LocationManager(this);
+  }
+  get defaultDevice(): models.Device {
+    return this._persistenceManager.defaultDevice();
+  }
+  get devices(): models.Device[] {
+    return this._persistenceManager.devices();
+  }
+  get publications(): models.Publication[] {
+    return this._persistenceManager.publications();
+  }
+  get subscriptions(): models.Subscription[] {
+    return this._persistenceManager.subscriptions();
   }
 
   public createMobileDevice(
@@ -114,8 +128,13 @@ export class Manager {
       api.createDevice(device, callback);
     });
     return p.then((device: T) => {
-      this.devices.push(device);
-      this.defaultDevice = this.devices[0];
+      let ddevice = this._persistenceManager.defaultDevice();
+      let isDefault = !ddevice;
+      this._persistenceManager.addDevice(
+        device,
+        isDefault
+      );
+
       if (completion) completion(device);
       return device;
     });
@@ -197,7 +216,7 @@ export class Manager {
       api.createPublication(_deviceId, publication, callback);
     });
     return p.then((publication: models.Publication) => {
-      this.publications.push(publication);
+      this._persistenceManager.add(publication);
       if (completion) completion(publication);
       return publication;
     });
@@ -232,7 +251,7 @@ export class Manager {
         }
       };
 
-      let _deviceId =  deviceId ? deviceId : this.defaultDevice.id;
+      let _deviceId = deviceId ? deviceId : this.defaultDevice.id;
 
       let subscription: models.Subscription = {
         worldId: this.token.sub,
@@ -246,7 +265,7 @@ export class Manager {
       api.createSubscription(_deviceId, subscription, callback);
     });
     return p.then((subscription: models.Subscription) => {
-      this.subscriptions.push(subscription);
+      this._persistenceManager.add(subscription);
       if (completion) completion(subscription);
       return subscription;
     });
@@ -268,7 +287,7 @@ export class Manager {
         if (error) {
           reject(
             "An error has occured while creating location ['" +
-            location.latitude +
+              location.latitude +
               "','" +
               location.longitude +
               "']  :" +
@@ -280,12 +299,8 @@ export class Manager {
         }
       };
 
-      let _deviceId =  deviceId ? deviceId : this.defaultDevice.id;
-      api.createLocation(
-        _deviceId,
-        location,
-        callback
-      );
+      let _deviceId = deviceId ? deviceId : this.defaultDevice.id;
+      api.createLocation(_deviceId, location, callback);
     });
     return p.then((location: models.Location) => {
       if (completion) completion;
@@ -365,26 +380,26 @@ export class Manager {
   }
 
   public onMatch(completion: (match: models.Match) => void) {
-    this.matchMonitor.onMatch = completion;
+    this._matchMonitor.onMatch = completion;
   }
 
   public onLocationUpdate(completion: (location: models.Location) => void) {
-    this.locationManager.onLocationUpdate = completion;
+    this._locationManager.onLocationUpdate = completion;
   }
 
   public startMonitoringMatches() {
-    this.matchMonitor.startMonitoringMatches();
+    this._matchMonitor.startMonitoringMatches();
   }
 
   public stopMonitoringMatches() {
-    this.matchMonitor.stopMonitoringMatches();
+    this._matchMonitor.stopMonitoringMatches();
   }
 
   public startUpdatingLocation() {
-    this.locationManager.startUpdatingLocation();
+    this._locationManager.startUpdatingLocation();
   }
 
   public stopUpdatingLocation() {
-    this.locationManager.stopUpdatingLocation();
+    this._locationManager.stopUpdatingLocation();
   }
 }
