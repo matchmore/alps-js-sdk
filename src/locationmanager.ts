@@ -1,26 +1,38 @@
-import ScalpsCoreRestApi = require("matchmore_alps_core_rest_api");
 import { Manager } from "./manager";
+import * as models from "./model/models";
+
+export interface GPSConfig {
+  enableHighAccuracy: boolean;
+  timeout: number;
+  maximumAge: number;
+}
 
 export class LocationManager {
-  manager: Manager;
+  private _onLocationUpdate: (location: models.Location) => void;
+  private _geoId;
+  private _gpsConfig: GPSConfig;
 
-  private geoId;
-
-  public onLocationUpdate: (location: ScalpsCoreRestApi.Location) => void;
-
-  constructor(manager: Manager) {
-    this.init(manager);
-  }
-
-  private init(manager) {
-    this.manager = manager;
+  constructor(public manager: Manager, config?: GPSConfig) {
+    this._gpsConfig = config || {
+      enableHighAccuracy: false,
+      timeout: 60000,
+      maximumAge: 60000
+    };
+    this._onLocationUpdate = loc => {};
   }
 
   public startUpdatingLocation() {
     if (navigator.geolocation) {
-      this.geoId = navigator.geolocation.watchPosition(loc => {
-        this.onLocationReceived(loc);
-      }, this.onError);
+      navigator.geolocation.getCurrentPosition(
+        this.onLocationReceived,
+        this.onError,
+        this._gpsConfig
+      );
+      this._geoId = navigator.geolocation.watchPosition(
+        this.onLocationReceived,
+        this.onError,
+        this._gpsConfig
+      );
     } else {
       throw new Error("Geolocation is not supported in this browser/app");
     }
@@ -28,44 +40,37 @@ export class LocationManager {
 
   public stopUpdatingLocation() {
     if (navigator.geolocation) {
-      navigator.geolocation.clearWatch(this.geoId);
+      navigator.geolocation.clearWatch(this._geoId);
     } else {
       throw new Error("Geolocation is not supported in this browser/app");
     }
   }
 
-  private onLocationReceived(loc) {
-    if (!loc.coords) return; // Guard for bad values
-    let latitude, longitude, altitude;
-    if (loc.coords.latitude) latitude = parseFloat(loc.coords.latitude);
-    else return;
-    //throw new Error("Location did not contain any latitude: " + JSON.stringify(loc));
-    if (loc.coords.longitude) longitude = parseFloat(loc.coords.longitude);
-    else return;
-    //throw new Error("Location did not contain any longitude: " + JSON.stringify(loc));
-    if (loc.coords.altitude) altitude = parseFloat(loc.coords.altitude);
-    else altitude = 0; // Default value, TODO: use an altitude API?
+  set onLocationUpdate(onLocationUpdate: (location: models.Location) => void) {
+    this._onLocationUpdate = onLocationUpdate;
+  }
 
-    this.onLocationUpdate(loc);
-    this.manager.updateLocation({
-      latitude: latitude,
-      longitude: longitude,
-      altitude: altitude,
-      horizontalAccuracy: 1.0,
-      verticalAccuracy: 1.0
-    });
+  private onLocationReceived(loc) {
+    loc.coords.horizontalAccuracy = 1.0;
+    loc.coords.verticalAccuracy = 1.0;
+
+    if (this._onLocationUpdate) {
+      this._onLocationUpdate(loc);
+    }
+    this.manager.updateLocation(loc.coords);
   }
 
   private onError(error) {
-    switch (error.code) {
-      case error.PERMISSION_DENIED:
-        throw new Error("User denied the request for Geolocation.");
-      case error.POSITION_UNAVAILABLE:
-        throw new Error("Location information is unavailable.");
-      case error.TIMEOUT:
-        throw new Error("The request to get user location timed out.");
-      case error.UNKNOWN_ERROR:
-        throw new Error("An unknown error occurred.");
-    }
+    throw new Error(error.message);
+    // switch (error.code) {
+    //   case error.PERMISSION_DENIED:
+    //     throw new Error("User denied the request for Geolocation.");
+    //   case error.POSITION_UNAVAILABLE:
+    //     throw new Error("Location information is unavailable.");
+    //   case error.TIMEOUT:
+    //     throw new Error("The request to get user location timed out. " );
+    //   case error.UNKNOWN_ERROR:
+    //     throw new Error("An unknown error occurred.");
+    // }
   }
 }
