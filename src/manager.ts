@@ -1,7 +1,12 @@
 import ScalpsCoreRestApi = require("matchmore_alps_core_rest_api");
+import Base64 = require("Base64");
 import { MatchMonitor } from "./matchmonitor";
 import { LocationManager } from "./locationmanager";
 import * as models from "./model/models";
+
+interface Token {
+  sub: string;
+}
 
 export class Manager {
   defaultClient: ScalpsCoreRestApi.ApiClient;
@@ -10,11 +15,11 @@ export class Manager {
   public devices: models.Device[] = [];
   public publications: models.Publication[] = [];
   public subscriptions: models.Subscription[] = [];
-  public locations: models.Location[] = [];
   public defaultDevice: models.Device;
 
   private matchMonitor: MatchMonitor;
   private locationManager: LocationManager;
+  private token: Token;
 
   constructor(public apiKey: string, apiUrlOverride?: string) {
     this.init(apiUrlOverride);
@@ -22,6 +27,9 @@ export class Manager {
 
   init(apiUrlOverride?: string) {
     this.defaultClient = ScalpsCoreRestApi.ApiClient.instance;
+
+    this.token = JSON.parse(Base64.atob(this.apiKey.split(".")[1])) as Token;
+
     this.defaultClient.authentications["api-key"].apiKey = this.apiKey;
     // Hack the api location (to use an overidden value if needed)
     if (apiUrlOverride) this.defaultClient.basePath = apiUrlOverride;
@@ -105,7 +113,7 @@ export class Manager {
 
       api.createDevice(device, callback);
     });
-    return p.then((device :T) => {
+    return p.then((device: T) => {
       this.devices.push(device);
       this.defaultDevice = this.devices[0];
       if (completion) completion(device);
@@ -147,36 +155,18 @@ export class Manager {
   }
 
   public createPublication(
-    topic: String,
+    topic: string,
     range: number,
     duration: number,
     properties: Object,
-    completion?: (publication: ScalpsCoreRestApi.Publication) => void
-  ): Promise<ScalpsCoreRestApi.Publication> {
-    if (this.defaultDevice) {
-      return this.createAnyPublication(
-        this.defaultDevice.id,
-        topic,
-        range,
-        duration,
-        properties,
-        completion
-      );
-    } else {
+    deviceId?: string,
+    completion?: (publication: models.Publication) => void
+  ): Promise<models.Publication> {
+    if (!this.defaultDevice) {
       throw new Error(
         "There is no default device available, please call createDevice before createPublication"
       );
     }
-  }
-
-  public createAnyPublication(
-    deviceId: String,
-    topic: String,
-    range: number,
-    duration: number,
-    properties: Object,
-    completion?: (publication: models.Publication) => void
-  ): Promise<models.Publication> {
     let p = new Promise((resolve, reject) => {
       let api = new ScalpsCoreRestApi.PublicationApi();
       let callback = function(error, data, response) {
@@ -192,14 +182,19 @@ export class Manager {
           resolve(JSON.parse(response.text));
         }
       };
-      api.createPublication(
-        deviceId,
-        topic,
-        range,
-        duration,
-        properties,
-        callback
-      );
+
+      let _deviceId = deviceId ? deviceId : this.defaultDevice.id;
+
+      let publication: models.Publication = {
+        worldId: this.token.sub,
+        topic: topic,
+        deviceId: _deviceId,
+        range: range,
+        duration: duration,
+        properties: properties
+      };
+
+      api.createPublication(_deviceId, publication, callback);
     });
     return p.then((publication: models.Publication) => {
       this.publications.push(publication);
@@ -210,35 +205,17 @@ export class Manager {
 
   public createSubscription(
     topic: string,
-    selector: String,
+    selector: string,
     range: number,
     duration: number,
+    deviceId?: string,
     completion?: (subscription: models.Subscription) => void
   ): Promise<models.Subscription> {
-    if (this.defaultDevice) {
-      return this.createAnySubscription(
-        this.defaultDevice.id,
-        topic,
-        selector,
-        range,
-        duration,
-        completion
-      );
-    } else {
+    if (!this.defaultDevice) {
       throw new Error(
-        "There is no default device available, please call createDevice before createSubscription"
+        "There is no default device available, please call createDevice before createPublication"
       );
     }
-  }
-
-  public createAnySubscription(
-    deviceId: String,
-    topic: String,
-    selector: String,
-    range: number,
-    duration: number,
-    completion?: (subscription: models.Subscription) => void
-  ): Promise<models.Subscription> {
     let p = new Promise((resolve, reject) => {
       let api = new ScalpsCoreRestApi.SubscriptionApi();
       let callback = function(error, data, response) {
@@ -254,14 +231,19 @@ export class Manager {
           resolve(JSON.parse(response.text));
         }
       };
-      api.createSubscription(
-        deviceId,
-        topic,
-        selector,
-        range,
-        duration,
-        callback
-      );
+
+      let _deviceId =  deviceId ? deviceId : this.defaultDevice.id;
+
+      let subscription: models.Subscription = {
+        worldId: this.token.sub,
+        topic: topic,
+        deviceId: _deviceId,
+        range: range,
+        duration: duration,
+        selector: selector
+      };
+
+      api.createSubscription(_deviceId, subscription, callback);
     });
     return p.then((subscription: models.Subscription) => {
       this.subscriptions.push(subscription);
@@ -271,73 +253,42 @@ export class Manager {
   }
 
   public updateLocation(
-    latitude: number,
-    longitude: number,
-    altitude: number,
-    horizontalAccuracy: number,
-    verticalAccuracy: number,
-    completion?: (location: models.Location) => void
-  ): Promise<models.Location> {
-    if (this.defaultDevice) {
-      return this.updateAnyLocation(
-        this.defaultDevice.id,
-        latitude,
-        longitude,
-        altitude,
-        horizontalAccuracy,
-        verticalAccuracy,
-        completion
-      );
-    } else {
-      throw new Error(
-        "There is no default device available, please call createDevice before updateLocation"
-      );
-    }
-  }
-
-  public updateAnyLocation(
-    deviceId: String,
-    latitude: number,
-    longitude: number,
-    altitude: number,
-    horizontalAccuracy: number,
-    verticalAccuracy: number,
-    completion?: (location: models.Location) => void
-  ): Promise<models.Location> {
+    location: models.Location,
+    deviceId?: string,
+    completion?: (location: void) => void
+  ): Promise<void> {
     let p = new Promise((resolve, reject) => {
+      if (!this.defaultDevice) {
+        throw new Error(
+          "There is no default device available, please call createDevice before createPublication"
+        );
+      }
       let api = new ScalpsCoreRestApi.LocationApi();
       let callback = function(error, data, response) {
         if (error) {
           reject(
             "An error has occured while creating location ['" +
-              latitude +
+            location.latitude +
               "','" +
-              longitude +
+              location.longitude +
               "']  :" +
               error
           );
         } else {
           // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-          resolve(JSON.parse(response.text));
+          resolve();
         }
       };
-      var opts = {
-        horizontalAccuracy: horizontalAccuracy,
-        verticalAccuracy: verticalAccuracy
-      };
+
+      let _deviceId =  deviceId ? deviceId : this.defaultDevice.id;
       api.createLocation(
-        deviceId,
-        latitude,
-        longitude,
-        altitude,
-        opts,
+        _deviceId,
+        location,
         callback
       );
     });
     return p.then((location: models.Location) => {
-      this.locations.push(location);
-      if (completion) completion(location);
-      return location;
+      if (completion) completion;
     });
   }
 
@@ -354,7 +305,7 @@ export class Manager {
   }
 
   public getAllMatchesForAny(
-    deviceId: String,
+    deviceId: string,
     completion?: (matches: models.Match[]) => void
   ) {
     let p = new Promise((resolve, reject) => {
@@ -376,7 +327,7 @@ export class Manager {
   }
 
   public getAllPublicationsForDevice(
-    deviceId: String,
+    deviceId: string,
     completion?: (publications: models.Publication[]) => void
   ) {
     let p = new Promise((resolve, reject) => {
@@ -395,7 +346,7 @@ export class Manager {
   }
 
   public getAllSubscriptionsForDevice(
-    deviceId: String,
+    deviceId: string,
     completion?: (subscriptions: models.Subscription[]) => void
   ) {
     let p = new Promise((resolve, reject) => {
@@ -417,9 +368,7 @@ export class Manager {
     this.matchMonitor.onMatch = completion;
   }
 
-  public onLocationUpdate(
-    completion: (location: models.Location) => void
-  ) {
+  public onLocationUpdate(completion: (location: models.Location) => void) {
     this.locationManager.onLocationUpdate = completion;
   }
 

@@ -45,6 +45,7 @@ let sampleDevice: models.MobileDevice = {
 };
 
 describe("Manager", function() {
+  this.timeout(5000);
   describe("#instantiation", function() {
     it("should allow being instantiated with an apiKey", function() {
       let mgr = new Manager(apiKey, apiLocation);
@@ -249,35 +250,7 @@ describe("Manager", function() {
     });
   });
   describe("updateLocation()", function() {
-    it("should create and send a location back", function() {
-      let mgr = new Manager(apiKey, apiLocation);
-      let location = mgr
-        .createMobileDevice(
-          sampleDevice.name,
-          sampleDevice.platform,
-          sampleDevice.deviceToken,
-          sampleDevice.location
-        )
-        .then(device => {
-          return mgr
-            .updateLocation(
-              sampleLocation.latitude,
-              sampleLocation.longitude,
-              sampleLocation.altitude,
-              sampleLocation.horizontalAccuracy,
-              sampleLocation.verticalAccuracy
-            )
-            .then(location => {
-              return location;
-            });
-        });
-      return Promise.all([
-        location.should.eventually.have.property("latitude"),
-        location.should.eventually.have.property("longitude"),
-        location.should.eventually.have.property("altitude")
-      ]);
-    });
-    it("should add the newly created location to locations", function() {
+    it("should create location", function() {
       let mgr = new Manager(apiKey, apiLocation);
       return mgr
         .createMobileDevice(
@@ -289,16 +262,8 @@ describe("Manager", function() {
         .then(device => {
           return mgr
             .updateLocation(
-              sampleLocation.latitude,
-              sampleLocation.longitude,
-              sampleLocation.altitude,
-              sampleLocation.horizontalAccuracy,
-              sampleLocation.verticalAccuracy
-            )
-            .then(location => {
-              mgr.should.have.property("locations");
-              mgr.locations.should.include(location);
-            });
+              sampleLocation
+            );
         });
     });
     it("should not allow to be called before  createMobileDevice", function() {
@@ -307,11 +272,7 @@ describe("Manager", function() {
         chai
           .expect(() => {
             mgr.updateLocation(
-              sampleLocation.latitude,
-              sampleLocation.longitude,
-              sampleLocation.altitude,
-              sampleLocation.horizontalAccuracy,
-              sampleLocation.verticalAccuracy
+              sampleLocation
             );
           })
           .to.throw(Error);
