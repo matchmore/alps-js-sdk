@@ -364,7 +364,7 @@ export class Manager {
   public getAllMatches(
     deviceId?: string,
     completion?: (matches: models.Match[]) => void
-  ) {
+  ): Promise<models.Match[]> {
     if (!this.defaultDevice) {
       throw new Error(
         "There is no default device available, please call createDevice before createPublication"
@@ -383,10 +383,10 @@ export class Manager {
       let _deviceId = deviceId ? deviceId : this.defaultDevice.id;
       api.getMatches(_deviceId, callback);
     });
-    p.then((matches: models.Match[]) => {
+    return p.then((matches: models.Match[]) => {
       if (completion) completion(matches);
+      return matches;
     });
-    return p;
   }
 
   /**
