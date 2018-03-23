@@ -1,6 +1,6 @@
 import { Manager } from "./manager";
 import * as models from "./model/models";
-import WebSocket = require("ws");
+import WebSocket = require("websocket");
 
 export enum MatchMonitorMode {
   polling,

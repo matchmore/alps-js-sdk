@@ -19,8 +19,16 @@ tsc
 To create a Standalone (using Browserify):
 
 ```
-browserify lib/src/manager.js --standalone matchmore > build/matchmore.js
+npm browserify-standalone
 ```
+
+Create a (greatly) minified version
+
+```
+npm minify
+```
+
+
 
 ## Testing
 

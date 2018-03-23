@@ -5,21 +5,24 @@
   "license": "MIT",
   "main": "build/matchmore.js",
   "scripts": {
-    "test": "./node_modules/.bin/mocha --compilers ts:ts-node/register ./test/**/*.ts"
+    "test": "./node_modules/.bin/mocha --compilers ts:ts-node/register ./test/**/*.ts",
+    "browserify-standalone": "browserify ./lib/src/manager.js --standalone matchmore > ./build/matchmore-standalone.js",
+    "browserify": "browserify ./lib/src/manager.js > ./build/matchmore.js",
+    "minify": "browserify ./lib/src/manager.js | uglifyjs -cm > ./build/matchmore.min.js"
   },
   "devDependencies": {
+    "@types/chai": "^4.1.2",
+    "@types/chai-as-promised": "^7.1.0",
+    "@types/mocha": "^2.2.48",
     "chai": "^3.5.0",
     "chai-as-promised": "^6.0.0",
     "mocha": "^3.2.0",
     "ts-node": "^5.0.1",
-    "typescript": "^2.7.2",
-    "@types/chai": "^4.1.2",
-    "@types/chai-as-promised": "^7.1.0",
-    "@types/mocha": "^2.2.48"
+    "typescript": "^2.7.2"
   },
   "dependencies": {
     "Base64": "^1.0.1",
     "matchmore_alps_core_rest_api": "file:./matchmore_alps_core_rest_api",
-    "ws": "^5.1.0"
+    "websocket": "^1.0.25"
   }
 }
