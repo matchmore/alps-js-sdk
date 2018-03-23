@@ -18,8 +18,19 @@ export class LocationManager {
 
   public startUpdatingLocation() {
     if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        loc => {
+          this.onLocationReceived(loc.coords);
+        },
+        this.onError,
+        {
+          enableHighAccuracy: false,
+          timeout: 60000,
+          maximumAge: Infinity
+        }
+      );
       this.geoId = navigator.geolocation.watchPosition(loc => {
-        this.onLocationReceived(loc);
+        this.onLocationReceived(loc.coords);
       }, this.onError);
     } else {
       throw new Error("Geolocation is not supported in this browser/app");
@@ -57,15 +68,16 @@ export class LocationManager {
   }
 
   private onError(error) {
-    switch (error.code) {
-      case error.PERMISSION_DENIED:
-        throw new Error("User denied the request for Geolocation.");
-      case error.POSITION_UNAVAILABLE:
-        throw new Error("Location information is unavailable.");
-      case error.TIMEOUT:
-        throw new Error("The request to get user location timed out.");
-      case error.UNKNOWN_ERROR:
-        throw new Error("An unknown error occurred.");
-    }
+    throw new Error(error.message);
+    // switch (error.code) {
+    //   case error.PERMISSION_DENIED:
+    //     throw new Error("User denied the request for Geolocation.");
+    //   case error.POSITION_UNAVAILABLE:
+    //     throw new Error("Location information is unavailable.");
+    //   case error.TIMEOUT:
+    //     throw new Error("The request to get user location timed out. " );
+    //   case error.UNKNOWN_ERROR:
+    //     throw new Error("An unknown error occurred.");
+    // }
   }
 }
