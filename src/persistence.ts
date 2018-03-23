@@ -1,6 +1,6 @@
 import * as models from "./model/models";
 
-type MatchmoreEntity = models.Device | models.Publication | models.Subscription;
+export type MatchmoreEntity = models.Device | models.Publication | models.Subscription;
 export interface IPersistenceManager {
   defaultDevice(): models.Device;
   devices(): models.Device[];
