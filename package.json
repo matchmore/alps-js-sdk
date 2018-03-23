@@ -1,14 +1,18 @@
 {
   "name": "matchmore",
-  "version": "0.0.1",
+  "version": "0.6.0",
   "description": "We_connect_things",
   "license": "MIT",
-  "main": "build/matchmore.js",
+  "main": "lib/src/manager.js",
+  "browser": "dist/matchmore.min.js",
+  "types": "lib/src/manager.d.ts",
+  "homepage": "https://matchmore.io",
+
   "scripts": {
+    "build": "tsc",
     "test": "./node_modules/.bin/mocha --compilers ts:ts-node/register ./test/**/*.ts",
-    "browserify-standalone": "browserify ./lib/src/manager.js --standalone matchmore > ./build/matchmore-standalone.js",
-    "browserify": "browserify ./lib/src/manager.js > ./build/matchmore.js",
-    "minify": "browserify ./lib/src/manager.js | uglifyjs -cm > ./build/matchmore.min.js"
+    "browserify": "browserify ./lib/src/manager.js --standalone matchmore > ./dist/matchmore.js",
+    "minify": "browserify ./lib/src/manager.js --standalone matchmore | uglifyjs -cm > ./dist/matchmore.min.js"
   },
   "devDependencies": {
     "@types/chai": "^4.1.2",

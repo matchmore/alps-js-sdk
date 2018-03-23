@@ -13,19 +13,19 @@ Clone the repo locally and install the dependencies from the root folder with:
 To compile the project:
 
 ```
-tsc
+npm run build
 ```
 
 To create a Standalone (using Browserify):
 
 ```
-npm browserify-standalone
+npm run browserify
 ```
 
 Create a (greatly) minified version
 
 ```
-npm minify
+npm run minify
 ```
 
 
@@ -45,7 +45,7 @@ npm test
 
 ### In a browser
 
-Include `build/matchmore.js` into your page and start by creating a Manager() instance. The Manager will allow you to create Users, Devices, Publications, Subscriptions, ...
+Include `dist/matchmore.min.js` into your page and start by creating a Manager() instance. The Manager will allow you to create Users, Devices, Publications, Subscriptions, ...
 
 ### In your project 
 

@@ -5,7 +5,7 @@ import { LocationManager } from "./locationmanager";
 import * as models from "./model/models";
 import { IPersistenceManager, InMemoryPersistenceManager } from "./persistence";
 
-interface Token {
+export interface Token {
   sub: string;
 }
 
