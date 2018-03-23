@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<title>Marchmore </title>
+<script src="../../build/matchmore.js"></script>
+<script language="javascript" type="text/javascript">
+    function run() {
+        let output = document.getElementById("output");
+        function writeToScreen(message) {
+            var pre = document.createElement("p");
+            pre.style.wordWrap = "break-word";
+            pre.innerHTML = message;
+            output.appendChild(pre);
+        }
+        function runExample() {
+            writeToScreen("Starting!");
+
+            let manager = new matchmore.Manager("***REMOVED***");
+            manager.createMobileDevice("me", "browser", "").then(device => {
+                manager.startMonitoringMatches();
+                manager.onMatch(match => {
+                    writeToScreen(match.publication.properties.name + " matched!");
+                });
+                return device;
+            }).then(device => {
+                writeToScreen("Created mobile device");
+                //lets wait for the current location
+                let location = new Promise(resolve => {
+                    manager.onLocationUpdate(loc => {
+                        writeToScreen("Got Location");
+                        resolve(loc);
+                    }); 
+                    manager.startUpdatingLocation();
+                    
+                });
+
+                location.then(location => {
+                    let publication = manager.createPinDevice(
+                        "Our test pin",
+                        location
+                    ).then(pin => {
+                        writeToScreen("Created pin device");
+                        let p1 = manager.createPublication(
+                            "my-topic",
+                            100 /* m */,
+                            20 /* s */,
+                            { "age": 20, "name": "Clara" },
+                            pin.id);
+                        let p2 = manager.createPublication(
+                            "my-topic",
+                            100 /* m */,
+                            20 /* s */,
+                            { "age": 18, "name": "Justine" },
+                            pin.id);
+                        let p3 = manager.createPublication(
+                            "my-topic",
+                            100 /* m */,
+                            20 /* s */,
+                            { "age": 17, "name": "Alex" },
+                            pin.id);
+                        return Promise.all([p1, p2, p3]);
+                    });
+                }).then(_ => {
+                    let subscription = manager.createSubscription(
+                        "my-topic",
+                        100 /* m */,
+                        20 /* s */,
+                        "age >= 18"
+                    );
+                    return subscription;
+                });
+            
+            });
+        }
+        runExample();
+    }
+    window.addEventListener("load", run, false);
+</script>
+
+<h2>Matchmore dating!</h2>
+
+<div id="output"></div>
