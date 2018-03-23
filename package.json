@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "Base64": "^1.0.1",
-    "matchmore_alps_core_rest_api": "file:./matchmore_alps_core_rest_api"
+    "matchmore_alps_core_rest_api": "file:./matchmore_alps_core_rest_api",
+    "ws": "^5.1.0"
   }
 }

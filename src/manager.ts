@@ -1,6 +1,6 @@
 import ScalpsCoreRestApi = require("matchmore_alps_core_rest_api");
 import Base64 = require("Base64");
-import { MatchMonitor } from "./matchmonitor";
+import { MatchMonitor, MatchMonitorMode } from "./matchmonitor";
 import { LocationManager } from "./locationmanager";
 import * as models from "./model/models";
 import { IPersistenceManager, InMemoryPersistenceManager } from "./persistence";
@@ -15,26 +15,27 @@ export class Manager {
   private _matchMonitor: MatchMonitor;
   private _locationManager: LocationManager;
   private _persistenceManager: IPersistenceManager;
-  private token: Token;
+  public token: Token;
 
   constructor(
     public apiKey: string,
-    apiUrlOverride?: string,
+    public apiUrlOverride?: string,
     persistenceManager?: IPersistenceManager
   ) {
     this._persistenceManager =
       persistenceManager || new InMemoryPersistenceManager();
-    this.init(apiUrlOverride);
+    this.init();
   }
 
-  init(apiUrlOverride?: string) {
+  init() {
     this.defaultClient = ScalpsCoreRestApi.ApiClient.instance;
 
     this.token = JSON.parse(Base64.atob(this.apiKey.split(".")[1])) as Token;
 
     this.defaultClient.authentications["api-key"].apiKey = this.apiKey;
     // Hack the api location (to use an overidden value if needed)
-    if (apiUrlOverride) this.defaultClient.basePath = apiUrlOverride;
+    if (this.apiUrlOverride) this.defaultClient.basePath = this.apiUrlOverride;
+    else this.apiUrlOverride = this.defaultClient.basePath;
     this._matchMonitor = new MatchMonitor(this);
     this._locationManager = new LocationManager(this);
   }
@@ -53,8 +54,8 @@ export class Manager {
 
   /**
    * Creates a mobile device
-   * @param name 
-   * @param platform 
+   * @param name
+   * @param platform
    * @param deviceToken platform token for push notifications for example apns://apns-token or fcm://fcm-token
    * @param completion optional callback
    */
@@ -77,8 +78,8 @@ export class Manager {
 
   /**
    * Create a pin device
-   * @param name 
-   * @param location 
+   * @param name
+   * @param location
    * @param completion optional callback
    */
   public createPinDevice(
@@ -96,15 +97,15 @@ export class Manager {
     );
   }
 
-/**
- * Creates an ibeacon device
- * @param name 
- * @param proximityUUID 
- * @param major 
- * @param minor 
- * @param location 
- * @param completion optional callback
- */
+  /**
+   * Creates an ibeacon device
+   * @param name
+   * @param proximityUUID
+   * @param major
+   * @param minor
+   * @param location
+   * @param completion optional callback
+   */
   public createIBeaconDevice(
     name: string,
     proximityUUID: string,
@@ -125,11 +126,11 @@ export class Manager {
       completion
     );
   }
-/**
- * Create a device
- * @param device whole device object
- * @param completion optional callback
- */
+  /**
+   * Create a device
+   * @param device whole device object
+   * @param completion optional callback
+   */
   public createAnyDevice<T extends models.Device>(
     device: models.Device,
     completion?: (device: T) => void
@@ -156,10 +157,7 @@ export class Manager {
     return p.then((device: T) => {
       let ddevice = this._persistenceManager.defaultDevice();
       let isDefault = !ddevice;
-      this._persistenceManager.addDevice(
-        device,
-        isDefault
-      );
+      this._persistenceManager.addDevice(device, isDefault);
 
       if (completion) completion(device);
       return device;
@@ -198,15 +196,15 @@ export class Manager {
   ): device is models.IBeaconDevice {
     return (<models.IBeaconDevice>device).major !== undefined;
   }
-/**
- * Create a publication for a device
- * @param topic topic of the publication
- * @param range range in meters
- * @param duration time in seconds
- * @param properties properties on which the sub selector can filter on
- * @param deviceId optional, if not provided the default device will be used
- * @param completion optional callback
- */
+  /**
+   * Create a publication for a device
+   * @param topic topic of the publication
+   * @param range range in meters
+   * @param duration time in seconds
+   * @param properties properties on which the sub selector can filter on
+   * @param deviceId optional, if not provided the default device will be used
+   * @param completion optional callback
+   */
   public createPublication(
     topic: string,
     range: number,
@@ -261,7 +259,7 @@ export class Manager {
    * @param topic topic of the subscription
    * @param range range in meters
    * @param duration time in seconds
-   * @param selector selector which is used for filtering publications 
+   * @param selector selector which is used for filtering publications
    * @param deviceId optional, if not provided the default device will be used
    * @param completion optional callback
    */
@@ -316,7 +314,7 @@ export class Manager {
 
   /**
    * Updates the device location
-   * @param location 
+   * @param location
    * @param deviceId optional, if not provided the default device will be used
    * @param completion optional callback
    */
@@ -390,6 +388,41 @@ export class Manager {
   }
 
   /**
+   * Returns a specific match for device
+   * @param deviceId optional, if not provided the default device will be used
+   * @param completion optional callback
+   */
+  public getMatch(
+    matchId,
+    string,
+    deviceId?: string,
+    completion?: (matches: models.Match) => void
+  ): Promise<models.Match> {
+    if (!this.defaultDevice) {
+      throw new Error(
+        "There is no default device available, please call createDevice before createPublication"
+      );
+    }
+    let p = new Promise((resolve, reject) => {
+      let api = new ScalpsCoreRestApi.DeviceApi();
+      let callback = function(error, data, response) {
+        if (error) {
+          reject("An error has occured while fetching matches: " + error);
+        } else {
+          // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
+          resolve(JSON.parse(response.text));
+        }
+      };
+      let _deviceId = deviceId ? deviceId : this.defaultDevice.id;
+      api.getMatch(_deviceId, matchId, callback);
+    });
+    return p.then((matches: models.Match) => {
+      if (completion) completion(matches);
+      return matches;
+    });
+  }
+
+  /**
    * Gets publications
    * @param deviceId optional, if not provided the default device will be used
    * @param completion optional callback
@@ -441,7 +474,7 @@ export class Manager {
 
   /**
    * Registers a callback for matches
-   * @param completion 
+   * @param completion
    */
   public onMatch(completion: (match: models.Match) => void) {
     this._matchMonitor.onMatch = completion;
@@ -449,14 +482,14 @@ export class Manager {
 
   /**
    * Register a callback for location updates
-   * @param completion 
+   * @param completion
    */
   public onLocationUpdate(completion: (location: models.Location) => void) {
     this._locationManager.onLocationUpdate = completion;
   }
 
-  public startMonitoringMatches() {
-    this._matchMonitor.startMonitoringMatches();
+  public startMonitoringMatches(mode: MatchMonitorMode) {
+    this._matchMonitor.startMonitoringMatches(mode);
   }
 
   public stopMonitoringMatches() {

@@ -7,45 +7,16 @@ import chaiAsPromised = require("chai-as-promised");
 import "mocha";
 import { Manager } from "../src/manager";
 import * as models from "../src/model/models";
+import { MatchMonitorMode } from "../src/matchmonitor";
+import { sampleDevice, sampleSubscription, sampleLocation, samplePublication } from "./common";
+
 chai.should();
 chai.use(chaiAsPromised);
 
 const apiKey = environment.apiKey;
 const apiLocation = environment.apiLocation;
 
-// STUB OBJECTS
-
-let samplePublication = {
-  topic: "sampletopic",
-  range: 300,
-  duration: 60,
-  properties: { data1: "value1", data2: 1, data3: false }
-};
-
-let sampleSubscription = {
-  topic: "sampletopic",
-  selector: "data1='value1'",
-  range: 300,
-  duration: 60
-};
-
-let sampleLocation: models.Location = {
-  latitude: 0,
-  longitude: 0,
-  altitude: 0,
-  horizontalAccuracy: 1.0,
-  verticalAccuracy: 1.0
-};
-
-let sampleDevice: models.MobileDevice = {
-  name: "test",
-  platform: "iOS",
-  deviceToken: "f4eea68c-a349-4dbe-a395-c935abc7f6f2",
-  location: sampleLocation
-};
-
 describe("Manager", function() {
-  this.timeout(5000);
   describe("#instantiation", function() {
     it("should allow being instantiated with an apiKey", function() {
       let mgr = new Manager(apiKey, apiLocation);
@@ -369,70 +340,6 @@ describe("Manager", function() {
                 subscriptions.should.contain(subscription);
               });
             });
-        });
-    });
-  });
-
-  describe("matches", function() {
-    it("should provide matches via polling", function() {
-      let mgr = new Manager(apiKey, apiLocation);
-      let loc: models.Location = {
-        latitude: 54.350115,
-        longitude: 18.558819,
-        altitude: 0
-      };
-      let deviceWithSub = mgr
-        .createMobileDevice(
-          sampleDevice.name,
-          sampleDevice.platform,
-          sampleDevice.deviceToken
-        )
-        .then(device => {
-          return mgr.createSubscription(
-            sampleSubscription.topic,
-            sampleSubscription.range,
-            sampleSubscription.duration,
-            sampleSubscription.selector
-          );
-        })
-        .then(sub => {
-          return mgr.updateLocation(loc, sub.deviceId).then(_ => sub);
-        });
-
-      let deviceWithPub = mgr
-        .createMobileDevice(
-          sampleDevice.name,
-          sampleDevice.platform,
-          sampleDevice.deviceToken
-        )
-        .then(device => {
-          return mgr.createPublication(
-            samplePublication.topic,
-            samplePublication.range,
-            samplePublication.duration,
-            samplePublication.properties
-          );
-        })
-        .then(pub => {
-          return mgr.updateLocation(loc, pub.deviceId).then(_ => pub);
-        });
-      return Promise.all([deviceWithPub, deviceWithSub])
-        .then(f => {
-          let sub = f[1];
-          return mgr.getAllMatches(sub.deviceId).then(matches =>{
-            return {matches: matches, pubsub: f};
-          });
-        })
-        .then(m => {
-          let matches = m.matches;
-          
-          matches.should.be.instanceof(Array);
-          matches.should.not.be.empty;
-          let pub = m.pubsub[0];
-          let sub = m.pubsub[1];
-          let newestMatch = matches.sort((l,r) => l.createdAt - r.createdAt)[0]
-          newestMatch.subscription.id.should.eql(sub.id);
-          newestMatch.publication.id.should.eql(pub.id);
         });
     });
   });
