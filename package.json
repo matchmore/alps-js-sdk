@@ -1,6 +1,6 @@
 {
   "name": "matchmore",
-  "version": "0.0.1",
+  "version": "0.6.0",
   "description": "We_connect_things",
   "license": "MIT",
   "browser": "build/matchmore.min.js",
