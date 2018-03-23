@@ -1,4 +1,4 @@
-(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.matchmore = f()}})(function(){var define,module,exports;return (function(){function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s}return e})()({1:[function(require,module,exports){
+(function(){function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s}return e})()({1:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var LocationManager = (function () {
@@ -80,16 +80,19 @@ var persistence_1 = require("./persistence");
 var Manager = (function () {
     function Manager(apiKey, apiUrlOverride, persistenceManager) {
         this.apiKey = apiKey;
+        this.apiUrlOverride = apiUrlOverride;
         this._persistenceManager =
             persistenceManager || new persistence_1.InMemoryPersistenceManager();
-        this.init(apiUrlOverride);
+        this.init();
     }
-    Manager.prototype.init = function (apiUrlOverride) {
+    Manager.prototype.init = function () {
         this.defaultClient = ScalpsCoreRestApi.ApiClient.instance;
         this.token = JSON.parse(Base64.atob(this.apiKey.split(".")[1]));
         this.defaultClient.authentications["api-key"].apiKey = this.apiKey;
-        if (apiUrlOverride)
-            this.defaultClient.basePath = apiUrlOverride;
+        if (this.apiUrlOverride)
+            this.defaultClient.basePath = this.apiUrlOverride;
+        else
+            this.apiUrlOverride = this.defaultClient.basePath;
         this._matchMonitor = new matchmonitor_1.MatchMonitor(this);
         this._locationManager = new locationmanager_1.LocationManager(this);
     };
@@ -121,23 +124,22 @@ var Manager = (function () {
         enumerable: true,
         configurable: true
     });
-    Manager.prototype.createMobileDevice = function (name, platform, deviceToken, location, completion) {
+    Manager.prototype.createMobileDevice = function (name, platform, deviceToken, completion) {
         return this.createAnyDevice({
             deviceType: models.DeviceType.MobileDevice,
             name: name,
             platform: platform,
-            deviceToken: deviceToken,
-            location: location
+            deviceToken: deviceToken
         }, completion);
     };
-    Manager.prototype.createPinDevice = function (location, completion) {
+    Manager.prototype.createPinDevice = function (name, location, completion) {
         return this.createAnyDevice({
             deviceType: models.DeviceType.PinDevice,
             name: name,
             location: location
         }, completion);
     };
-    Manager.prototype.createIBeaconDevice = function (proximityUUID, major, minor, location, completion) {
+    Manager.prototype.createIBeaconDevice = function (name, proximityUUID, major, minor, location, completion) {
         return this.createAnyDevice({
             deviceType: models.DeviceType.IBeaconDevice,
             name: name,
@@ -234,7 +236,7 @@ var Manager = (function () {
             return publication;
         });
     };
-    Manager.prototype.createSubscription = function (topic, selector, range, duration, deviceId, completion) {
+    Manager.prototype.createSubscription = function (topic, range, duration, selector, deviceId, completion) {
         var _this = this;
         if (!this.defaultDevice) {
             throw new Error("There is no default device available, please call createDevice before createPublication");
@@ -272,10 +274,10 @@ var Manager = (function () {
     };
     Manager.prototype.updateLocation = function (location, deviceId, completion) {
         var _this = this;
+        if (!this.defaultDevice) {
+            throw new Error("There is no default device available, please call createDevice before createPublication");
+        }
         var p = new Promise(function (resolve, reject) {
-            if (!_this.defaultDevice) {
-                throw new Error("There is no default device available, please call createDevice before createPublication");
-            }
             var api = new ScalpsCoreRestApi.LocationApi();
             var callback = function (error, data, response) {
                 if (error) {
@@ -298,15 +300,11 @@ var Manager = (function () {
                 completion;
         });
     };
-    Manager.prototype.getAllMatches = function (completion) {
-        if (this.defaultDevice) {
-            return this.getAllMatchesForAny(this.defaultDevice.id);
+    Manager.prototype.getAllMatches = function (deviceId, completion) {
+        var _this = this;
+        if (!this.defaultDevice) {
+            throw new Error("There is no default device available, please call createDevice before createPublication");
         }
-        else {
-            throw new Error("There is no default device available, please call createDevice before getAllMatches");
-        }
-    };
-    Manager.prototype.getAllMatchesForAny = function (deviceId, completion) {
         var p = new Promise(function (resolve, reject) {
             var api = new ScalpsCoreRestApi.DeviceApi();
             var callback = function (error, data, response) {
@@ -317,15 +315,41 @@ var Manager = (function () {
                     resolve(JSON.parse(response.text));
                 }
             };
-            api.getMatches(deviceId, callback);
+            var _deviceId = deviceId ? deviceId : _this.defaultDevice.id;
+            api.getMatches(_deviceId, callback);
         });
-        p.then(function (matches) {
+        return p.then(function (matches) {
             if (completion)
                 completion(matches);
+            return matches;
         });
-        return p;
     };
-    Manager.prototype.getAllPublicationsForDevice = function (deviceId, completion) {
+    Manager.prototype.getMatch = function (matchId, string, deviceId, completion) {
+        var _this = this;
+        if (!this.defaultDevice) {
+            throw new Error("There is no default device available, please call createDevice before createPublication");
+        }
+        var p = new Promise(function (resolve, reject) {
+            var api = new ScalpsCoreRestApi.DeviceApi();
+            var callback = function (error, data, response) {
+                if (error) {
+                    reject("An error has occured while fetching matches: " + error);
+                }
+                else {
+                    resolve(JSON.parse(response.text));
+                }
+            };
+            var _deviceId = deviceId ? deviceId : _this.defaultDevice.id;
+            api.getMatch(_deviceId, matchId, callback);
+        });
+        return p.then(function (matches) {
+            if (completion)
+                completion(matches);
+            return matches;
+        });
+    };
+    Manager.prototype.getAllPublications = function (deviceId, completion) {
+        var _this = this;
         var p = new Promise(function (resolve, reject) {
             var api = new ScalpsCoreRestApi.DeviceApi();
             var callback = function (error, data, response) {
@@ -336,11 +360,13 @@ var Manager = (function () {
                     resolve(JSON.parse(response.text));
                 }
             };
-            api.getPublications(deviceId, callback);
+            var _deviceId = deviceId ? deviceId : _this.defaultDevice.id;
+            api.getPublications(_deviceId, callback);
         });
         return p;
     };
-    Manager.prototype.getAllSubscriptionsForDevice = function (deviceId, completion) {
+    Manager.prototype.getAllSubscriptions = function (deviceId, completion) {
+        var _this = this;
         var p = new Promise(function (resolve, reject) {
             var api = new ScalpsCoreRestApi.DeviceApi();
             var callback = function (error, data, response) {
@@ -351,7 +377,8 @@ var Manager = (function () {
                     resolve(JSON.parse(response.text));
                 }
             };
-            api.getSubscriptions(deviceId, callback);
+            var _deviceId = deviceId ? deviceId : _this.defaultDevice.id;
+            api.getSubscriptions(_deviceId, callback);
         });
         return p;
     };
@@ -361,8 +388,8 @@ var Manager = (function () {
     Manager.prototype.onLocationUpdate = function (completion) {
         this._locationManager.onLocationUpdate = completion;
     };
-    Manager.prototype.startMonitoringMatches = function () {
-        this._matchMonitor.startMonitoringMatches();
+    Manager.prototype.startMonitoringMatches = function (mode) {
+        this._matchMonitor.startMonitoringMatches(mode);
     };
     Manager.prototype.stopMonitoringMatches = function () {
         this._matchMonitor.stopMonitoringMatches();
@@ -380,23 +407,63 @@ exports.Manager = Manager;
 },{"./locationmanager":1,"./matchmonitor":3,"./model/models":5,"./persistence":6,"Base64":40,"matchmore_alps_core_rest_api":21}],3:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+var WebSocket = require("websocket");
+var MatchMonitorMode;
+(function (MatchMonitorMode) {
+    MatchMonitorMode[MatchMonitorMode["polling"] = 0] = "polling";
+    MatchMonitorMode[MatchMonitorMode["websocket"] = 1] = "websocket";
+})(MatchMonitorMode = exports.MatchMonitorMode || (exports.MatchMonitorMode = {}));
 var MatchMonitor = (function () {
     function MatchMonitor(manager) {
-        this.deliveredMatches = [];
+        this._deliveredMatches = [];
         this.init(manager);
     }
+    Object.defineProperty(MatchMonitor.prototype, "deliveredMatches", {
+        get: function () {
+            return this._deliveredMatches;
+        },
+        enumerable: true,
+        configurable: true
+    });
     MatchMonitor.prototype.init = function (manager) {
         this.manager = manager;
         this.onMatch = function (match) { };
     };
-    MatchMonitor.prototype.startMonitoringMatches = function () {
+    MatchMonitor.prototype.startMonitoringMatches = function (mode) {
         var _this = this;
-        this.stopMonitoringMatches();
-        var timer = setInterval(function () { _this.checkMatches(); }, 1000);
+        if (!this.manager.defaultDevice)
+            throw new Error("Default device not yet set!");
+        if (mode == MatchMonitorMode.polling) {
+            this.stopMonitoringMatches();
+            var timer = setInterval(function () {
+                _this.checkMatches();
+            }, 1000);
+            return;
+        }
+        if (mode == MatchMonitorMode.websocket) {
+            var socketUrl = this.manager.apiUrlOverride.replace("https://", "wss://").replace("http://", "ws://").replace("v5", "") +
+                "pusher/v5/ws/" +
+                this.manager.defaultDevice.id;
+            var ws = new WebSocket(socketUrl, ["api-key", this.manager.token.sub]);
+            ws.onopen = function (msg) { return console.log("opened"); };
+            ws.onerror = function (msg) { return console.log(msg); };
+            ws.onmessage = function (msg) { return _this.checkMatch(msg.data); };
+        }
     };
     MatchMonitor.prototype.stopMonitoringMatches = function () {
         if (this.timerId) {
             clearInterval(this.timerId);
+        }
+    };
+    MatchMonitor.prototype.checkMatch = function (matchId) {
+        var _this = this;
+        if (this.hasNotBeenDelivered({ id: matchId })) {
+            this.manager
+                .getMatch(matchId, this.manager.defaultDevice.id)
+                .then(function (match) {
+                _this._deliveredMatches.push(match);
+                _this.onMatch(match);
+            });
         }
     };
     MatchMonitor.prototype.checkMatches = function () {
@@ -405,16 +472,16 @@ var MatchMonitor = (function () {
             for (var idx in matches) {
                 var match = matches[idx];
                 if (_this.hasNotBeenDelivered(match)) {
-                    _this.deliveredMatches.push(match);
+                    _this._deliveredMatches.push(match);
                     _this.onMatch(match);
                 }
             }
         });
     };
     MatchMonitor.prototype.hasNotBeenDelivered = function (match) {
-        for (var idx in this.deliveredMatches) {
-            var deliveredMatch = this.deliveredMatches[idx];
-            if (deliveredMatch.matchId == match.matchId)
+        for (var idx in this._deliveredMatches) {
+            var deliveredMatch = this._deliveredMatches[idx];
+            if (deliveredMatch.id == match.id)
                 return false;
         }
         return true;
@@ -423,7 +490,7 @@ var MatchMonitor = (function () {
 }());
 exports.MatchMonitor = MatchMonitor;
 
-},{}],4:[function(require,module,exports){
+},{"websocket":41}],4:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var DeviceType;
@@ -3061,7 +3128,7 @@ exports.cleanHeader = function(header, shouldStripCookie){
 }));
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":43,"fs":42,"querystring":47,"superagent":8}],16:[function(require,module,exports){
+},{"buffer":46,"fs":45,"querystring":50,"superagent":8}],16:[function(require,module,exports){
 /**
  * MATCHMORE ALPS Core REST API
  * ## ALPS by [MATCHMORE](https://matchmore.io)  The first version of the MATCHMORE API is an exciting step to allow developers use a context-aware pub/sub cloud service.  A lot of mobile applications and their use cases may be modeled using this approach and can therefore profit from using MATCHMORE as their backend service.  **Build something great with [ALPS by MATCHMORE](https://matchmore.io)!**   Once you've [registered your client](https://matchmore.io/account/register/) it's easy start using our awesome cloud based context-aware pub/sub (admitted, a lot of buzzwords).  ## RESTful API We do our best to have all our URLs be [RESTful](https://en.wikipedia.org/wiki/Representational_state_transfer). Every endpoint (URL) may support one of four different http verbs. GET requests fetch information about an object, POST requests create objects, PUT requests update objects, and finally DELETE requests will delete objects.  ## Domain Model  This is the current domain model extended by an ontology of devices and separation between the developer portal and the ALPS Core.      +-----------+    +-------------+     | Developer +----+ Application |     +-----------+    +------+------+                             |                        \"Developer Portal\"     ........................+..........................................                             |                        \"ALPS Core\"                         +---+---+                         | World |                         +---+---+                             |                           +-------------+                             |                     +-----+ Publication |                             |                     |     +------+------+                             |                     |            |                             |                     |            |                             |                     |            |                             |                     |        +---+---+                        +----+---+-----------------+        | Match |                        | Device |                          +---+---+                        +----+---+-----------------+            |                             |                     |            |                             |                     |            |                             |                     |     +------+-------+             +---------------+--------------+      +-----+ Subscription |             |               |              |            +--------------+        +----+---+      +----+----+    +----+---+        |   Pin  |      | iBeacon |    | Mobile |        +----+---+      +---------+    +----+---+             |                              |             |         +----------+         |             +---------+ Location +---------+                       +----------+  1.  A **developer** is a mobile application developer registered in the     developer portal and allowed to use the **ALPS Developer Portal**.  A     developer might register one or more **applications** to use the     **ALPS Core cloud service**.  For developer/application pair a new     **world** is created in the **ALPS Core** and assigned an **API key** to     enable access to the ALPS Core cloud service **RESTful API**.  During     the registration, the developer needs to provide additional     configuration information for each application, e.g. its default     **push endpoint** URI for match delivery, etc. 2.  A [**device**](#tag/device) might be either *virtual* like a **pin device** or     *physical* like a **mobile device** or **iBeacon device**.  A [**pin     device**](#tag/device) is one that has geographical [**location**](#tag/location) associated with it     but is not represented by any object in the physical world; usually     it's location doesn't change frequently if at all.  A [**mobile     device**](#tag/device) is one that potentially moves together with its user and     therefore has a geographical location associated with it.  A mobile     device is typically a location-aware smartphone, which knows its     location thanks to GPS or to some other means like cell tower     triangulation, etc.  An [**iBeacon device**](#tag/device) represents an Apple     conform [iBeacon](https://developer.apple.com/ibeacon/) announcing its presence via Bluetooth LE     advertising packets which can be detected by a other mobile device.     It doesn't necessary has any location associated with it but it     serves to detect and announce its proximity to other **mobile     devices**. 3.  The hardware and software stack running on a given device is known     as its **platform**.  This include its hardware-related capabilities,     its operating systems, as well as the set of libraries (APIs)     offered to developers in order to program it. 4.  A devices may issue publications and subscriptions     at **any time**; it may also cancel publications and subscriptions     issued previously.  **Publications** and **subscriptions** do have a     definable, finite duration, after which they are deleted from the     ALPS Core cloud service and don't participate anymore in the     matching process. 5.  A [**publication**](#tag/publication) is similar to a Java Messaging Service (JMS)     publication extended with the notion of a **geographical zone**.  The     zone is defined as **circle** with a center at the given location and     a range around that location. 6.  A [**subscription**](#tag/subscription) is similar to a JMS subscription extended with the     notion of **geographical zone**. Again, the zone being defined as     **circle** with a center at the given location and a range around     that location. 7.  **Publications** and **subscriptions** which are associated with a     **mobile device**, e.g. user's mobile phone, potentially **follow the     movements** of the user carrying the device and therefore change     their associated location. 8.  A [**match**](#tag/match) between a publication and a subscription occurs when both     of the following two conditions hold:     1.  There is a **context match** occurs when for instance the         subscription zone overlaps with the publication zone or a         **proximity event** with an iBeacon device within the defined         range occurred.     2.  There is a **content match**: the publication and the subscription         match with respect to their JMS counterparts, i.e., they were         issued on the same topic and have compatible properties and the         evaluation of the selector against those properties returns true         value. 9.  A **push notification** is an asynchronous mechanism that allows an     application to receive matches for a subscription on his/her device.     Such a mechanism is clearly dependent on the device’s platform and     capabilities.  In order to use push notifications, an application must     first register a device (and possibly an application on that     device) with the ALPS core cloud service. 10. Whenever a **match** between a publication and a subscription     occurs, the device which owns the subscription receives that match     *asynchronously* via a push notification if there exists a     registered **push endpoint**.  A **push endpoint** is an URI which is     able to consume the matches for a particular device and     subscription.  The **push endpoint** doesn't necessary point to a     **mobile device** but is rather a very flexible mechanism to define     where the matches should be delivered. 11. Matches can also be retrieved by issuing a API call for a     particular device.   <a id=\"orgae4fb18\"></a>  ## Device Types                     +----+---+                    | Device |                    +--------+                    | id     |                    | name   |                    | group  |                    +----+---+                         |         +---------------+----------------+         |               |                |     +---+---+   +-------+------+    +----+-----+     |  Pin  |   | iBeacon      |    | Mobile   |     +---+---+   +--------------+    +----------+         |       | proximityUUID|    | platform |         |       | major        |    | token    |         |       | minor        |    +----+-----+         |       +-------+------+         |         |               |                |         |               | <--???         |         |          +----+-----+          |         +----------+ Location +----------+                    +----------+   <a id=\"org68cc0d8\"></a>  ### Generic `Device`  -   id -   name -   group  <a id=\"orgc430925\"></a>  ### `PinDevice`  -   location   <a id=\"orgecaed9f\"></a>  ### `iBeaconDevice`  -   proximityUUID -   major -   minor   <a id=\"org7b09b62\"></a>  ### `MobileDevice`  -   platform -   deviceToken -   location 
@@ -6926,6 +6993,150 @@ exports.cleanHeader = function(header, shouldStripCookie){
 }());
 
 },{}],41:[function(require,module,exports){
+var _global = (function() { return this; })();
+var NativeWebSocket = _global.WebSocket || _global.MozWebSocket;
+var websocket_version = require('./version');
+
+
+/**
+ * Expose a W3C WebSocket class with just one or two arguments.
+ */
+function W3CWebSocket(uri, protocols) {
+	var native_instance;
+
+	if (protocols) {
+		native_instance = new NativeWebSocket(uri, protocols);
+	}
+	else {
+		native_instance = new NativeWebSocket(uri);
+	}
+
+	/**
+	 * 'native_instance' is an instance of nativeWebSocket (the browser's WebSocket
+	 * class). Since it is an Object it will be returned as it is when creating an
+	 * instance of W3CWebSocket via 'new W3CWebSocket()'.
+	 *
+	 * ECMAScript 5: http://bclary.com/2004/11/07/#a-13.2.2
+	 */
+	return native_instance;
+}
+if (NativeWebSocket) {
+	['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'].forEach(function(prop) {
+		Object.defineProperty(W3CWebSocket, prop, {
+			get: function() { return NativeWebSocket[prop]; }
+		});
+	});
+}
+
+/**
+ * Module exports.
+ */
+module.exports = {
+    'w3cwebsocket' : NativeWebSocket ? W3CWebSocket : null,
+    'version'      : websocket_version
+};
+
+},{"./version":42}],42:[function(require,module,exports){
+module.exports = require('../package.json').version;
+
+},{"../package.json":43}],43:[function(require,module,exports){
+module.exports={
+  "_from": "websocket",
+  "_id": "websocket@1.0.25",
+  "_inBundle": false,
+  "_integrity": "sha512-M58njvi6ZxVb5k7kpnHh2BvNKuBWiwIYvsToErBzWhvBZYwlEiLcyLrG41T1jRcrY9ettqPYEqduLI7ul54CVQ==",
+  "_location": "/websocket",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "tag",
+    "registry": true,
+    "raw": "websocket",
+    "name": "websocket",
+    "escapedName": "websocket",
+    "rawSpec": "",
+    "saveSpec": null,
+    "fetchSpec": "latest"
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/websocket/-/websocket-1.0.25.tgz",
+  "_shasum": "998ec790f0a3eacb8b08b50a4350026692a11958",
+  "_spec": "websocket",
+  "_where": "/Users/lmlynik/alps-js/alps-js-sdk",
+  "author": {
+    "name": "Brian McKelvey",
+    "email": "brian@worlize.com",
+    "url": "https://www.worlize.com/"
+  },
+  "browser": "lib/browser.js",
+  "bugs": {
+    "url": "https://github.com/theturtle32/WebSocket-Node/issues"
+  },
+  "bundleDependencies": false,
+  "config": {
+    "verbose": false
+  },
+  "contributors": [
+    {
+      "name": "Iñaki Baz Castillo",
+      "email": "ibc@aliax.net",
+      "url": "http://dev.sipdoc.net"
+    }
+  ],
+  "dependencies": {
+    "debug": "^2.2.0",
+    "nan": "^2.3.3",
+    "typedarray-to-buffer": "^3.1.2",
+    "yaeti": "^0.0.6"
+  },
+  "deprecated": false,
+  "description": "Websocket Client & Server Library implementing the WebSocket protocol as specified in RFC 6455.",
+  "devDependencies": {
+    "buffer-equal": "^1.0.0",
+    "faucet": "^0.0.1",
+    "gulp": "git+https://github.com/gulpjs/gulp.git#4.0",
+    "gulp-jshint": "^2.0.4",
+    "jshint": "^2.0.0",
+    "jshint-stylish": "^2.2.1",
+    "tape": "^4.0.1"
+  },
+  "directories": {
+    "lib": "./lib"
+  },
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "homepage": "https://github.com/theturtle32/WebSocket-Node",
+  "keywords": [
+    "websocket",
+    "websockets",
+    "socket",
+    "networking",
+    "comet",
+    "push",
+    "RFC-6455",
+    "realtime",
+    "server",
+    "client"
+  ],
+  "license": "Apache-2.0",
+  "main": "index",
+  "name": "websocket",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/theturtle32/WebSocket-Node.git"
+  },
+  "scripts": {
+    "gulp": "gulp",
+    "install": "(node-gyp rebuild 2> builderror.log) || (exit 0)",
+    "test": "faucet test/unit"
+  },
+  "version": "1.0.25"
+}
+
+},{}],44:[function(require,module,exports){
 'use strict'
 
 exports.byteLength = byteLength
@@ -7043,9 +7254,9 @@ function fromByteArray (uint8) {
   return parts.join('')
 }
 
-},{}],42:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
 
-},{}],43:[function(require,module,exports){
+},{}],46:[function(require,module,exports){
 /*!
  * The buffer module from node.js, for the browser.
  *
@@ -8783,7 +8994,7 @@ function numberIsNaN (obj) {
   return obj !== obj // eslint-disable-line no-self-compare
 }
 
-},{"base64-js":41,"ieee754":44}],44:[function(require,module,exports){
+},{"base64-js":44,"ieee754":47}],47:[function(require,module,exports){
 exports.read = function (buffer, offset, isLE, mLen, nBytes) {
   var e, m
   var eLen = (nBytes * 8) - mLen - 1
@@ -8869,7 +9080,7 @@ exports.write = function (buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128
 }
 
-},{}],45:[function(require,module,exports){
+},{}],48:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -8955,7 +9166,7 @@ var isArray = Array.isArray || function (xs) {
   return Object.prototype.toString.call(xs) === '[object Array]';
 };
 
-},{}],46:[function(require,module,exports){
+},{}],49:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -9042,11 +9253,10 @@ var objectKeys = Object.keys || function (obj) {
   return res;
 };
 
-},{}],47:[function(require,module,exports){
+},{}],50:[function(require,module,exports){
 'use strict';
 
 exports.decode = exports.parse = require('./decode');
 exports.encode = exports.stringify = require('./encode');
 
-},{"./decode":45,"./encode":46}]},{},[2])(2)
-});
+},{"./decode":48,"./encode":49}]},{},[2]);
