@@ -4,7 +4,7 @@
   "description": "We_connect_things",
   "license": "MIT",
   "browser": "build/matchmore.min.js",
-  "main": "lib/src/manager/js",
+  
   "react-native": "build/matchmore.js",
   "homepage": "https://matchmore.io",
   "scripts": {
