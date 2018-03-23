@@ -3,12 +3,13 @@
   "version": "0.0.1",
   "description": "We_connect_things",
   "license": "MIT",
-  "main": "build/matchmore.js",
+  "browser": "build/matchmore.min.js",
+  "main": "lib/src/manager/js",
+  "react-native": "build/matchmore.js",
   "scripts": {
     "test": "./node_modules/.bin/mocha --compilers ts:ts-node/register ./test/**/*.ts",
-    "browserify-standalone": "browserify ./lib/src/manager.js --standalone matchmore > ./build/matchmore-standalone.js",
-    "browserify": "browserify ./lib/src/manager.js > ./build/matchmore.js",
-    "minify": "browserify ./lib/src/manager.js | uglifyjs -cm > ./build/matchmore.min.js"
+    "browserify": "browserify ./lib/src/manager.js --standalone matchmore > ./build/matchmore.js",
+    "minify": "browserify ./lib/src/manager.js --standalone matchmore | uglifyjs -cm > ./build/matchmore.min.js"
   },
   "devDependencies": {
     "@types/chai": "^4.1.2",
