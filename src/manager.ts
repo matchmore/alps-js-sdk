@@ -22,6 +22,7 @@ export class Manager {
     public apiUrlOverride?: string,
     persistenceManager?: IPersistenceManager
   ) {
+    if (!apiKey) throw new Error("Api key required");
     this._persistenceManager =
       persistenceManager || new InMemoryPersistenceManager();
     this.init();
