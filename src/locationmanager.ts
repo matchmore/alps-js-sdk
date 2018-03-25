@@ -1,26 +1,19 @@
-import ScalpsCoreRestApi = require("matchmore_alps_core_rest_api");
 import { Manager } from "./manager";
+import * as models from "./model/models";
 
 export class LocationManager {
-  manager: Manager;
-
+  private _onLocationUpdate: (location: models.Location) => void;
   private geoId;
 
-  public onLocationUpdate: (location: ScalpsCoreRestApi.Location) => void;
-
-  constructor(manager: Manager) {
-    this.init(manager);
-  }
-
-  private init(manager) {
-    this.manager = manager;
+  constructor(public manager: Manager) {
+    this._onLocationUpdate = loc => {};
   }
 
   public startUpdatingLocation() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         loc => {
-          this.onLocationReceived(loc.coords);
+          this.onLocationReceived(loc);
         },
         this.onError,
         {
@@ -30,7 +23,7 @@ export class LocationManager {
         }
       );
       this.geoId = navigator.geolocation.watchPosition(loc => {
-        this.onLocationReceived(loc.coords);
+        this.onLocationReceived(loc);
       }, this.onError);
     } else {
       throw new Error("Geolocation is not supported in this browser/app");
@@ -45,6 +38,12 @@ export class LocationManager {
     }
   }
 
+  set onLocationUpdate(
+    onLocationUpdate: (location: models.Location) => void
+  ) {
+    this._onLocationUpdate = onLocationUpdate;
+  }
+
   private onLocationReceived(loc) {
     if (!loc.coords) return; // Guard for bad values
     let latitude, longitude, altitude;
@@ -57,7 +56,9 @@ export class LocationManager {
     if (loc.coords.altitude) altitude = parseFloat(loc.coords.altitude);
     else altitude = 0; // Default value, TODO: use an altitude API?
 
-    this.onLocationUpdate(loc);
+    if (this._onLocationUpdate) {
+      this._onLocationUpdate(loc);
+    }
     this.manager.updateLocation({
       latitude: latitude,
       longitude: longitude,

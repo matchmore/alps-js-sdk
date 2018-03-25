@@ -6,12 +6,12 @@ export declare enum MatchMonitorMode {
 }
 export declare class MatchMonitor {
     manager: Manager;
-    timerId: number;
-    _deliveredMatches: models.Match[];
-    readonly deliveredMatches: models.Match[];
-    onMatch: (match: models.Match) => void;
+    private _timerId?;
+    private _deliveredMatches;
+    private _onMatch;
     constructor(manager: Manager);
-    private init(manager);
+    onMatch: (match: models.Match) => void;
+    readonly deliveredMatches: models.Match[];
     startMonitoringMatches(mode: MatchMonitorMode): void;
     stopMonitoringMatches(): void;
     private checkMatch(matchId);

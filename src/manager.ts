@@ -9,8 +9,10 @@ export interface Token {
   sub: string;
 }
 
+type Provider<T> = (deviceId: string) => T;
+
 export class Manager {
-  defaultClient: ScalpsCoreRestApi.ApiClient;
+  private defaultClient: ScalpsCoreRestApi.ApiClient;
 
   private _matchMonitor: MatchMonitor;
   private _locationManager: LocationManager;
@@ -25,10 +27,6 @@ export class Manager {
     if (!apiKey) throw new Error("Api key required");
     this._persistenceManager =
       persistenceManager || new InMemoryPersistenceManager();
-    this.init();
-  }
-
-  init() {
     this.defaultClient = ScalpsCoreRestApi.ApiClient.instance;
 
     this.token = JSON.parse(Base64.atob(this.apiKey.split(".")[1])) as Token;
@@ -40,7 +38,12 @@ export class Manager {
     this._matchMonitor = new MatchMonitor(this);
     this._locationManager = new LocationManager(this);
   }
-  get defaultDevice(): models.Device {
+
+  get apiUrl() {
+    return this.defaultClient.basePath;
+  }
+
+  get defaultDevice(): models.Device | undefined {
     return this._persistenceManager.defaultDevice();
   }
   get devices(): models.Device[] {
@@ -137,7 +140,7 @@ export class Manager {
     completion?: (device: T) => void
   ): Promise<T> {
     device = this.setDeviceType(device);
-    let p = new Promise((resolve, reject) => {
+    let p = new Promise<T>((resolve, reject) => {
       let api = new ScalpsCoreRestApi.DeviceApi();
       let callback = function(error, data, response) {
         if (error) {
@@ -214,44 +217,39 @@ export class Manager {
     deviceId?: string,
     completion?: (publication: models.Publication) => void
   ): Promise<models.Publication> {
-    if (!this.defaultDevice) {
-      throw new Error(
-        "There is no default device available, please call createDevice before createPublication"
-      );
-    }
-    let p = new Promise((resolve, reject) => {
-      let api = new ScalpsCoreRestApi.PublicationApi();
-      let callback = function(error, data, response) {
-        if (error) {
-          reject(
-            "An error has occured while creating publication '" +
-              topic +
-              "' :" +
-              error
-          );
-        } else {
-          // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-          resolve(JSON.parse(response.text));
-        }
-      };
+    return this.withDevice<Promise<models.Publication>>(deviceId)(deviceId => {
+      let p = new Promise<models.Publication>((resolve, reject) => {
+        let api = new ScalpsCoreRestApi.PublicationApi();
+        let callback = function(error, data, response) {
+          if (error) {
+            reject(
+              "An error has occured while creating publication '" +
+                topic +
+                "' :" +
+                error
+            );
+          } else {
+            // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
+            resolve(JSON.parse(response.text));
+          }
+        };
 
-      let _deviceId = deviceId ? deviceId : this.defaultDevice.id;
+        let publication: models.Publication = {
+          worldId: this.token.sub,
+          topic: topic,
+          deviceId: deviceId,
+          range: range,
+          duration: duration,
+          properties: properties
+        };
 
-      let publication: models.Publication = {
-        worldId: this.token.sub,
-        topic: topic,
-        deviceId: _deviceId,
-        range: range,
-        duration: duration,
-        properties: properties
-      };
-
-      api.createPublication(_deviceId, publication, callback);
-    });
-    return p.then((publication: models.Publication) => {
-      this._persistenceManager.add(publication);
-      if (completion) completion(publication);
-      return publication;
+        api.createPublication(deviceId, publication, callback);
+      });
+      return p.then((publication: models.Publication) => {
+        this._persistenceManager.add(publication);
+        if (completion) completion(publication);
+        return publication;
+      });
     });
   }
 
@@ -272,44 +270,39 @@ export class Manager {
     deviceId?: string,
     completion?: (subscription: models.Subscription) => void
   ): Promise<models.Subscription> {
-    if (!this.defaultDevice) {
-      throw new Error(
-        "There is no default device available, please call createDevice before createPublication"
-      );
-    }
-    let p = new Promise((resolve, reject) => {
-      let api = new ScalpsCoreRestApi.SubscriptionApi();
-      let callback = function(error, data, response) {
-        if (error) {
-          reject(
-            "An error has occured while creating subscription '" +
-              topic +
-              "' :" +
-              error
-          );
-        } else {
-          // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-          resolve(JSON.parse(response.text));
-        }
-      };
+    return this.withDevice<Promise<models.Subscription>>(deviceId)(deviceId => {
+      let p = new Promise<models.Subscription>((resolve, reject) => {
+        let api = new ScalpsCoreRestApi.SubscriptionApi();
+        let callback = function(error, data, response) {
+          if (error) {
+            reject(
+              "An error has occured while creating subscription '" +
+                topic +
+                "' :" +
+                error
+            );
+          } else {
+            // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
+            resolve(JSON.parse(response.text));
+          }
+        };
 
-      let _deviceId = deviceId ? deviceId : this.defaultDevice.id;
+        let subscription: models.Subscription = {
+          worldId: this.token.sub,
+          topic: topic,
+          deviceId: deviceId,
+          range: range,
+          duration: duration,
+          selector: selector || ""
+        };
 
-      let subscription: models.Subscription = {
-        worldId: this.token.sub,
-        topic: topic,
-        deviceId: _deviceId,
-        range: range,
-        duration: duration,
-        selector: selector
-      };
-
-      api.createSubscription(_deviceId, subscription, callback);
-    });
-    return p.then((subscription: models.Subscription) => {
-      this._persistenceManager.add(subscription);
-      if (completion) completion(subscription);
-      return subscription;
+        api.createSubscription(deviceId, subscription, callback);
+      });
+      return p.then((subscription: models.Subscription) => {
+        this._persistenceManager.add(subscription);
+        if (completion) completion(subscription);
+        return subscription;
+      });
     });
   }
 
@@ -322,36 +315,30 @@ export class Manager {
   public updateLocation(
     location: models.Location,
     deviceId?: string,
-    completion?: (location: void) => void
   ): Promise<void> {
-    if (!this.defaultDevice) {
-      throw new Error(
-        "There is no default device available, please call createDevice before createPublication"
-      );
-    }
-    let p = new Promise((resolve, reject) => {
-      let api = new ScalpsCoreRestApi.LocationApi();
-      let callback = function(error, data, response) {
-        if (error) {
-          reject(
-            "An error has occured while creating location ['" +
-              location.latitude +
-              "','" +
-              location.longitude +
-              "']  :" +
-              error
-          );
-        } else {
-          // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-          resolve();
-        }
-      };
+    return this.withDevice<Promise<void>>(deviceId)(deviceId => {
+      let p = new Promise((resolve, reject) => {
+        let api = new ScalpsCoreRestApi.LocationApi();
+        let callback = function(error, data, response) {
+          if (error) {
+            reject(
+              "An error has occured while creating location ['" +
+                location.latitude +
+                "','" +
+                location.longitude +
+                "']  :" +
+                error
+            );
+          } else {
+            // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
+            resolve();
+          }
+        };
 
-      let _deviceId = deviceId ? deviceId : this.defaultDevice.id;
-      api.createLocation(_deviceId, location, callback);
-    });
-    return p.then((location: models.Location) => {
-      if (completion) completion;
+        api.createLocation(deviceId, location, callback);
+      });
+      return p.then(_ => {
+      });
     });
   }
 
@@ -364,27 +351,24 @@ export class Manager {
     deviceId?: string,
     completion?: (matches: models.Match[]) => void
   ): Promise<models.Match[]> {
-    if (!this.defaultDevice) {
-      throw new Error(
-        "There is no default device available, please call createDevice before createPublication"
-      );
-    }
-    let p = new Promise((resolve, reject) => {
-      let api = new ScalpsCoreRestApi.DeviceApi();
-      let callback = function(error, data, response) {
-        if (error) {
-          reject("An error has occured while fetching matches: " + error);
-        } else {
-          // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-          resolve(JSON.parse(response.text));
-        }
-      };
-      let _deviceId = deviceId ? deviceId : this.defaultDevice.id;
-      api.getMatches(_deviceId, callback);
-    });
-    return p.then((matches: models.Match[]) => {
-      if (completion) completion(matches);
-      return matches;
+    return this.withDevice<Promise<models.Match[]>>(deviceId)(deviceId => {
+      let p = new Promise<models.Match[]>((resolve, reject) => {
+        let api = new ScalpsCoreRestApi.DeviceApi();
+        let callback = function(error, data, response) {
+          if (error) {
+            reject("An error has occured while fetching matches: " + error);
+          } else {
+            // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
+            resolve(JSON.parse(response.text));
+          }
+        };
+
+        api.getMatches(deviceId, callback);
+      });
+      return p.then((matches: models.Match[]) => {
+        if (completion) completion(matches);
+        return matches;
+      });
     });
   }
 
@@ -399,27 +383,24 @@ export class Manager {
     deviceId?: string,
     completion?: (matches: models.Match) => void
   ): Promise<models.Match> {
-    if (!this.defaultDevice) {
-      throw new Error(
-        "There is no default device available, please call createDevice before createPublication"
-      );
-    }
-    let p = new Promise((resolve, reject) => {
-      let api = new ScalpsCoreRestApi.DeviceApi();
-      let callback = function(error, data, response) {
-        if (error) {
-          reject("An error has occured while fetching matches: " + error);
-        } else {
-          // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-          resolve(JSON.parse(response.text));
-        }
-      };
-      let _deviceId = deviceId ? deviceId : this.defaultDevice.id;
-      api.getMatch(_deviceId, matchId, callback);
-    });
-    return p.then((matches: models.Match) => {
-      if (completion) completion(matches);
-      return matches;
+    return this.withDevice<Promise<models.Match>>(deviceId)(deviceId => {
+      let p = new Promise<models.Match>((resolve, reject) => {
+        let api = new ScalpsCoreRestApi.DeviceApi();
+        let callback = function(error, data, response) {
+          if (error) {
+            reject("An error has occured while fetching matches: " + error);
+          } else {
+            // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
+            resolve(JSON.parse(response.text));
+          }
+        };
+
+        api.getMatch(deviceId, matchId, callback);
+      });
+      return p.then((matches: models.Match) => {
+        if (completion) completion(matches);
+        return matches;
+      });
     });
   }
 
@@ -432,20 +413,36 @@ export class Manager {
     deviceId?: string,
     completion?: (publications: models.Publication[]) => void
   ) {
-    let p = new Promise((resolve, reject) => {
-      let api = new ScalpsCoreRestApi.DeviceApi();
-      let callback = function(error, data, response) {
-        if (error) {
-          reject("An error has occured while fetching publications: " + error);
-        } else {
-          // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-          resolve(JSON.parse(response.text));
-        }
-      };
-      let _deviceId = deviceId ? deviceId : this.defaultDevice.id;
-      api.getPublications(_deviceId, callback);
-    });
-    return p;
+    return this.withDevice<Promise<models.Publication[]>>(deviceId)(
+      deviceId => {
+        let p = new Promise<models.Publication[]>((resolve, reject) => {
+          let api = new ScalpsCoreRestApi.DeviceApi();
+          let callback = function(error, data, response) {
+            if (error) {
+              reject(
+                "An error has occured while fetching publications: " + error
+              );
+            } else {
+              // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
+              resolve(JSON.parse(response.text));
+            }
+          };
+
+          api.getPublications(deviceId, callback);
+        });
+        return p;
+      }
+    );
+  }
+
+  private withDevice<T>(deviceId?: string): (p: Provider<T>) => T {
+    if (!!deviceId) {return (p: Provider<T>) => p(deviceId)};
+     if (!!this.defaultDevice && !!this.defaultDevice.id)
+      {return (p: Provider<T>) => p(this.defaultDevice!.id!)};
+
+    throw new Error(
+      "There is no default device available and no other device id was supplied,  please call createDevice before thi call or provide a device id"
+    );
   }
 
   /**
@@ -457,27 +454,33 @@ export class Manager {
     deviceId?: string,
     completion?: (subscriptions: models.Subscription[]) => void
   ) {
-    let p = new Promise((resolve, reject) => {
-      let api = new ScalpsCoreRestApi.DeviceApi();
-      let callback = function(error, data, response) {
-        if (error) {
-          reject("An error has occured while fetching subscriptions: " + error);
-        } else {
-          // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-          resolve(JSON.parse(response.text));
-        }
-      };
-      let _deviceId = deviceId ? deviceId : this.defaultDevice.id;
-      api.getSubscriptions(_deviceId, callback);
-    });
-    return p;
+    return this.withDevice<Promise<models.Subscription[]>>(deviceId)(
+      deviceId => {
+        let p = new Promise<models.Subscription[]>((resolve, reject) => {
+          let api = new ScalpsCoreRestApi.DeviceApi();
+          let callback = function(error, data, response) {
+            if (error) {
+              reject(
+                "An error has occured while fetching subscriptions: " + error
+              );
+            } else {
+              // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
+              resolve(JSON.parse(response.text));
+            }
+          };
+
+          api.getSubscriptions(deviceId, callback);
+        });
+        return p;
+      }
+    );
   }
 
   /**
    * Registers a callback for matches
    * @param completion
    */
-  public onMatch(completion: (match: models.Match) => void) {
+  set onMatch(completion: (match: models.Match) => void) {
     this._matchMonitor.onMatch = completion;
   }
 

@@ -8,21 +8,21 @@ export enum MatchMonitorMode {
 }
 
 export class MatchMonitor {
-  manager: Manager;
-  timerId: number;
-  _deliveredMatches: models.Match[] = [];
-  get deliveredMatches(): models.Match[]{
-      return this._deliveredMatches;
-  }
-  public onMatch: (match: models.Match) => void;
+  private _timerId?: number;
+  private _deliveredMatches: models.Match[] = [];
 
-  constructor(manager: Manager) {
-    this.init(manager);
+  private _onMatch: (match: models.Match) => void;
+
+  constructor(public manager: Manager) {
+    this._onMatch = (match: models.Match) => {};
   }
 
-  private init(manager) {
-    this.manager = manager;
-    this.onMatch = (match: models.Match) => {};
+  set onMatch(onMatch: (match: models.Match) => void) {
+    this._onMatch = onMatch;
+  }
+
+  get deliveredMatches(): models.Match[] {
+    return this._deliveredMatches;
   }
 
   public startMonitoringMatches(mode: MatchMonitorMode) {
@@ -37,7 +37,10 @@ export class MatchMonitor {
     }
     if (mode == MatchMonitorMode.websocket) {
       let socketUrl =
-        this.manager.apiUrlOverride.replace("https://", "wss://").replace("http://", "ws://").replace("v5", "") +
+        this.manager.apiUrl
+          .replace("https://", "wss://")
+          .replace("http://", "ws://")
+          .replace("v5", "") +
         "pusher/v5/ws/" +
         this.manager.defaultDevice.id;
       let ws = new WebSocket(socketUrl, ["api-key", this.manager.token.sub]);
@@ -48,12 +51,13 @@ export class MatchMonitor {
   }
 
   public stopMonitoringMatches() {
-    if (this.timerId) {
-      clearInterval(this.timerId);
+    if (this._timerId) {
+      clearInterval(this._timerId);
     }
   }
 
   private checkMatch(matchId: string) {
+    if (!this.manager.defaultDevice) return;
     if (this.hasNotBeenDelivered({ id: matchId })) {
       this.manager
         .getMatch(matchId, this.manager.defaultDevice.id)

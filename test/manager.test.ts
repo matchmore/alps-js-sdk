@@ -43,7 +43,7 @@ describe("Manager", function() {
     it('should define the "defaultDevice"', function(done) {
       let completionDevice = function(device) {
         mgr.should.have.property("defaultDevice");
-        mgr.defaultDevice.should.equal(device);
+        chai.assert.equal(mgr.defaultDevice, device);
         done();
       };
       let mgr = new Manager(apiKey, apiLocation);

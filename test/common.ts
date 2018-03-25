@@ -24,7 +24,7 @@ export let sampleLocation: models.Location = {
   verticalAccuracy: 1.0
 };
 
-export let sampleDevice: models.MobileDevice = {
+export let sampleDevice = {
   name: "test",
   platform: "iOS",
   deviceToken: "f4eea68c-a349-4dbe-a395-c935abc7f6f2",

@@ -1,13 +1,13 @@
-import ScalpsCoreRestApi = require("matchmore_alps_core_rest_api");
 import { Manager } from "./manager";
+import * as models from "./model/models";
 export declare class LocationManager {
     manager: Manager;
+    private _onLocationUpdate;
     private geoId;
-    onLocationUpdate: (location: ScalpsCoreRestApi.Location) => void;
     constructor(manager: Manager);
-    private init(manager);
     startUpdatingLocation(): void;
     stopUpdatingLocation(): void;
+    onLocationUpdate: (location: models.Location) => void;
     private onLocationReceived(loc);
     private onError(error);
 }
