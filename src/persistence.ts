@@ -2,10 +2,11 @@ import * as models from "./model/models";
 
 export type MatchmoreEntity = models.Device | models.Publication | models.Subscription;
 export interface IPersistenceManager {
-  defaultDevice(): models.Device;
+  defaultDevice(): models.Device | undefined;
   devices(): models.Device[];
   publications(): models.Publication[];
   subscriptions(): models.Subscription[];
+  onLoad(onLoad: (state: IPersistenceManager) => void)
 
   addDevice(device: models.Device, isDefault?: boolean);
   add(entity: MatchmoreEntity);
@@ -30,16 +31,21 @@ export class MatchmoreEntityDiscriminator {
 }
 
 export class InMemoryPersistenceManager implements IPersistenceManager {
-  private _defaultDevice: models.Device;
+  private _defaultDevice?: models.Device;
   private _devices: models.Device[] = [];
   private _publications: models.Publication[] = [];
   private _subscriptions: models.Subscription[] = [];
+  private _onLoad?: (state: IPersistenceManager) => void;
   devices() {
     return this._devices;
   }
 
   publications() {
     return this._publications;
+  }
+
+  onLoad(onLoad: (state: IPersistenceManager) => void) {
+    this._onLoad = onLoad;
   }
 
   subscriptions() {
@@ -65,7 +71,7 @@ export class InMemoryPersistenceManager implements IPersistenceManager {
     }
   }
 
-  defaultDevice(): models.Device {
+  defaultDevice(): models.Device | undefined {
     return this._defaultDevice;
   }
   addDevice(device: models.Device, isDefault?: boolean) {

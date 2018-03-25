@@ -18,8 +18,6 @@
     "@types/chai-as-promised": "^7.1.0",
     "@types/mocha": "^2.2.48",
     "babel-core": "^6.26.0",
-    "babel-preset-es2015": "^6.24.1",
-    "babel-preset-react": "^6.24.1",
     "browserify": "^16.1.1",
     "chai": "^3.5.0",
     "chai-as-promised": "^6.0.0",
@@ -29,8 +27,6 @@
   },
   "dependencies": {
     "Base64": "^1.0.1",
-    "babel-preset-react-native-stage-0": "^1.0.1",
-    "babelify": "^8.0.0",
     "matchmore_alps_core_rest_api": "file:./matchmore_alps_core_rest_api",
     "websocket": "^1.0.25"
   }

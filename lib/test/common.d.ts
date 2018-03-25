@@ -16,4 +16,9 @@ export declare let sampleSubscription: {
     duration: number;
 };
 export declare let sampleLocation: models.Location;
-export declare let sampleDevice: models.MobileDevice;
+export declare let sampleDevice: {
+    name: string;
+    platform: string;
+    deviceToken: string;
+    location: models.Location;
+};

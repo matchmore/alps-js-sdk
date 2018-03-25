@@ -1,4 +1,5 @@
-// API key and apiEndpoint are stored in test/config.js
+// @ts-ignore
+// API key and apiEndpoint are stored in test/config.ts
 import { environment } from "./config";
 
 // let assert = require('assert');
@@ -87,11 +88,11 @@ describe("Matches", function() {
         matches.should.not.be.empty;
         let pub = m.pubsub.pub;
         let sub = m.pubsub.sub;
-        let newestMatch = matches.filter(
+        let match = matches.filter(
           m => m.publication.id == pub.id && m.subscription.id == sub.id
         )[0];
-        newestMatch.subscription.id.should.eql(sub.id);
-        newestMatch.publication.id.should.eql(pub.id);
+        chai.assert.equal(match.publication.id, pub.id);
+        chai.assert.equal(match.subscription.id,sub.id);
       });
   });
 
@@ -103,7 +104,7 @@ describe("Matches", function() {
     let onDevice = (device: models.Device) => {
       mgr.startMonitoringMatches(MatchMonitorMode.polling);
       p = new Promise<models.Match>(resolve => {
-        mgr.onMatch(resolve);
+        mgr.onMatch = resolve;
       });
     };
 
@@ -114,8 +115,8 @@ describe("Matches", function() {
         p,
         f => f.publication.id == pub.id || f.subscription.id == sub.id
       ).then(match => {
-        match.publication.id.should.eql(pub.id);
-        match.subscription.id.should.eql(sub.id);
+        chai.assert.equal(match.publication.id, pub.id);
+        chai.assert.equal(match.subscription.id,sub.id);
       });
     });
   });
@@ -129,7 +130,7 @@ describe("Matches", function() {
     let onDevice = (device: models.Device) => {
       mgr.startMonitoringMatches(MatchMonitorMode.websocket);
       p = new Promise<models.Match>(resolve => {
-        mgr.onMatch(resolve);
+        mgr.onMatch = resolve;
       });
     };
 
@@ -140,8 +141,8 @@ describe("Matches", function() {
         p,
         f => f.publication.id == pub.id || f.subscription.id == sub.id
       ).then(match => {
-        match.publication.id.should.eql(pub.id);
-        match.subscription.id.should.eql(sub.id);
+        chai.assert.equal(match.publication.id, pub.id);
+        chai.assert.equal(match.subscription.id,sub.id);
       });
     });
   });
