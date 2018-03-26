@@ -3,23 +3,21 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 var LocationManager = (function () {
     function LocationManager(manager) {
-        this.init(manager);
-    }
-    LocationManager.prototype.init = function (manager) {
         this.manager = manager;
-    };
+        this._onLocationUpdate = function (loc) { };
+    }
     LocationManager.prototype.startUpdatingLocation = function () {
         var _this = this;
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(function (loc) {
-                _this.onLocationReceived(loc.coords);
+                _this.onLocationReceived(loc);
             }, this.onError, {
                 enableHighAccuracy: false,
                 timeout: 60000,
                 maximumAge: Infinity
             });
             this.geoId = navigator.geolocation.watchPosition(function (loc) {
-                _this.onLocationReceived(loc.coords);
+                _this.onLocationReceived(loc);
             }, this.onError);
         }
         else {
@@ -34,6 +32,13 @@ var LocationManager = (function () {
             throw new Error("Geolocation is not supported in this browser/app");
         }
     };
+    Object.defineProperty(LocationManager.prototype, "onLocationUpdate", {
+        set: function (onLocationUpdate) {
+            this._onLocationUpdate = onLocationUpdate;
+        },
+        enumerable: true,
+        configurable: true
+    });
     LocationManager.prototype.onLocationReceived = function (loc) {
         if (!loc.coords)
             return;
@@ -50,7 +55,9 @@ var LocationManager = (function () {
             altitude = parseFloat(loc.coords.altitude);
         else
             altitude = 0;
-        this.onLocationUpdate(loc);
+        if (this._onLocationUpdate) {
+            this._onLocationUpdate(loc);
+        }
         this.manager.updateLocation({
             latitude: latitude,
             longitude: longitude,
@@ -79,11 +86,10 @@ var Manager = (function () {
     function Manager(apiKey, apiUrlOverride, persistenceManager) {
         this.apiKey = apiKey;
         this.apiUrlOverride = apiUrlOverride;
+        if (!apiKey)
+            throw new Error("Api key required");
         this._persistenceManager =
             persistenceManager || new persistence_1.InMemoryPersistenceManager();
-        this.init();
-    }
-    Manager.prototype.init = function () {
         this.defaultClient = ScalpsCoreRestApi.ApiClient.instance;
         this.token = JSON.parse(Base64.atob(this.apiKey.split(".")[1]));
         this.defaultClient.authentications["api-key"].apiKey = this.apiKey;
@@ -93,7 +99,14 @@ var Manager = (function () {
             this.apiUrlOverride = this.defaultClient.basePath;
         this._matchMonitor = new matchmonitor_1.MatchMonitor(this);
         this._locationManager = new locationmanager_1.LocationManager(this);
-    };
+    }
+    Object.defineProperty(Manager.prototype, "apiUrl", {
+        get: function () {
+            return this.defaultClient.basePath;
+        },
+        enumerable: true,
+        configurable: true
+    });
     Object.defineProperty(Manager.prototype, "defaultDevice", {
         get: function () {
             return this._persistenceManager.defaultDevice();
@@ -200,189 +213,190 @@ var Manager = (function () {
     };
     Manager.prototype.createPublication = function (topic, range, duration, properties, deviceId, completion) {
         var _this = this;
-        if (!this.defaultDevice) {
-            throw new Error("There is no default device available, please call createDevice before createPublication");
-        }
-        var p = new Promise(function (resolve, reject) {
-            var api = new ScalpsCoreRestApi.PublicationApi();
-            var callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while creating publication '" +
-                        topic +
-                        "' :" +
-                        error);
-                }
-                else {
-                    resolve(JSON.parse(response.text));
-                }
-            };
-            var _deviceId = deviceId ? deviceId : _this.defaultDevice.id;
-            var publication = {
-                worldId: _this.token.sub,
-                topic: topic,
-                deviceId: _deviceId,
-                range: range,
-                duration: duration,
-                properties: properties
-            };
-            api.createPublication(_deviceId, publication, callback);
-        });
-        return p.then(function (publication) {
-            _this._persistenceManager.add(publication);
-            if (completion)
-                completion(publication);
-            return publication;
+        return this.withDevice(deviceId)(function (deviceId) {
+            var p = new Promise(function (resolve, reject) {
+                var api = new ScalpsCoreRestApi.PublicationApi();
+                var callback = function (error, data, response) {
+                    if (error) {
+                        reject("An error has occured while creating publication '" +
+                            topic +
+                            "' :" +
+                            error);
+                    }
+                    else {
+                        resolve(JSON.parse(response.text));
+                    }
+                };
+                var publication = {
+                    worldId: _this.token.sub,
+                    topic: topic,
+                    deviceId: deviceId,
+                    range: range,
+                    duration: duration,
+                    properties: properties
+                };
+                api.createPublication(deviceId, publication, callback);
+            });
+            return p.then(function (publication) {
+                _this._persistenceManager.add(publication);
+                if (completion)
+                    completion(publication);
+                return publication;
+            });
         });
     };
     Manager.prototype.createSubscription = function (topic, range, duration, selector, deviceId, completion) {
         var _this = this;
-        if (!this.defaultDevice) {
-            throw new Error("There is no default device available, please call createDevice before createPublication");
-        }
-        var p = new Promise(function (resolve, reject) {
-            var api = new ScalpsCoreRestApi.SubscriptionApi();
-            var callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while creating subscription '" +
-                        topic +
-                        "' :" +
-                        error);
-                }
-                else {
-                    resolve(JSON.parse(response.text));
-                }
-            };
-            var _deviceId = deviceId ? deviceId : _this.defaultDevice.id;
-            var subscription = {
-                worldId: _this.token.sub,
-                topic: topic,
-                deviceId: _deviceId,
-                range: range,
-                duration: duration,
-                selector: selector
-            };
-            api.createSubscription(_deviceId, subscription, callback);
-        });
-        return p.then(function (subscription) {
-            _this._persistenceManager.add(subscription);
-            if (completion)
-                completion(subscription);
-            return subscription;
+        return this.withDevice(deviceId)(function (deviceId) {
+            var p = new Promise(function (resolve, reject) {
+                var api = new ScalpsCoreRestApi.SubscriptionApi();
+                var callback = function (error, data, response) {
+                    if (error) {
+                        reject("An error has occured while creating subscription '" +
+                            topic +
+                            "' :" +
+                            error);
+                    }
+                    else {
+                        resolve(JSON.parse(response.text));
+                    }
+                };
+                var subscription = {
+                    worldId: _this.token.sub,
+                    topic: topic,
+                    deviceId: deviceId,
+                    range: range,
+                    duration: duration,
+                    selector: selector || ""
+                };
+                api.createSubscription(deviceId, subscription, callback);
+            });
+            return p.then(function (subscription) {
+                _this._persistenceManager.add(subscription);
+                if (completion)
+                    completion(subscription);
+                return subscription;
+            });
         });
     };
-    Manager.prototype.updateLocation = function (location, deviceId, completion) {
-        var _this = this;
-        if (!this.defaultDevice) {
-            throw new Error("There is no default device available, please call createDevice before createPublication");
-        }
-        var p = new Promise(function (resolve, reject) {
-            var api = new ScalpsCoreRestApi.LocationApi();
-            var callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while creating location ['" +
-                        location.latitude +
-                        "','" +
-                        location.longitude +
-                        "']  :" +
-                        error);
-                }
-                else {
-                    resolve();
-                }
-            };
-            var _deviceId = deviceId ? deviceId : _this.defaultDevice.id;
-            api.createLocation(_deviceId, location, callback);
-        });
-        return p.then(function (location) {
-            if (completion)
-                completion;
+    Manager.prototype.updateLocation = function (location, deviceId) {
+        return this.withDevice(deviceId)(function (deviceId) {
+            var p = new Promise(function (resolve, reject) {
+                var api = new ScalpsCoreRestApi.LocationApi();
+                var callback = function (error, data, response) {
+                    if (error) {
+                        reject("An error has occured while creating location ['" +
+                            location.latitude +
+                            "','" +
+                            location.longitude +
+                            "']  :" +
+                            error);
+                    }
+                    else {
+                        resolve();
+                    }
+                };
+                api.createLocation(deviceId, location, callback);
+            });
+            return p.then(function (_) {
+            });
         });
     };
     Manager.prototype.getAllMatches = function (deviceId, completion) {
-        var _this = this;
-        if (!this.defaultDevice) {
-            throw new Error("There is no default device available, please call createDevice before createPublication");
-        }
-        var p = new Promise(function (resolve, reject) {
-            var api = new ScalpsCoreRestApi.DeviceApi();
-            var callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while fetching matches: " + error);
-                }
-                else {
-                    resolve(JSON.parse(response.text));
-                }
-            };
-            var _deviceId = deviceId ? deviceId : _this.defaultDevice.id;
-            api.getMatches(_deviceId, callback);
-        });
-        return p.then(function (matches) {
-            if (completion)
-                completion(matches);
-            return matches;
+        return this.withDevice(deviceId)(function (deviceId) {
+            var p = new Promise(function (resolve, reject) {
+                var api = new ScalpsCoreRestApi.DeviceApi();
+                var callback = function (error, data, response) {
+                    if (error) {
+                        reject("An error has occured while fetching matches: " + error);
+                    }
+                    else {
+                        resolve(JSON.parse(response.text));
+                    }
+                };
+                api.getMatches(deviceId, callback);
+            });
+            return p.then(function (matches) {
+                if (completion)
+                    completion(matches);
+                return matches;
+            });
         });
     };
     Manager.prototype.getMatch = function (matchId, string, deviceId, completion) {
-        var _this = this;
-        if (!this.defaultDevice) {
-            throw new Error("There is no default device available, please call createDevice before createPublication");
-        }
-        var p = new Promise(function (resolve, reject) {
-            var api = new ScalpsCoreRestApi.DeviceApi();
-            var callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while fetching matches: " + error);
-                }
-                else {
-                    resolve(JSON.parse(response.text));
-                }
-            };
-            var _deviceId = deviceId ? deviceId : _this.defaultDevice.id;
-            api.getMatch(_deviceId, matchId, callback);
-        });
-        return p.then(function (matches) {
-            if (completion)
-                completion(matches);
-            return matches;
+        return this.withDevice(deviceId)(function (deviceId) {
+            var p = new Promise(function (resolve, reject) {
+                var api = new ScalpsCoreRestApi.DeviceApi();
+                var callback = function (error, data, response) {
+                    if (error) {
+                        reject("An error has occured while fetching matches: " + error);
+                    }
+                    else {
+                        resolve(JSON.parse(response.text));
+                    }
+                };
+                api.getMatch(deviceId, matchId, callback);
+            });
+            return p.then(function (matches) {
+                if (completion)
+                    completion(matches);
+                return matches;
+            });
         });
     };
     Manager.prototype.getAllPublications = function (deviceId, completion) {
-        var _this = this;
-        var p = new Promise(function (resolve, reject) {
-            var api = new ScalpsCoreRestApi.DeviceApi();
-            var callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while fetching publications: " + error);
-                }
-                else {
-                    resolve(JSON.parse(response.text));
-                }
-            };
-            var _deviceId = deviceId ? deviceId : _this.defaultDevice.id;
-            api.getPublications(_deviceId, callback);
+        return this.withDevice(deviceId)(function (deviceId) {
+            var p = new Promise(function (resolve, reject) {
+                var api = new ScalpsCoreRestApi.DeviceApi();
+                var callback = function (error, data, response) {
+                    if (error) {
+                        reject("An error has occured while fetching publications: " + error);
+                    }
+                    else {
+                        resolve(JSON.parse(response.text));
+                    }
+                };
+                api.getPublications(deviceId, callback);
+            });
+            return p;
         });
-        return p;
+    };
+    Manager.prototype.withDevice = function (deviceId) {
+        var _this = this;
+        if (!!deviceId) {
+            return function (p) { return p(deviceId); };
+        }
+        ;
+        if (!!this.defaultDevice && !!this.defaultDevice.id) {
+            return function (p) { return p(_this.defaultDevice.id); };
+        }
+        ;
+        throw new Error("There is no default device available and no other device id was supplied,  please call createDevice before thi call or provide a device id");
     };
     Manager.prototype.getAllSubscriptions = function (deviceId, completion) {
-        var _this = this;
-        var p = new Promise(function (resolve, reject) {
-            var api = new ScalpsCoreRestApi.DeviceApi();
-            var callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while fetching subscriptions: " + error);
-                }
-                else {
-                    resolve(JSON.parse(response.text));
-                }
-            };
-            var _deviceId = deviceId ? deviceId : _this.defaultDevice.id;
-            api.getSubscriptions(_deviceId, callback);
+        return this.withDevice(deviceId)(function (deviceId) {
+            var p = new Promise(function (resolve, reject) {
+                var api = new ScalpsCoreRestApi.DeviceApi();
+                var callback = function (error, data, response) {
+                    if (error) {
+                        reject("An error has occured while fetching subscriptions: " + error);
+                    }
+                    else {
+                        resolve(JSON.parse(response.text));
+                    }
+                };
+                api.getSubscriptions(deviceId, callback);
+            });
+            return p;
         });
-        return p;
     };
-    Manager.prototype.onMatch = function (completion) {
-        this._matchMonitor.onMatch = completion;
-    };
+    Object.defineProperty(Manager.prototype, "onMatch", {
+        set: function (completion) {
+            this._matchMonitor.onMatch = completion;
+        },
+        enumerable: true,
+        configurable: true
+    });
     Manager.prototype.onLocationUpdate = function (completion) {
         this._locationManager.onLocationUpdate = completion;
     };
@@ -413,9 +427,17 @@ var MatchMonitorMode;
 })(MatchMonitorMode = exports.MatchMonitorMode || (exports.MatchMonitorMode = {}));
 var MatchMonitor = (function () {
     function MatchMonitor(manager) {
+        this.manager = manager;
         this._deliveredMatches = [];
-        this.init(manager);
+        this._onMatch = function (match) { };
     }
+    Object.defineProperty(MatchMonitor.prototype, "onMatch", {
+        set: function (onMatch) {
+            this._onMatch = onMatch;
+        },
+        enumerable: true,
+        configurable: true
+    });
     Object.defineProperty(MatchMonitor.prototype, "deliveredMatches", {
         get: function () {
             return this._deliveredMatches;
@@ -423,10 +445,6 @@ var MatchMonitor = (function () {
         enumerable: true,
         configurable: true
     });
-    MatchMonitor.prototype.init = function (manager) {
-        this.manager = manager;
-        this.onMatch = function (match) { };
-    };
     MatchMonitor.prototype.startMonitoringMatches = function (mode) {
         var _this = this;
         if (!this.manager.defaultDevice)
@@ -439,7 +457,10 @@ var MatchMonitor = (function () {
             return;
         }
         if (mode == MatchMonitorMode.websocket) {
-            var socketUrl = this.manager.apiUrlOverride.replace("https://", "wss://").replace("http://", "ws://").replace("v5", "") +
+            var socketUrl = this.manager.apiUrl
+                .replace("https://", "wss://")
+                .replace("http://", "ws://")
+                .replace("v5", "") +
                 "pusher/v5/ws/" +
                 this.manager.defaultDevice.id;
             var ws = new WebSocket(socketUrl, ["api-key", this.manager.token.sub]);
@@ -449,12 +470,14 @@ var MatchMonitor = (function () {
         }
     };
     MatchMonitor.prototype.stopMonitoringMatches = function () {
-        if (this.timerId) {
-            clearInterval(this.timerId);
+        if (this._timerId) {
+            clearInterval(this._timerId);
         }
     };
     MatchMonitor.prototype.checkMatch = function (matchId) {
         var _this = this;
+        if (!this.manager.defaultDevice)
+            return;
         if (this.hasNotBeenDelivered({ id: matchId })) {
             this.manager
                 .getMatch(matchId, this.manager.defaultDevice.id)
@@ -537,6 +560,9 @@ var InMemoryPersistenceManager = (function () {
     };
     InMemoryPersistenceManager.prototype.publications = function () {
         return this._publications;
+    };
+    InMemoryPersistenceManager.prototype.onLoad = function (onLoad) {
+        this._onLoad = onLoad;
     };
     InMemoryPersistenceManager.prototype.subscriptions = function () {
         return this._subscriptions;

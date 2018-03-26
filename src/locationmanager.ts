@@ -1,30 +1,38 @@
 import { Manager } from "./manager";
 import * as models from "./model/models";
 
+export interface GPSConfig {
+  enableHighAccuracy: boolean;
+  timeout: number;
+  maximumAge: number;
+}
+
 export class LocationManager {
   private _onLocationUpdate: (location: models.Location) => void;
-  private geoId;
+  private _geoId;
+  private _gpsConfig: GPSConfig;
 
-  constructor(public manager: Manager) {
+  constructor(public manager: Manager, config?: GPSConfig) {
+    this._gpsConfig = config || {
+      enableHighAccuracy: false,
+      timeout: 60000,
+      maximumAge: Infinity
+    };
     this._onLocationUpdate = loc => {};
   }
 
   public startUpdatingLocation() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        loc => {
-          this.onLocationReceived(loc);
-        },
+        this.onLocationReceived,
         this.onError,
-        {
-          enableHighAccuracy: false,
-          timeout: 60000,
-          maximumAge: Infinity
-        }
+        this._gpsConfig
       );
-      this.geoId = navigator.geolocation.watchPosition(loc => {
-        this.onLocationReceived(loc);
-      }, this.onError);
+      this._geoId = navigator.geolocation.watchPosition(
+        this.onLocationReceived,
+        this.onError,
+        this._gpsConfig
+      );
     } else {
       throw new Error("Geolocation is not supported in this browser/app");
     }
@@ -32,40 +40,34 @@ export class LocationManager {
 
   public stopUpdatingLocation() {
     if (navigator.geolocation) {
-      navigator.geolocation.clearWatch(this.geoId);
+      navigator.geolocation.clearWatch(this._geoId);
     } else {
       throw new Error("Geolocation is not supported in this browser/app");
     }
   }
 
-  set onLocationUpdate(
-    onLocationUpdate: (location: models.Location) => void
-  ) {
+  set onLocationUpdate(onLocationUpdate: (location: models.Location) => void) {
     this._onLocationUpdate = onLocationUpdate;
   }
 
   private onLocationReceived(loc) {
     if (!loc.coords) return; // Guard for bad values
-    let latitude, longitude, altitude;
-    if (loc.coords.latitude) latitude = parseFloat(loc.coords.latitude);
-    else return;
-    //throw new Error("Location did not contain any latitude: " + JSON.stringify(loc));
-    if (loc.coords.longitude) longitude = parseFloat(loc.coords.longitude);
-    else return;
-    //throw new Error("Location did not contain any longitude: " + JSON.stringify(loc));
-    if (loc.coords.altitude) altitude = parseFloat(loc.coords.altitude);
-    else altitude = 0; // Default value, TODO: use an altitude API?
+    // let latitude, longitude, altitude;
+    // if (loc.coords.latitude) latitude = parseFloat(loc.coords.latitude);
+    // else return;
+    // //throw new Error("Location did not contain any latitude: " + JSON.stringify(loc));
+    // if (loc.coords.longitude) longitude = parseFloat(loc.coords.longitude);
+    // else return;
+    // //throw new Error("Location did not contain any longitude: " + JSON.stringify(loc));
+    // if (loc.coords.altitude) altitude = parseFloat(loc.coords.altitude);
+    // else altitude = 0; // Default value, TODO: use an altitude API?
+    loc.coords.horizontalAccuracy = 1.0;
+    loc.coords.verticalAccuracy = 1.0;
 
     if (this._onLocationUpdate) {
       this._onLocationUpdate(loc);
     }
-    this.manager.updateLocation({
-      latitude: latitude,
-      longitude: longitude,
-      altitude: altitude,
-      horizontalAccuracy: 1.0,
-      verticalAccuracy: 1.0
-    });
+    this.manager.updateLocation(loc.coords);
   }
 
   private onError(error) {
