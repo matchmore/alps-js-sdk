@@ -16,7 +16,7 @@ export class LocationManager {
     this._gpsConfig = config || {
       enableHighAccuracy: false,
       timeout: 60000,
-      maximumAge: Infinity
+      maximumAge: 60000
     };
     this._onLocationUpdate = loc => {};
   }
