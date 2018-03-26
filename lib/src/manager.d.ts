@@ -1,4 +1,5 @@
 import { MatchMonitorMode } from "./matchmonitor";
+import { GPSConfig } from "./locationmanager";
 import * as models from "./model/models";
 import { IPersistenceManager } from "./persistence";
 export interface Token {
@@ -12,7 +13,7 @@ export declare class Manager {
     private _locationManager;
     private _persistenceManager;
     token: Token;
-    constructor(apiKey: string, apiUrlOverride?: string | undefined, persistenceManager?: IPersistenceManager);
+    constructor(apiKey: string, apiUrlOverride?: string | undefined, persistenceManager?: IPersistenceManager, gpsConfig?: GPSConfig);
     readonly apiUrl: any;
     readonly defaultDevice: models.Device | undefined;
     readonly devices: models.Device[];
@@ -35,7 +36,7 @@ export declare class Manager {
     private withDevice<T>(deviceId?);
     getAllSubscriptions(deviceId?: string, completion?: (subscriptions: models.Subscription[]) => void): Promise<models.Subscription[]>;
     onMatch: (match: models.Match) => void;
-    onLocationUpdate(completion: (location: models.Location) => void): void;
+    onLocationUpdate: (location: models.Location) => void;
     startMonitoringMatches(mode: MatchMonitorMode): void;
     stopMonitoringMatches(): void;
     startUpdatingLocation(): void;

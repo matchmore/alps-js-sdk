@@ -1,7 +1,7 @@
 import ScalpsCoreRestApi = require("matchmore_alps_core_rest_api");
 import Base64 = require("Base64");
 import { MatchMonitor, MatchMonitorMode } from "./matchmonitor";
-import { LocationManager } from "./locationmanager";
+import { LocationManager, GPSConfig } from "./locationmanager";
 import * as models from "./model/models";
 import { IPersistenceManager, InMemoryPersistenceManager } from "./persistence";
 
@@ -22,7 +22,8 @@ export class Manager {
   constructor(
     public apiKey: string,
     public apiUrlOverride?: string,
-    persistenceManager?: IPersistenceManager
+    persistenceManager?: IPersistenceManager,
+    gpsConfig? : GPSConfig
   ) {
     if (!apiKey) throw new Error("Api key required");
     this._persistenceManager =
@@ -36,7 +37,7 @@ export class Manager {
     if (this.apiUrlOverride) this.defaultClient.basePath = this.apiUrlOverride;
     else this.apiUrlOverride = this.defaultClient.basePath;
     this._matchMonitor = new MatchMonitor(this);
-    this._locationManager = new LocationManager(this);
+    this._locationManager = new LocationManager(this, gpsConfig);
   }
 
   get apiUrl() {
@@ -488,7 +489,7 @@ export class Manager {
    * Register a callback for location updates
    * @param completion
    */
-  public onLocationUpdate(completion: (location: models.Location) => void) {
+  set onLocationUpdate(completion: (location: models.Location) => void) {
     this._locationManager.onLocationUpdate = completion;
   }
 
