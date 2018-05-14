@@ -2,23 +2,19 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var LocationManager = (function () {
-    function LocationManager(manager) {
+    function LocationManager(manager, config) {
         this.manager = manager;
+        this._gpsConfig = config || {
+            enableHighAccuracy: false,
+            timeout: 60000,
+            maximumAge: 60000
+        };
         this._onLocationUpdate = function (loc) { };
     }
     LocationManager.prototype.startUpdatingLocation = function () {
-        var _this = this;
         if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(function (loc) {
-                _this.onLocationReceived(loc);
-            }, this.onError, {
-                enableHighAccuracy: false,
-                timeout: 60000,
-                maximumAge: Infinity
-            });
-            this.geoId = navigator.geolocation.watchPosition(function (loc) {
-                _this.onLocationReceived(loc);
-            }, this.onError);
+            navigator.geolocation.getCurrentPosition(this.onLocationReceived, this.onError, this._gpsConfig);
+            this._geoId = navigator.geolocation.watchPosition(this.onLocationReceived, this.onError, this._gpsConfig);
         }
         else {
             throw new Error("Geolocation is not supported in this browser/app");
@@ -26,7 +22,7 @@ var LocationManager = (function () {
     };
     LocationManager.prototype.stopUpdatingLocation = function () {
         if (navigator.geolocation) {
-            navigator.geolocation.clearWatch(this.geoId);
+            navigator.geolocation.clearWatch(this._geoId);
         }
         else {
             throw new Error("Geolocation is not supported in this browser/app");
@@ -40,31 +36,12 @@ var LocationManager = (function () {
         configurable: true
     });
     LocationManager.prototype.onLocationReceived = function (loc) {
-        if (!loc.coords)
-            return;
-        var latitude, longitude, altitude;
-        if (loc.coords.latitude)
-            latitude = parseFloat(loc.coords.latitude);
-        else
-            return;
-        if (loc.coords.longitude)
-            longitude = parseFloat(loc.coords.longitude);
-        else
-            return;
-        if (loc.coords.altitude)
-            altitude = parseFloat(loc.coords.altitude);
-        else
-            altitude = 0;
+        loc.coords.horizontalAccuracy = 1.0;
+        loc.coords.verticalAccuracy = 1.0;
         if (this._onLocationUpdate) {
             this._onLocationUpdate(loc);
         }
-        this.manager.updateLocation({
-            latitude: latitude,
-            longitude: longitude,
-            altitude: altitude,
-            horizontalAccuracy: 1.0,
-            verticalAccuracy: 1.0
-        });
+        this.manager.updateLocation(loc.coords);
     };
     LocationManager.prototype.onError = function (error) {
         throw new Error(error.message);
@@ -83,7 +60,7 @@ var locationmanager_1 = require("./locationmanager");
 var models = require("./model/models");
 var persistence_1 = require("./persistence");
 var Manager = (function () {
-    function Manager(apiKey, apiUrlOverride, persistenceManager) {
+    function Manager(apiKey, apiUrlOverride, persistenceManager, gpsConfig) {
         this.apiKey = apiKey;
         this.apiUrlOverride = apiUrlOverride;
         if (!apiKey)
@@ -98,7 +75,7 @@ var Manager = (function () {
         else
             this.apiUrlOverride = this.defaultClient.basePath;
         this._matchMonitor = new matchmonitor_1.MatchMonitor(this);
-        this._locationManager = new locationmanager_1.LocationManager(this);
+        this._locationManager = new locationmanager_1.LocationManager(this, gpsConfig);
     }
     Object.defineProperty(Manager.prototype, "apiUrl", {
         get: function () {
@@ -397,9 +374,13 @@ var Manager = (function () {
         enumerable: true,
         configurable: true
     });
-    Manager.prototype.onLocationUpdate = function (completion) {
-        this._locationManager.onLocationUpdate = completion;
-    };
+    Object.defineProperty(Manager.prototype, "onLocationUpdate", {
+        set: function (completion) {
+            this._locationManager.onLocationUpdate = completion;
+        },
+        enumerable: true,
+        configurable: true
+    });
     Manager.prototype.startMonitoringMatches = function (mode) {
         this._matchMonitor.startMonitoringMatches(mode);
     };
@@ -9188,28 +9169,33 @@ module.exports = require('../package.json').version;
 
 },{"../package.json":50}],50:[function(require,module,exports){
 module.exports={
-  "_from": "websocket@^1.0.25",
+  "_args": [
+    [
+      "websocket@1.0.25",
+      "/Users/lmlynik/alps-js/alps-js-sdk"
+    ]
+  ],
+  "_from": "websocket@1.0.25",
   "_id": "websocket@1.0.25",
   "_inBundle": false,
   "_integrity": "sha512-M58njvi6ZxVb5k7kpnHh2BvNKuBWiwIYvsToErBzWhvBZYwlEiLcyLrG41T1jRcrY9ettqPYEqduLI7ul54CVQ==",
   "_location": "/websocket",
   "_phantomChildren": {},
   "_requested": {
-    "type": "range",
+    "type": "version",
     "registry": true,
-    "raw": "websocket@^1.0.25",
+    "raw": "websocket@1.0.25",
     "name": "websocket",
     "escapedName": "websocket",
-    "rawSpec": "^1.0.25",
+    "rawSpec": "1.0.25",
     "saveSpec": null,
-    "fetchSpec": "^1.0.25"
+    "fetchSpec": "1.0.25"
   },
   "_requiredBy": [
     "/"
   ],
   "_resolved": "https://registry.npmjs.org/websocket/-/websocket-1.0.25.tgz",
-  "_shasum": "998ec790f0a3eacb8b08b50a4350026692a11958",
-  "_spec": "websocket@^1.0.25",
+  "_spec": "1.0.25",
   "_where": "/Users/lmlynik/alps-js/alps-js-sdk",
   "author": {
     "name": "Brian McKelvey",
@@ -9220,7 +9206,6 @@ module.exports={
   "bugs": {
     "url": "https://github.com/theturtle32/WebSocket-Node/issues"
   },
-  "bundleDependencies": false,
   "config": {
     "verbose": false
   },
@@ -9237,7 +9222,6 @@ module.exports={
     "typedarray-to-buffer": "^3.1.2",
     "yaeti": "^0.0.6"
   },
-  "deprecated": false,
   "description": "Websocket Client & Server Library implementing the WebSocket protocol as specified in RFC 6455.",
   "devDependencies": {
     "buffer-equal": "^1.0.0",
