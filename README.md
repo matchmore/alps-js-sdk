@@ -10,7 +10,14 @@ Clone the repo locally and install the dependencies from the root folder with:
 
 ## Compilation
 
+Install dependencies:
+
+```
+npm install
+```
+
 To compile the project:
+
 
 ```
 npm run build
