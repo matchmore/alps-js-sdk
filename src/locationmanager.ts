@@ -50,7 +50,7 @@ export class LocationManager {
     this._onLocationUpdate = onLocationUpdate;
   }
 
-  private onLocationReceived(loc) {
+  private onLocationReceived = (loc) => {
     loc.coords.horizontalAccuracy = 1.0;
     loc.coords.verticalAccuracy = 1.0;
 

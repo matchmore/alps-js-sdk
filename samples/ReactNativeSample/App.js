@@ -11,7 +11,7 @@ import { Platform, StyleSheet, Text, View, FlatList } from "react-native";
 type Props = {};
 export default class App extends Component<Props> {
   _manager = new Manager(
-    "***REMOVED***",
+    "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJpc3MiOiJhbHBzIiwic3ViIjoiZmUwNjk5ZDgtNTFkYS00ZGQ5LWIwNTUtMjM1ODJlNGVjYzM2IiwiYXVkIjpbIlB1YmxpYyJdLCJuYmYiOjE1Mjc1MTU0MDIsImlhdCI6MTUyNzUxNTQwMiwianRpIjoiMSJ9.aEXifqwUatHmUKoVsB0SFao5mfQioXAX8r4ehgBzhJ5zoa_WKSOYREEipSDYQFoYTuL-du13KkWvoQaZS6Fgsg",
     undefined,
     undefined,
     {
@@ -96,6 +96,7 @@ export default class App extends Component<Props> {
         console.error(error);
       });
   }
+
   render() {
     return (
       <View style={styles.container}>

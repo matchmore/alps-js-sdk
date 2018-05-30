@@ -30,7 +30,7 @@ export class Manager {
       persistenceManager || new InMemoryPersistenceManager();
     this.defaultClient = ScalpsCoreRestApi.ApiClient.instance;
 
-    this.token = JSON.parse(Base64.atob(this.apiKey.split(".")[1])) as Token;
+    this.token = JSON.parse(Base64.atob(this.apiKey.split(".")[1])); // as Token;
 
     this.defaultClient.authentications["api-key"].apiKey = this.apiKey;
     // Hack the api location (to use an overidden value if needed)
@@ -439,7 +439,7 @@ export class Manager {
   private withDevice<T>(deviceId?: string): (p: Provider<T>) => T {
     if (!!deviceId) {return (p: Provider<T>) => p(deviceId)};
      if (!!this.defaultDevice && !!this.defaultDevice.id)
-      {return (p: Provider<T>) => p(this.defaultDevice!.id!)};
+      {return (p: Provider<T>) => p(this.defaultDevice.id)};
 
     throw new Error(
       "There is no default device available and no other device id was supplied,  please call createDevice before thi call or provide a device id"

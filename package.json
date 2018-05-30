@@ -1,10 +1,9 @@
 {
   "name": "matchmore",
-  "version": "0.6.0",
+  "version": "0.6.2",
   "description": "We_connect_things",
   "license": "MIT",
-  "browser": "build/matchmore.min.js",
-  "main": "build/matchmore.js",
+  "main": "dist/src/manager.js",
   "homepage": "https://matchmore.io",
   "scripts": {
     "build": "tsc",
