@@ -1,4 +1,4 @@
-var WebSocket = require("websocket");
+// import WebSocket = require("websocket");
 (function (MatchMonitorMode) {
     MatchMonitorMode[MatchMonitorMode["polling"] = 0] = "polling";
     MatchMonitorMode[MatchMonitorMode["websocket"] = 1] = "websocket";
@@ -28,7 +28,7 @@ var MatchMonitor = (function () {
         var _this = this;
         if (!this.manager.defaultDevice)
             throw new Error("Default device not yet set!");
-        if (mode == MatchMonitorMode.polling) {
+        if (mode === undefined || mode == +MatchMonitorMode.polling) {
             this.stopMonitoringMatches();
             var timer = setInterval(function () {
                 _this.checkMatches();
@@ -45,7 +45,7 @@ var MatchMonitor = (function () {
             var ws = new WebSocket(socketUrl, ["api-key", this.manager.token.sub]);
             ws.onopen = function (msg) { return console.log("opened"); };
             ws.onerror = function (msg) { return console.log(msg); };
-            ws.onmessage = function (msg) { return _this.checkMatch(msg.data, as, string); };
+            ws.onmessage = function (msg) { return _this.checkMatch(msg.data); };
         }
     };
     MatchMonitor.prototype.stopMonitoringMatches = function () {
@@ -62,7 +62,7 @@ var MatchMonitor = (function () {
                 .getMatch(matchId, this.manager.defaultDevice.id)
                 .then(function (match) {
                 _this._deliveredMatches.push(match);
-                _this.onMatch(match);
+                _this._onMatch(match);
             });
         }
     };
@@ -73,7 +73,7 @@ var MatchMonitor = (function () {
                 var match = matches[idx];
                 if (_this.hasNotBeenDelivered(match)) {
                     _this._deliveredMatches.push(match);
-                    _this.onMatch(match);
+                    _this._onMatch(match);
                 }
             }
         });

@@ -7,6 +7,7 @@
 import React, { Component } from "react";
 import { Manager } from "matchmore";
 import { Platform, StyleSheet, Text, View, FlatList } from "react-native";
+import {MatchMonitorMode} from "../../dist/src/matchmonitor";
 
 type Props = {};
 export default class App extends Component<Props> {
@@ -23,7 +24,10 @@ export default class App extends Component<Props> {
 
   constructor(props) {
     super(props);
-    this.state = { matches: [] };
+    this.state = {
+      matches: [],
+      coords: false,
+    };
   }
 
   async componentDidMount() {
@@ -33,8 +37,9 @@ export default class App extends Component<Props> {
       .createMobileDevice("me", "browser", "")
       .then(device => {
         manager.onMatch = match => {
+          console.log("you got match", match)
           this.setState(previousState => {
-            return { matches: previousState.matches.concat(match) };
+            return { matches: [ ...previousState.matches, match ] };
           });
         };
         manager.startMonitoringMatches();
@@ -44,7 +49,8 @@ export default class App extends Component<Props> {
         //lets wait for the current location
         let location = new Promise(resolve => {
           manager.onLocationUpdate = location => {
-            console.log("Got location " + location)
+            console.log("Got location ", location)
+            this.setState({ coords: location.coords })
             resolve(location);
           }
         });
@@ -55,26 +61,26 @@ export default class App extends Component<Props> {
         location
           .then(location => {
             let publication = manager
-              .createPinDevice("Our test pin", location)
+              .createPinDevice("Our test pin", location.coords)
               .then(pin => {
-                console.log("Created pin")
+                console.log("Created pin", pin)
                 let p1 = manager.createPublication(
                   "my-topic",
-                  100 /* m */,
+                  99999 /* m */,
                   20 /* s */,
                   { age: 20, name: "Clara" },
                   pin.id
                 );
                 let p2 = manager.createPublication(
                   "my-topic",
-                  100 /* m */,
+                  99999 /* m */,
                   20 /* s */,
                   { age: 18, name: "Justine" },
                   pin.id
                 );
                 let p3 = manager.createPublication(
                   "my-topic",
-                  100 /* m */,
+                  99999 /* m */,
                   20 /* s */,
                   { age: 17, name: "Alex" },
                   pin.id
@@ -86,7 +92,7 @@ export default class App extends Component<Props> {
             console.log("Created publications")
             let subscription = manager.createSubscription(
               "my-topic",
-              100 /* m */,
+              99999 /* m */,
               20 /* s */,
               "age >= 18"
             );
@@ -98,12 +104,17 @@ export default class App extends Component<Props> {
   }
 
   render() {
+    console.log(this.state.matches);
     return (
       <View style={styles.container}>
         <Text>You got matches:</Text>
+        { this.state.coords && (
+          <Text>Lat: {this.state.coords.latitude}, Lng: {this.state.coords.longitude}</Text>
+        )}
         <FlatList
           data={this.state.matches}
-          renderItem={({ item }) => <Text>{item.publication.name}</Text>}
+          renderItem={({ item }) => <Text>{item.publication.deviceId}</Text>}
+          keyExtractor={(item) => item.id}
         />
       </View>
     );
