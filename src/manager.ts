@@ -4,6 +4,12 @@ import { MatchMonitor, MatchMonitorMode } from "./matchmonitor";
 import { LocationManager, GPSConfig } from "./locationmanager";
 import * as models from "./model/models";
 import { IPersistenceManager, InMemoryPersistenceManager } from "./persistence";
+import PlatformConfig from './platform';
+
+export {
+  PlatformConfig,
+  MatchMonitorMode,
+}
 
 export interface Token {
   sub: string;
@@ -38,6 +44,10 @@ export class Manager {
     else this.apiUrlOverride = this.defaultClient.basePath;
     this._matchMonitor = new MatchMonitor(this);
     this._locationManager = new LocationManager(this, gpsConfig);
+  }
+  
+  async load(): Promise<Boolean> {
+    return await this._persistenceManager.load();
   }
 
   get apiUrl() {

@@ -1,18 +1,16 @@
+export interface StorageInterface {
+  save: (key: string, value: string) => boolean;
+  load: (key: string) => any;
+  remove: (key: string) => boolean;
+}
+
 class PlatformConfig {
-  storage: object
+  storage: StorageInterface
   webSocket: object
 
   constructor () {
     this.storage = null;
     this.webSocket = null;
-  }
-
-  set storage(s: object) {
-    this.storage = s;
-  }
-
-  set webSocket(s: object) {
-    this.webSocket = s;
   }
 }
 
