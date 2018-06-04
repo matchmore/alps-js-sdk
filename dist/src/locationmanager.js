@@ -8,7 +8,13 @@ var LocationManager = (function () {
             if (_this._onLocationUpdate) {
                 _this._onLocationUpdate(loc);
             }
-            _this.manager.updateLocation(loc.coords);
+            var _a = loc.coords, latitude = _a.latitude, longitude = _a.longitude, altitude = _a.altitude;
+            var coords = {
+                latitude: latitude,
+                longitude: longitude,
+                altitude: altitude || 0,
+            };
+            _this.manager.updateLocation(coords);
         };
         this._gpsConfig = config || {
             enableHighAccuracy: false,

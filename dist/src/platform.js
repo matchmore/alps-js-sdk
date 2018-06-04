@@ -5,6 +5,14 @@ var PlatformConfig = (function () {
     }
     Object.defineProperty(PlatformConfig.prototype, "storage", {
         set: function (s) {
+            this.storage = s;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(PlatformConfig.prototype, "webSocket", {
+        set: function (s) {
+            this.webSocket = s;
         },
         enumerable: true,
         configurable: true

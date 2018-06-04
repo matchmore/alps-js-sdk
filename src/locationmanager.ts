@@ -57,7 +57,13 @@ export class LocationManager {
     if (this._onLocationUpdate) {
       this._onLocationUpdate(loc);
     }
-    this.manager.updateLocation(loc.coords);
+    const { latitude, longitude, altitude } = loc.coords;
+    const coords = {
+      latitude,
+      longitude,
+      altitude: altitude || 0,
+    }
+    this.manager.updateLocation(coords);
   }
 
   private onError(error) {
