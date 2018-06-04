@@ -6,21 +6,17 @@
 
 import React, { Component } from "react";
 import { Manager } from "matchmore";
-import { Platform, StyleSheet, Text, View, FlatList } from "react-native";
-import {MatchMonitorMode} from "../../dist/src/matchmonitor";
+import { StyleSheet, View, Dimensions, Switch } from "react-native";
+import MapView, { Marker, AnimatedRegion } from 'react-native-maps';
+import FollowMeView from './FollowMeView';
+
+const { width, height } = Dimensions.get('window');
+
+const apiKey = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJpc3MiOiJhbHBzIiwic3ViIjoiZmUwNjk5ZDgtNTFkYS00ZGQ5LWIwNTUtMjM1ODJlNGVjYzM2IiwiYXVkIjpbIlB1YmxpYyJdLCJuYmYiOjE1Mjc1MTU0MDIsImlhdCI6MTUyNzUxNTQwMiwianRpIjoiMSJ9.aEXifqwUatHmUKoVsB0SFao5mfQioXAX8r4ehgBzhJ5zoa_WKSOYREEipSDYQFoYTuL-du13KkWvoQaZS6Fgsg";
 
 type Props = {};
 export default class App extends Component<Props> {
-  _manager = new Manager(
-    "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJpc3MiOiJhbHBzIiwic3ViIjoiZmUwNjk5ZDgtNTFkYS00ZGQ5LWIwNTUtMjM1ODJlNGVjYzM2IiwiYXVkIjpbIlB1YmxpYyJdLCJuYmYiOjE1Mjc1MTU0MDIsImlhdCI6MTUyNzUxNTQwMiwianRpIjoiMSJ9.aEXifqwUatHmUKoVsB0SFao5mfQioXAX8r4ehgBzhJ5zoa_WKSOYREEipSDYQFoYTuL-du13KkWvoQaZS6Fgsg",
-    undefined,
-    undefined,
-    {
-      enableHighAccuracy: false,
-      timeout: 60000,
-      maximumAge: 60000
-    }
-  );
+  manager = null;
 
   constructor(props) {
     super(props);
@@ -31,92 +27,110 @@ export default class App extends Component<Props> {
   }
 
   async componentDidMount() {
+    this.initManager();
+    this.createDevice();
+  }
+
+  initManager() {
     console.log("Setting up")
-    let manager = this._manager;
-    manager
-      .createMobileDevice("me", "browser", "")
-      .then(device => {
-        manager.onMatch = match => {
-          console.log("you got match", match)
-          this.setState(previousState => {
-            return { matches: [ ...previousState.matches, match ] };
-          });
-        };
-        manager.startMonitoringMatches();
-        return device;
-      })
-      .then(device => {
-        //lets wait for the current location
-        let location = new Promise(resolve => {
-          manager.onLocationUpdate = location => {
-            console.log("Got location ", location)
-            this.setState({ coords: location.coords })
-            resolve(location);
-          }
-        });
 
-        manager.startUpdatingLocation();
-        console.log("Started Location updates")
+    this.manager = new Manager(
+      apiKey,
+      undefined,
+      undefined,
+      {
+        enableHighAccuracy: false,
+        timeout: 60000,
+        maximumAge: 60000
+      }
+    )
 
-        location
-          .then(location => {
-            let publication = manager
-              .createPinDevice("Our test pin", location.coords)
-              .then(pin => {
-                console.log("Created pin", pin)
-                let p1 = manager.createPublication(
-                  "my-topic",
-                  99999 /* m */,
-                  20 /* s */,
-                  { age: 20, name: "Clara" },
-                  pin.id
-                );
-                let p2 = manager.createPublication(
-                  "my-topic",
-                  99999 /* m */,
-                  20 /* s */,
-                  { age: 18, name: "Justine" },
-                  pin.id
-                );
-                let p3 = manager.createPublication(
-                  "my-topic",
-                  99999 /* m */,
-                  20 /* s */,
-                  { age: 17, name: "Alex" },
-                  pin.id
-                );
-                return Promise.all([p1, p2, p3]);
-              });
-          })
-          .then(_ => {
-            console.log("Created publications")
-            let subscription = manager.createSubscription(
-              "my-topic",
-              99999 /* m */,
-              20 /* s */,
-              "age >= 18"
-            );
-            return subscription;
-          });
-      }).catch(error => {
-        console.error(error);
+    this.manager.onLocationUpdate = (location) => {
+      console.log("BINHNX: Got location ", location);
+      this.createPin(location);
+      this.setState({ coords: location.coords });
+    }
+
+    this.manager.onMatch = match => {
+      console.log("BINHNX: Got new match", match);
+      this.setState(previousState => {
+        return { matches: [ ...previousState.matches, match ] };
+      });
+    };
+  }
+
+  createDevice() {
+    this.manager.createMobileDevice("me", "browser", "")
+      .then((device) => {
+        console.log("Device added", device);
+        this.manager.startUpdatingLocation();
+        this.manager.startMonitoringMatches();
+        this.subscribe();
       });
   }
 
+  subscribe() {
+    let subscription = this.manager.createSubscription(
+      "my-topic",
+      99999 /* m */,
+      20 /* s */,
+      "age >= 18"
+    );
+    return subscription;
+  }
+
+  createPin(location) {
+    this.manager.createPinDevice("Our test pin", location.coords)
+      .then((pin) => {
+        console.log("Created pin", pin)
+        let p1 = this.manager.createPublication(
+          "my-topic",
+          99999 /* m */,
+          20 /* s */,
+          { age: 20, name: "Clara" },
+          pin.id
+        );
+        let p2 = this.manager.createPublication(
+          "my-topic",
+          99999 /* m */,
+          20 /* s */,
+          { age: 18, name: "Justine" },
+          pin.id
+        );
+        let p3 = this.manager.createPublication(
+          "my-topic",
+          99999 /* m */,
+          20 /* s */,
+          { age: 17, name: "Alex" },
+          pin.id
+        );
+        return Promise.all([p1, p2, p3]);
+      });
+  }
+
+  mapRegion() {
+    if (this.state.coords) {
+      return {
+        ...this.state.coords,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      }
+    }
+    return undefined;
+  }
+
   render() {
-    console.log(this.state.matches);
     return (
-      <View style={styles.container}>
-        <Text>You got matches:</Text>
-        { this.state.coords && (
-          <Text>Lat: {this.state.coords.latitude}, Lng: {this.state.coords.longitude}</Text>
+      <MapView ref={(ref) => this.map = ref} style={{ height, width }} region={this.mapRegion()}>
+        <FollowMeView />
+        {this.state.coords && (
+          <Marker.Animated coordinate={this.state.coords} />
         )}
-        <FlatList
-          data={this.state.matches}
-          renderItem={({ item }) => <Text>{item.publication.deviceId}</Text>}
-          keyExtractor={(item) => item.id}
-        />
-      </View>
+        {this.state.matches.map(match => (
+          <Marker.Animated coordinate={match.publication.location} pinColor="blue"/>
+        ))}
+        <View style={{ height: 40, width: 40 }}/>
+      </MapView>
     );
   }
 }
