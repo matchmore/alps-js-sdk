@@ -11,12 +11,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const ScalpsCoreRestApi = require("matchmore_alps_core_rest_api");
 const Base64 = require("Base64");
 const matchmonitor_1 = require("./matchmonitor");
-exports.MatchMonitorMode = matchmonitor_1.MatchMonitorMode;
 const locationmanager_1 = require("./locationmanager");
 const models = require("./model/models");
-const persistence_1 = require("./persistence");
-const platform_1 = require("./platform");
-exports.PlatformConfig = platform_1.default;
+const index_1 = require("./index");
 class Manager {
     constructor(apiKey, apiUrlOverride, persistenceManager, gpsConfig) {
         this.apiKey = apiKey;
@@ -24,7 +21,7 @@ class Manager {
         if (!apiKey)
             throw new Error("Api key required");
         this._persistenceManager =
-            persistenceManager || new persistence_1.InMemoryPersistenceManager();
+            persistenceManager || new index_1.InMemoryPersistenceManager();
         this.defaultClient = ScalpsCoreRestApi.ApiClient.instance;
         this.token = JSON.parse(Base64.atob(this.apiKey.split(".")[1])); // as Token;
         this.defaultClient.authentications["api-key"].apiKey = this.apiKey;

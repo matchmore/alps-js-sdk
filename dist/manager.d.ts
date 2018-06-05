@@ -1,9 +1,7 @@
 import { MatchMonitorMode } from "./matchmonitor";
 import { GPSConfig } from "./locationmanager";
 import * as models from "./model/models";
-import { IPersistenceManager } from "./persistence";
-import PlatformConfig from './platform';
-export { PlatformConfig, MatchMonitorMode, };
+import { IPersistenceManager } from "./index";
 export interface Token {
     sub: string;
 }

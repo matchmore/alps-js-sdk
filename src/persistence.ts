@@ -1,9 +1,4 @@
 import * as models from "./model/models";
-import InMemoryPersistenceManager from './persistences/InMemoryPersistenceManager';
-
-export {
-  InMemoryPersistenceManager,
-};
 
 export type MatchmoreEntity = models.Device | models.Publication | models.Subscription;
 export interface IPersistenceManager {
