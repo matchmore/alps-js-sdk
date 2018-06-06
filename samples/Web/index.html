@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <meta charset="utf-8" />
 <title>Marchmore </title>
-<script src="../../build/matchmore.js"></script>
+<script src="../../dist/web/matchmore.js"></script>
 <script language="javascript" type="text/javascript">
+    const apiKey = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJpc3MiOiJhbHBzIiwic3ViIjoiZmUwNjk5ZDgtNTFkYS00ZGQ5LWIwNTUtMjM1ODJlNGVjYzM2IiwiYXVkIjpbIlB1YmxpYyJdLCJuYmYiOjE1Mjc1MTU0MDIsImlhdCI6MTUyNzUxNTQwMiwianRpIjoiMSJ9.aEXifqwUatHmUKoVsB0SFao5mfQioXAX8r4ehgBzhJ5zoa_WKSOYREEipSDYQFoYTuL-du13KkWvoQaZS6Fgsg";
     function run() {
         let output = document.getElementById("output");
         function writeToScreen(message) {
@@ -13,30 +14,46 @@
         }
         function runExample() {
             writeToScreen("Starting!");
+            matchmore.PlatformConfig.storage = {
+              save: (key, value) => window.localStorage.setItem(key, value),
+              load: (key) => window.localStorage.getItem(key),
+              remove: (key) => window.localStorage.removeItem(key),
+            }
+            const localStoragePersistenceManager = new matchmore.LocalStoragePersistenceManager();
 
-            let manager = new matchmore.Manager("***REMOVED***");
+            let manager = new matchmore.Manager(
+              apiKey,
+              undefined,
+              localStoragePersistenceManager
+            );
             manager.createMobileDevice("me", "browser", "").then(device => {
                 manager.startMonitoringMatches();
-                manager.onMatch(match => {
+                manager.onMatch = (match) => {
                     writeToScreen(match.publication.properties.name + " matched!");
-                });
+                };
                 return device;
             }).then(device => {
                 writeToScreen("Created mobile device");
                 //lets wait for the current location
                 let location = new Promise(resolve => {
-                    manager.onLocationUpdate(loc => {
+                    manager.onLocationUpdate = (loc) => {
                         writeToScreen("Got Location");
                         resolve(loc);
-                    }); 
+                    };
                     manager.startUpdatingLocation();
                     
                 });
 
                 location.then(location => {
+                  const { latitude, longitude, altitude } = location.coords;
+                  const coords = {
+                    latitude,
+                    longitude,
+                    altitude: altitude || 0,
+                  }
                     let publication = manager.createPinDevice(
                         "Our test pin",
-                        location
+                        coords,
                     ).then(pin => {
                         writeToScreen("Created pin device");
                         let p1 = manager.createPublication(

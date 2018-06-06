@@ -1,6 +1,6 @@
 import { Manager } from "./manager";
 import * as models from "./model/models";
-import WebSocket = require("websocket");
+// import WebSocket = require("websocket");
 
 export enum MatchMonitorMode {
   polling,
@@ -28,7 +28,7 @@ export class MatchMonitor {
   public startMonitoringMatches(mode: MatchMonitorMode) {
     if (!this.manager.defaultDevice)
       throw new Error("Default device not yet set!");
-    if (mode == MatchMonitorMode.polling) {
+    if (mode === undefined || mode ==+ MatchMonitorMode.polling) {
       this.stopMonitoringMatches();
       let timer = setInterval(() => {
         this.checkMatches();
@@ -46,7 +46,7 @@ export class MatchMonitor {
       let ws = new WebSocket(socketUrl, ["api-key", this.manager.token.sub]);
       ws.onopen = msg => console.log("opened");
       ws.onerror = msg => console.log(msg);
-      ws.onmessage = msg => this.checkMatch(msg.data as string);
+      ws.onmessage = msg => this.checkMatch(msg.data);
     }
   }
 
@@ -63,7 +63,7 @@ export class MatchMonitor {
         .getMatch(matchId, this.manager.defaultDevice.id)
         .then(match => {
           this._deliveredMatches.push(match);
-          this.onMatch(match);
+          this._onMatch(match);
         });
     }
   }
@@ -74,7 +74,7 @@ export class MatchMonitor {
         let match = matches[idx];
         if (this.hasNotBeenDelivered(match)) {
           this._deliveredMatches.push(match);
-          this.onMatch(match);
+          this._onMatch(match);
         }
       }
     });

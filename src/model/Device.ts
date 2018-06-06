@@ -42,5 +42,4 @@ export interface Device {
     name?: string;
 
     deviceType?: models.DeviceType;
-
 }
