@@ -1,6 +1,6 @@
 {
   "name": "matchmore",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "description": "We_connect_things",
   "license": "MIT",
   "main": "dist/index.js",
