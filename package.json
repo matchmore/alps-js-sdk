@@ -1,15 +1,14 @@
 {
   "name": "matchmore",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "We_connect_things",
   "license": "MIT",
-  "browser": "build/matchmore.min.js",
-  "main": "build/matchmore.js",
+  "main": "dist/index.js",
   "homepage": "https://matchmore.io",
   "scripts": {
     "build": "tsc",
     "test": "./node_modules/.bin/mocha --compilers ts:ts-node/register ./test/**/*.ts",
-    "browserify": "browserify ./lib/src/manager.js --standalone matchmore > ./build/matchmore.js",
+    "browserify": "browserify ./dist/index.js --standalone matchmore > ./dist/web/matchmore.js",
     "reactify": "browserify -t [ babelify --presets [ react-native-stage-0 ] ] ./lib/src/manager.js --standalone matchmore > ./build/matchmore-react.js",
     "minify": "browserify ./lib/src/manager.js --standalone matchmore | uglifyjs -cm > ./build/matchmore.min.js"
   },

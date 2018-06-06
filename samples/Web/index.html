@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<title>Marchmore </title>
+<script src="../../dist/web/matchmore.js"></script>
+<script language="javascript" type="text/javascript">
+    const apiKey = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJpc3MiOiJhbHBzIiwic3ViIjoiZmUwNjk5ZDgtNTFkYS00ZGQ5LWIwNTUtMjM1ODJlNGVjYzM2IiwiYXVkIjpbIlB1YmxpYyJdLCJuYmYiOjE1Mjc1MTU0MDIsImlhdCI6MTUyNzUxNTQwMiwianRpIjoiMSJ9.aEXifqwUatHmUKoVsB0SFao5mfQioXAX8r4ehgBzhJ5zoa_WKSOYREEipSDYQFoYTuL-du13KkWvoQaZS6Fgsg";
+    function run() {
+        let output = document.getElementById("output");
+        function writeToScreen(message) {
+            var pre = document.createElement("p");
+            pre.style.wordWrap = "break-word";
+            pre.innerHTML = message;
+            output.appendChild(pre);
+        }
+        function runExample() {
+            writeToScreen("Starting!");
+            matchmore.PlatformConfig.storage = {
+              save: (key, value) => window.localStorage.setItem(key, value),
+              load: (key) => window.localStorage.getItem(key),
+              remove: (key) => window.localStorage.removeItem(key),
+            }
+            const localStoragePersistenceManager = new matchmore.LocalStoragePersistenceManager();
+
+            let manager = new matchmore.Manager(
+              apiKey,
+              undefined,
+              localStoragePersistenceManager
+            );
+            manager.createMobileDevice("me", "browser", "").then(device => {
+                manager.startMonitoringMatches();
+                manager.onMatch = (match) => {
+                    writeToScreen(match.publication.properties.name + " matched!");
+                };
+                return device;
+            }).then(device => {
+                writeToScreen("Created mobile device");
+                //lets wait for the current location
+                let location = new Promise(resolve => {
+                    manager.onLocationUpdate = (loc) => {
+                        writeToScreen("Got Location");
+                        resolve(loc);
+                    };
+                    manager.startUpdatingLocation();
+                    
+                });
+
+                location.then(location => {
+                  const { latitude, longitude, altitude } = location.coords;
+                  const coords = {
+                    latitude,
+                    longitude,
+                    altitude: altitude || 0,
+                  }
+                    let publication = manager.createPinDevice(
+                        "Our test pin",
+                        coords,
+                    ).then(pin => {
+                        writeToScreen("Created pin device");
+                        let p1 = manager.createPublication(
+                            "my-topic",
+                            100 /* m */,
+                            20 /* s */,
+                            { "age": 20, "name": "Clara" },
+                            pin.id);
+                        let p2 = manager.createPublication(
+                            "my-topic",
+                            100 /* m */,
+                            20 /* s */,
+                            { "age": 18, "name": "Justine" },
+                            pin.id);
+                        let p3 = manager.createPublication(
+                            "my-topic",
+                            100 /* m */,
+                            20 /* s */,
+                            { "age": 17, "name": "Alex" },
+                            pin.id);
+                        return Promise.all([p1, p2, p3]);
+                    });
+                }).then(_ => {
+                    let subscription = manager.createSubscription(
+                        "my-topic",
+                        100 /* m */,
+                        20 /* s */,
+                        "age >= 18"
+                    );
+                    return subscription;
+                });
+            
+            });
+        }
+        runExample();
+    }
+    window.addEventListener("load", run, false);
+</script>
+
+<h2>Matchmore dating!</h2>
+
+<div id="output"></div>
