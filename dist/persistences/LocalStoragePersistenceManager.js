@@ -10,7 +10,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 const persistence_1 = require("../persistence");
 const platform_1 = require("../platform");
-const Storage = platform_1.default.storage;
 const storageKey = '@matchmoreSdk:data';
 class LocalStoragePersistenceManager {
     constructor() {
@@ -31,16 +30,19 @@ class LocalStoragePersistenceManager {
         if (persistence_1.MatchmoreEntityDiscriminator.isDevice(entity)) {
             let device = entity;
             this._devices.push(device);
+            this.save();
             return;
         }
         if (persistence_1.MatchmoreEntityDiscriminator.isPublication(entity)) {
             let pub = entity;
             this._publications.push(pub);
+            this.save();
             return;
         }
         if (persistence_1.MatchmoreEntityDiscriminator.isSubscription(entity)) {
             let sub = entity;
             this._subscriptions.push(sub);
+            this.save();
             return;
         }
     }
@@ -51,13 +53,14 @@ class LocalStoragePersistenceManager {
         this.add(device);
         if (isDefault)
             this._defaultDevice = device;
+        this.save();
     }
     onLoad(onLoad) {
         this._onLoad = onLoad;
     }
     load() {
         return __awaiter(this, void 0, void 0, function* () {
-            const dataString = yield Storage.load(storageKey);
+            const dataString = yield platform_1.default.storage.load(storageKey);
             const data = JSON.parse(dataString);
             if (data) {
                 this._devices = data.devices.map((deviceObject) => deviceObject);
@@ -76,7 +79,7 @@ class LocalStoragePersistenceManager {
                 publications: this._publications,
                 defaultDevice: this._defaultDevice,
             };
-            return yield Storage.save(storageKey, JSON.stringify(saveData));
+            return yield platform_1.default.storage.save(storageKey, JSON.stringify(saveData));
         });
     }
 }

@@ -5,9 +5,10 @@
  */
 
 import React, { Component } from "react";
-import { Manager } from "matchmore";
-import { StyleSheet, View, Dimensions, Switch } from "react-native";
-import MapView, { Marker, AnimatedRegion } from 'react-native-maps';
+import "./src/PlatformConfig";
+import { Manager, LocalStoragePersistenceManager } from "matchmore";
+import { StyleSheet, View, Dimensions } from "react-native";
+import MapView, { Marker } from 'react-native-maps';
 import FollowMeView from './FollowMeView';
 
 const { width, height } = Dimensions.get('window');
@@ -27,17 +28,18 @@ export default class App extends Component<Props> {
   }
 
   async componentDidMount() {
-    this.initManager();
+    await this.initManager();
     this.createDevice();
   }
 
-  initManager() {
-    console.log("Setting up")
-
+  async initManager() {
+    const localPersistenceManager = new LocalStoragePersistenceManager();
+    await localPersistenceManager.load();
     this.manager = new Manager(
       apiKey,
       undefined,
-      undefined,
+      localPersistenceManager,
+      // undefined,
       {
         enableHighAccuracy: false,
         timeout: 60000,
@@ -122,14 +124,12 @@ export default class App extends Component<Props> {
   render() {
     return (
       <MapView ref={(ref) => this.map = ref} style={{ height, width }} region={this.mapRegion()}>
-        <FollowMeView />
         {this.state.coords && (
-          <Marker.Animated coordinate={this.state.coords} />
+          <Marker coordinate={this.state.coords} />
         )}
         {this.state.matches.map(match => (
-          <Marker.Animated coordinate={match.publication.location} pinColor="blue"/>
+          <Marker key={match.id} coordinate={match.publication.location} pinColor="blue"/>
         ))}
-        <View style={{ height: 40, width: 40 }}/>
       </MapView>
     );
   }

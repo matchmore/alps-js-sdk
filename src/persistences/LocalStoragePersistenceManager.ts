@@ -5,8 +5,6 @@ import {
   Subscription,
 } from "../model/models";
 import PlatformConfig from '../platform';
-
-const Storage = PlatformConfig.storage;
 const storageKey = '@matchmoreSdk:data';
 
 export default class LocalStoragePersistenceManager implements IPersistenceManager {
@@ -32,18 +30,21 @@ export default class LocalStoragePersistenceManager implements IPersistenceManag
     if (MatchmoreEntityDiscriminator.isDevice(entity)) {
       let device: Device = entity;
       this._devices.push(device);
+      this.save();
       return;
     }
     
     if (MatchmoreEntityDiscriminator.isPublication(entity)) {
       let pub: Publication = entity;
       this._publications.push(pub);
+      this.save();
       return;
     }
     
     if (MatchmoreEntityDiscriminator.isSubscription(entity)) {
       let sub: Subscription = entity;
       this._subscriptions.push(sub);
+      this.save();
       return;
     }
   }
@@ -55,6 +56,7 @@ export default class LocalStoragePersistenceManager implements IPersistenceManag
   addDevice(device: Device, isDefault?: boolean) {
     this.add(device);
     if (isDefault) this._defaultDevice = device;
+    this.save();
   }
   
   onLoad(onLoad: (state: IPersistenceManager) => void) {
@@ -62,7 +64,7 @@ export default class LocalStoragePersistenceManager implements IPersistenceManag
   }
   
   async load(): Promise<Boolean> {
-    const dataString = await Storage.load(storageKey);
+    const dataString = await PlatformConfig.storage.load(storageKey);
     const data = JSON.parse(dataString);
     if (data) {
       this._devices = data.devices.map((deviceObject) => <Device>deviceObject);
@@ -80,6 +82,6 @@ export default class LocalStoragePersistenceManager implements IPersistenceManag
       publications: this._publications,
       defaultDevice: this._defaultDevice,
     }
-    return await Storage.save(storageKey, JSON.stringify(saveData));
+    return await PlatformConfig.storage.save(storageKey, JSON.stringify(saveData));
   }
 }

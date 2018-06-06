@@ -5,7 +5,7 @@ const save = async (key, value) => {
 }
 
 const load = async (key) => {
-  return await AsyncStorage.getKey(key);
+  return await AsyncStorage.getItem(key);
 }
 
 const remove = async (key) => {
@@ -15,5 +15,5 @@ const remove = async (key) => {
 module.exports = {
   save,
   load,
-  remove
+  remove,
 }
