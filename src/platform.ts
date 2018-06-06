@@ -4,7 +4,8 @@ export interface StorageInterface {
   remove: (key: string) => boolean;
 }
 
-class PlatformConfig {
+export class PlatformConfig {
+  private static instance: PlatformConfig;
   storage: StorageInterface
   webSocket: object
 
@@ -12,7 +13,14 @@ class PlatformConfig {
     this.storage = null;
     this.webSocket = null;
   }
+  
+  static getInstance() {
+    if (!PlatformConfig.instance) {
+      PlatformConfig.instance = new PlatformConfig();
+    }
+    return PlatformConfig.instance;
+  }
 }
 
-const instance = new PlatformConfig()
+const instance = PlatformConfig.getInstance()
 export default instance

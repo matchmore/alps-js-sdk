@@ -3,6 +3,7 @@
 <title>Marchmore </title>
 <script src="../../dist/web/matchmore.js"></script>
 <script language="javascript" type="text/javascript">
+    const apiKey = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJpc3MiOiJhbHBzIiwic3ViIjoiZmUwNjk5ZDgtNTFkYS00ZGQ5LWIwNTUtMjM1ODJlNGVjYzM2IiwiYXVkIjpbIlB1YmxpYyJdLCJuYmYiOjE1Mjc1MTU0MDIsImlhdCI6MTUyNzUxNTQwMiwianRpIjoiMSJ9.aEXifqwUatHmUKoVsB0SFao5mfQioXAX8r4ehgBzhJ5zoa_WKSOYREEipSDYQFoYTuL-du13KkWvoQaZS6Fgsg";
     function run() {
         let output = document.getElementById("output");
         function writeToScreen(message) {
@@ -13,8 +14,18 @@
         }
         function runExample() {
             writeToScreen("Starting!");
+            matchmore.PlatformConfig.storage = {
+              save: (key, value) => window.localStorage.setItem(key, value),
+              load: (key) => window.localStorage.getItem(key),
+              remove: (key) => window.localStorage.removeItem(key),
+            }
+            const localStoragePersistenceManager = new matchmore.LocalStoragePersistenceManager();
 
-            let manager = new matchmore.Manager("eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJpc3MiOiJhbHBzIiwic3ViIjoiZmUwNjk5ZDgtNTFkYS00ZGQ5LWIwNTUtMjM1ODJlNGVjYzM2IiwiYXVkIjpbIlB1YmxpYyJdLCJuYmYiOjE1Mjc1MTU0MDIsImlhdCI6MTUyNzUxNTQwMiwianRpIjoiMSJ9.aEXifqwUatHmUKoVsB0SFao5mfQioXAX8r4ehgBzhJ5zoa_WKSOYREEipSDYQFoYTuL-du13KkWvoQaZS6Fgsg");
+            let manager = new matchmore.Manager(
+              apiKey,
+              undefined,
+              localStoragePersistenceManager
+            );
             manager.createMobileDevice("me", "browser", "").then(device => {
                 manager.startMonitoringMatches();
                 manager.onMatch = (match) => {

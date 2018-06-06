@@ -7,13 +7,13 @@ export interface Token {
 }
 export declare class Manager {
     apiKey: string;
-    apiUrlOverride?: string;
+    apiUrlOverride?: string | undefined;
     private defaultClient;
     private _matchMonitor;
     private _locationManager;
     private _persistenceManager;
     token: Token;
-    constructor(apiKey: string, apiUrlOverride?: string, persistenceManager?: IPersistenceManager, gpsConfig?: GPSConfig);
+    constructor(apiKey: string, apiUrlOverride?: string | undefined, persistenceManager?: IPersistenceManager, gpsConfig?: GPSConfig);
     load(): Promise<Boolean>;
     readonly apiUrl: any;
     readonly defaultDevice: models.Device | undefined;
