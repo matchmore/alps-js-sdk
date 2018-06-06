@@ -132,6 +132,30 @@ class Manager {
             return device;
         });
     }
+    deleteDevice(deviceId, completion) {
+        let p = new Promise((resolve, reject) => {
+            let api = new ScalpsCoreRestApi.DeviceApi();
+            let callback = function (error, data, response) {
+                if (error) {
+                    reject("An error has occured while deleting device '" +
+                        deviceId +
+                        "' :" +
+                        error);
+                }
+                else {
+                    resolve();
+                }
+            };
+            api.deleteDevice(deviceId, callback);
+        });
+        return p.then(() => {
+            let d = this._persistenceManager.devices().find(d => d.id == deviceId);
+            if (d)
+                this._persistenceManager.remove(d);
+            if (completion)
+                completion();
+        });
+    }
     setDeviceType(device) {
         if (this.isMobileDevice(device)) {
             device.deviceType = models.DeviceType.MobileDevice;
@@ -199,6 +223,30 @@ class Manager {
             });
         });
     }
+    deletePublication(deviceId, pubId, completion) {
+        let p = new Promise((resolve, reject) => {
+            let api = new ScalpsCoreRestApi.DeviceApi();
+            let callback = function (error, data, response) {
+                if (error) {
+                    reject("An error has occured while deleting publication '" +
+                        pubId +
+                        "' :" +
+                        error);
+                }
+                else {
+                    resolve();
+                }
+            };
+            api.deletePublication(deviceId, pubId, callback);
+        });
+        return p.then(() => {
+            let d = this._persistenceManager.publications().find(d => d.id == pubId);
+            if (d)
+                this._persistenceManager.remove(d);
+            if (completion)
+                completion();
+        });
+    }
     /**
      * Create a subscription for a device
      * @param topic topic of the subscription
@@ -240,6 +288,30 @@ class Manager {
                     completion(subscription);
                 return subscription;
             });
+        });
+    }
+    deleteSubscription(deviceId, subId, completion) {
+        let p = new Promise((resolve, reject) => {
+            let api = new ScalpsCoreRestApi.DeviceApi();
+            let callback = function (error, data, response) {
+                if (error) {
+                    reject("An error has occured while deleting Ssbscription '" +
+                        subId +
+                        "' :" +
+                        error);
+                }
+                else {
+                    resolve();
+                }
+            };
+            api.deleteSubscription(deviceId, subId, callback);
+        });
+        return p.then(() => {
+            let d = this._persistenceManager.publications().find(d => d.id == subId);
+            if (d)
+                this._persistenceManager.remove(d);
+            if (completion)
+                completion();
         });
     }
     /**

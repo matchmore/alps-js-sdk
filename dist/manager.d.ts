@@ -51,6 +51,7 @@ export declare class Manager {
      * @param completion optional callback
      */
     createAnyDevice<T extends models.Device>(device: models.Device, completion?: (device: T) => void): Promise<T>;
+    deleteDevice(deviceId: string, completion?: () => void): Promise<void>;
     private setDeviceType(device);
     private isMobileDevice(device);
     private isPinDevice(device);
@@ -65,6 +66,7 @@ export declare class Manager {
      * @param completion optional callback
      */
     createPublication(topic: string, range: number, duration: number, properties: Object, deviceId?: string, completion?: (publication: models.Publication) => void): Promise<models.Publication>;
+    deletePublication(deviceId: string, pubId: string, completion?: () => void): Promise<void>;
     /**
      * Create a subscription for a device
      * @param topic topic of the subscription
@@ -75,6 +77,7 @@ export declare class Manager {
      * @param completion optional callback
      */
     createSubscription(topic: string, range: number, duration: number, selector?: string, deviceId?: string, completion?: (subscription: models.Subscription) => void): Promise<models.Subscription>;
+    deleteSubscription(deviceId: string, subId: string, completion?: () => void): Promise<void>;
     /**
      * Updates the device location
      * @param location

@@ -179,6 +179,35 @@ export class Manager {
       return device;
     });
   }
+
+  public deleteDevice(deviceId: string, completion?: () => void){
+  
+    let p = new Promise((resolve, reject) => {
+      let api = new ScalpsCoreRestApi.DeviceApi();
+      let callback = function (error, data, response) {
+        if (error) {
+          reject(
+            "An error has occured while deleting device '" +
+            deviceId +
+            "' :" +
+            error
+          );
+        } else {
+          resolve();
+        }
+      };
+      
+      api.deleteDevice(deviceId, callback);
+    });
+
+    return p.then(() => {
+      let d = this._persistenceManager.devices().find(d=> d.id == deviceId);
+      if(d)
+        this._persistenceManager.remove(d);
+      
+      if (completion) completion();
+    });
+  }
   
   private setDeviceType(device: models.Device): models.Device {
     if (this.isMobileDevice(device)) {
@@ -265,6 +294,35 @@ export class Manager {
       });
     });
   }
+
+  public deletePublication(deviceId: string, pubId: string, completion?: () => void){
+  
+    let p = new Promise((resolve, reject) => {
+      let api = new ScalpsCoreRestApi.DeviceApi();
+      let callback = function (error, data, response) {
+        if (error) {
+          reject(
+            "An error has occured while deleting publication '" +
+            pubId +
+            "' :" +
+            error
+          );
+        } else {
+          resolve();
+        }
+      };
+      
+      api.deletePublication(deviceId, pubId, callback);
+    });
+
+    return p.then(() => {
+      let d = this._persistenceManager.publications().find(d=> d.id == pubId);
+      if(d)
+        this._persistenceManager.remove(d);
+      
+      if (completion) completion();
+    });
+  }
   
   /**
    * Create a subscription for a device
@@ -316,6 +374,35 @@ export class Manager {
         if (completion) completion(subscription);
         return subscription;
       });
+    });
+  }
+
+  public deleteSubscription(deviceId: string, subId: string, completion?: () => void){
+  
+    let p = new Promise((resolve, reject) => {
+      let api = new ScalpsCoreRestApi.DeviceApi();
+      let callback = function (error, data, response) {
+        if (error) {
+          reject(
+            "An error has occured while deleting Ssbscription '" +
+            subId +
+            "' :" +
+            error
+          );
+        } else {
+          resolve();
+        }
+      };
+      
+      api.deleteSubscription(deviceId, subId, callback);
+    });
+
+    return p.then(() => {
+      let d = this._persistenceManager.publications().find(d=> d.id == subId);
+      if(d)
+        this._persistenceManager.remove(d);
+      
+      if (completion) completion();
     });
   }
   
