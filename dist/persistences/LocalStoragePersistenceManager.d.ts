@@ -10,6 +10,7 @@ export default class LocalStoragePersistenceManager implements IPersistenceManag
     publications(): Publication[];
     subscriptions(): Subscription[];
     add(entity: Device | Publication | Subscription): void;
+    remove(entity: Device | Publication | Subscription): void;
     defaultDevice(): Device | undefined;
     addDevice(device: Device, isDefault?: boolean): void;
     onLoad(onLoad: (state: IPersistenceManager) => void): void;

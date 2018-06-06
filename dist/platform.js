@@ -5,6 +5,13 @@ class PlatformConfig {
         this.storage = null;
         this.webSocket = null;
     }
+    static getInstance() {
+        if (!PlatformConfig.instance) {
+            PlatformConfig.instance = new PlatformConfig();
+        }
+        return PlatformConfig.instance;
+    }
 }
-const instance = new PlatformConfig();
+exports.PlatformConfig = PlatformConfig;
+const instance = PlatformConfig.getInstance();
 exports.default = instance;

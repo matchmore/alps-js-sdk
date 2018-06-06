@@ -3,10 +3,12 @@ export interface StorageInterface {
     load: (key: string) => any;
     remove: (key: string) => boolean;
 }
-declare class PlatformConfig {
+export declare class PlatformConfig {
+    private static instance;
     storage: StorageInterface;
     webSocket: object;
     constructor();
+    static getInstance(): PlatformConfig;
 }
 declare const instance: PlatformConfig;
 export default instance;

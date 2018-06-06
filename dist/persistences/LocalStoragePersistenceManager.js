@@ -46,6 +46,28 @@ class LocalStoragePersistenceManager {
             return;
         }
     }
+    remove(entity) {
+        if (persistence_1.MatchmoreEntityDiscriminator.isDevice(entity)) {
+            let device = entity;
+            if (device.id == this._defaultDevice.id)
+                throw new Error("Cannot delete default device");
+            this._devices = this._devices.filter(d => device.id != d.id);
+            this.save();
+            return;
+        }
+        if (persistence_1.MatchmoreEntityDiscriminator.isPublication(entity)) {
+            let pub = entity;
+            this._publications = this._publications.filter(d => pub.id != d.id);
+            this.save();
+            return;
+        }
+        if (persistence_1.MatchmoreEntityDiscriminator.isSubscription(entity)) {
+            let sub = entity;
+            this._subscriptions = this._subscriptions.filter(d => sub.id != d.id);
+            this.save();
+            return;
+        }
+    }
     defaultDevice() {
         return this._defaultDevice;
     }

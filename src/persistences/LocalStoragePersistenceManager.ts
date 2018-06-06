@@ -48,6 +48,30 @@ export default class LocalStoragePersistenceManager implements IPersistenceManag
       return;
     }
   }
+
+  remove(entity: Device | Publication | Subscription) {
+    if (MatchmoreEntityDiscriminator.isDevice(entity)) {
+      let device: Device = entity;
+      if (device.id == this._defaultDevice.id) throw new Error("Cannot delete default device");
+      this._devices = this._devices.filter(d=> device.id != d.id);
+      this.save();
+      return;
+    }
+
+    if (MatchmoreEntityDiscriminator.isPublication(entity)) {
+      let pub: Publication = entity;
+      this._publications = this._publications.filter(d=> pub.id != d.id);
+      this.save();
+      return;
+    }
+
+    if (MatchmoreEntityDiscriminator.isSubscription(entity)) {
+      let sub: Subscription = entity;
+      this._subscriptions = this._subscriptions.filter(d=> sub.id != d.id);
+      this.save();
+      return;
+    }
+  }
   
   defaultDevice(): Device | undefined {
     return this._defaultDevice;

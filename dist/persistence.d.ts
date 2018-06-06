@@ -10,6 +10,7 @@ export interface IPersistenceManager {
     save(): Promise<Boolean>;
     addDevice(device: models.Device, isDefault?: boolean): any;
     add(entity: MatchmoreEntity): any;
+    remove(entity: MatchmoreEntity): any;
 }
 export declare class MatchmoreEntityDiscriminator {
     static isDevice(x: any): x is models.Device;

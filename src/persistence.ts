@@ -12,6 +12,7 @@ export interface IPersistenceManager {
 
   addDevice(device: models.Device, isDefault?: boolean);
   add(entity: MatchmoreEntity);
+  remove(entity: MatchmoreEntity);
 }
 
 export class MatchmoreEntityDiscriminator {
