@@ -9,7 +9,6 @@ import "./src/PlatformConfig";
 import { Manager, LocalStoragePersistenceManager } from "matchmore";
 import { StyleSheet, View, Dimensions } from "react-native";
 import MapView, { Marker } from 'react-native-maps';
-import FollowMeView from './FollowMeView';
 
 const { width, height } = Dimensions.get('window');
 
