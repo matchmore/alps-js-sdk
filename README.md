@@ -1,52 +1,7 @@
-# Alps Javascript SDK
+# Matchmore Javascript SDK
 
-`AlpsSDK` is a contextualized publish/subscribe model which can be used to model any geolocated or proximity based mobile application.
+`MatchmoreSDK` is a contextualized publish/subscribe model which can be used to model any geolocated or proximity based mobile application.
 
-# Usage
-
-## Installation
-
-Clone the repo locally and install the dependencies from the root folder with:
-
-## Compilation
-
-Install dependencies:
-
-```
-npm install
-```
-
-To compile the project:
-
-
-```
-npm run build
-```
-
-To create a Standalone (using Browserify):
-
-```
-npm run browserify
-```
-
-Create a (greatly) minified version
-
-```
-npm run minify
-```
-
-
-
-## Testing
-
-To run the tests:
-
-*IMPORTANT* 
-Please edit `test/config.ts` to add a valid API key before to use the tests
-
-``` 
-npm test
-```
 
 ## Usage
 
@@ -80,8 +35,50 @@ this.manager = new Manager(
 )
 ```
 
+## Installation
 
-# Technologies
+Clone the repo locally and install the dependencies from the root folder with:
+
+
+
+## Testing
+
+To run the tests:
+
+*IMPORTANT* 
+Please edit `test/config.ts` to add a valid API key before to use the tests
+
+``` 
+npm test
+```
+
+
+## Compilation
+
+Install dependencies:
+
+```
+npm install
+```
+
+To compile the project:
+
+
+```
+npm run build
+```
+
+To create a Standalone (using Browserify):
+
+```
+npm run browserify
+```
+
+Create a (greatly) minified version
+
+```
+npm run minify
+```
 
 ### Testing
 
