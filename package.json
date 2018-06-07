@@ -26,8 +26,8 @@
   },
   "dependencies": {
     "Base64": "^1.0.1",
-    "matchmore_alps_core_rest_api": "file:./matchmore_alps_core_rest_api",
-    "websocket": "^1.0.25",
-    "querystring": "^0.2.0"
+    "querystring": "^0.2.0",
+    "superagent": "^3.8.3",
+    "websocket": "^1.0.25"
   }
 }
