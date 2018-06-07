@@ -14,11 +14,11 @@ Include `dist/matchmore.js` into your page and start by creating a Manager() ins
 1. Use npm to include MatchMore
 
 ```
-npm install matchmore --save
+npm install @matchmore/matchmore --save
 ```
 or
 ```
-yarn add matchmore
+yarn add @matchmore/matchmore
 ```
 
 2. Then import the library
@@ -34,10 +34,6 @@ this.manager = new Manager(
   "<Your api key>"
 )
 ```
-
-## Installation
-
-Clone the repo locally and install the dependencies from the root folder with:
 
 
 
