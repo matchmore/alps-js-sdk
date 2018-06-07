@@ -1,6 +1,6 @@
 {
   "name": "@matchmore/matchmore",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "A  cloud service for creating highly dynamic, location-based applications",
   "license": "MIT",
   "main": "dist/index.js",
