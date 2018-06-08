@@ -2,7 +2,7 @@ import {
   IPersistenceManager,
   MatchmoreEntityDiscriminator
 } from "../persistence";
-import * as models from "../model/models";
+import * as models from "../client";
 
 export default class InMemoryPersistenceManager implements IPersistenceManager {
   private _defaultDevice?: models.Device;

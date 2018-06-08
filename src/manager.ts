@@ -1,8 +1,7 @@
-import * as ScalpsCoreRestApi from "./api";
+import {Client, Subscription, Device, Publication, MobileDevice, IBeaconDevice, PinDevice, Location, Match} from "./client";
 import Base64 = require("Base64");
 import {MatchMonitor, MatchMonitorMode} from "./matchmonitor";
 import {LocationManager, GPSConfig} from "./locationmanager";
-import * as models from "./model/models";
 import {
   IPersistenceManager,
   InMemoryPersistenceManager,
@@ -15,7 +14,7 @@ export interface Token {
 type Provider<T> = (deviceId: string) => T;
 
 export class Manager {
-  private defaultClient: ScalpsCoreRestApi.ApiClient;
+  private defaultClient: Client;
   
   private _matchMonitor: MatchMonitor;
   private _locationManager: LocationManager;
@@ -31,14 +30,21 @@ export class Manager {
     if (!apiKey) throw new Error("Api key required");
     this._persistenceManager =
       persistenceManager || new InMemoryPersistenceManager();
-    this.defaultClient = ScalpsCoreRestApi.ApiClient.instance;
     
     this.token = JSON.parse(Base64.atob(this.apiKey.split(".")[1])); // as Token;
     
-    this.defaultClient.authentications["api-key"].apiKey = this.apiKey;
+    // this.defaultClient.authentications["api-key"].apiKey = this.apiKey;
     // Hack the api location (to use an overidden value if needed)
-    if (this.apiUrlOverride) this.defaultClient.basePath = this.apiUrlOverride;
-    else this.apiUrlOverride = this.defaultClient.basePath;
+    var basePath = "https://api.matchmore.io/v5";
+    if (this.apiUrlOverride) basePath = this.apiUrlOverride;
+    else this.apiUrlOverride = basePath;
+    this.defaultClient = new Client(basePath, options => {
+      options.headers["Authorization"] = this.apiKey;
+      return Promise.resolve(options);
+    }, {
+      fetch
+    });
+
     this._matchMonitor = new MatchMonitor(this);
     this._locationManager = new LocationManager(this, gpsConfig);
   }
@@ -48,22 +54,22 @@ export class Manager {
   }
   
   get apiUrl() {
-    return this.defaultClient.basePath;
+    return this.apiUrlOverride;
   }
   
-  get defaultDevice(): models.Device | undefined {
+  get defaultDevice(): Device | undefined {
     return this._persistenceManager.defaultDevice();
   }
   
-  get devices(): models.Device[] {
+  get devices(): Device[] {
     return this._persistenceManager.devices();
   }
   
-  get publications(): models.Publication[] {
+  get publications(): Publication[] {
     return this._persistenceManager.publications();
   }
   
-  get subscriptions(): models.Subscription[] {
+  get subscriptions(): Subscription[] {
     return this._persistenceManager.subscriptions();
   }
   
@@ -78,11 +84,10 @@ export class Manager {
     name: string,
     platform: string,
     deviceToken: string,
-    completion?: (device: models.MobileDevice) => void
-  ): Promise<models.MobileDevice> {
+    completion?: (device: MobileDevice) => void
+  ): Promise<MobileDevice> {
     return this.createAnyDevice(
-      <models.MobileDevice>{
-        deviceType: models.DeviceType.MobileDevice,
+      <MobileDevice>{
         name: name,
         platform: platform,
         deviceToken: deviceToken
@@ -99,15 +104,14 @@ export class Manager {
    */
   public createPinDevice(
     name: string,
-    location: models.Location,
-    completion?: (device: models.PinDevice) => void
-  ): Promise<models.PinDevice> {
+    location: Location,
+    completion?: (device: PinDevice) => void
+  ): Promise<PinDevice> {
     return this.createAnyDevice(
-      <models.PinDevice>{
-        deviceType: models.DeviceType.PinDevice,
+      new PinDevice({
         name: name,
         location: location
-      },
+      }),
       completion
     );
   }
@@ -126,18 +130,16 @@ export class Manager {
     proximityUUID: string,
     major: number,
     minor: number,
-    location: models.Location,
-    completion?: (device: models.IBeaconDevice) => void
-  ): Promise<models.IBeaconDevice> {
+    location: Location,
+    completion?: (device: IBeaconDevice) => void
+  ): Promise<IBeaconDevice> {
     return this.createAnyDevice(
-      <models.IBeaconDevice>{
-        deviceType: models.DeviceType.IBeaconDevice,
+      new IBeaconDevice({
         name: name,
         proximityUUID: proximityUUID,
         major: major,
-        minor: minor,
-        location: location
-      },
+        minor: minor
+      }),
       completion
     );
   }
@@ -147,13 +149,12 @@ export class Manager {
    * @param device whole device object
    * @param completion optional callback
    */
-  public createAnyDevice<T extends models.Device>(
-    device: models.Device,
+  public createAnyDevice<T extends Device>(
+    device: Device,
     completion?: (device: T) => void
   ): Promise<T> {
-    device = this.setDeviceType(device);
     let p = new Promise<T>((resolve, reject) => {
-      let api = new ScalpsCoreRestApi.DeviceApi();
+      let api = this.defaultClient;
       let callback = function (error, data, response) {
         if (error) {
           reject(
@@ -168,7 +169,7 @@ export class Manager {
         }
       };
       
-      api.createDevice(device, callback);
+      api.createDevice(device);
     });
     return p.then((device: T) => {
       let ddevice = this._persistenceManager.defaultDevice();
@@ -183,7 +184,7 @@ export class Manager {
   public deleteDevice(deviceId: string, completion?: () => void){
   
     let p = new Promise((resolve, reject) => {
-      let api = new ScalpsCoreRestApi.DeviceApi();
+      let api = this.defaultClient;
       let callback = function (error, data, response) {
         if (error) {
           reject(
@@ -197,7 +198,7 @@ export class Manager {
         }
       };
       
-      api.deleteDevice(deviceId, callback);
+      api.deleteDevice(deviceId);
     });
 
     return p.then(() => {
@@ -209,37 +210,37 @@ export class Manager {
     });
   }
   
-  private setDeviceType(device: models.Device): models.Device {
-    if (this.isMobileDevice(device)) {
-      device.deviceType = models.DeviceType.MobileDevice;
-      return device;
-    }
+  // private setDeviceType(device: Device): Device {
+  //   if (this.isMobileDevice(device)) {
+  //     device.deviceType = DeviceType.MobileDevice;
+  //     return device;
+  //   }
     
-    if (this.isBeaconDevice(device)) {
-      device.deviceType = models.DeviceType.IBeaconDevice;
-      return device;
-    }
+  //   if (this.isBeaconDevice(device)) {
+  //     device.deviceType = DeviceType.IBeaconDevice;
+  //     return device;
+  //   }
     
-    if (this.isPinDevice(device)) {
-      device.deviceType = models.DeviceType.PinDevice;
-      return device;
-    }
+  //   if (this.isPinDevice(device)) {
+  //     device.deviceType = DeviceType.PinDevice;
+  //     return device;
+  //   }
     
-    throw new Error("Cannot determine device type");
+  //   throw new Error("Cannot determine device type");
+  // }
+  
+  private isMobileDevice(device: Device): device is MobileDevice {
+    return (<MobileDevice>device).platform !== undefined;
   }
   
-  private isMobileDevice(device: models.Device): device is models.MobileDevice {
-    return (<models.MobileDevice>device).platform !== undefined;
-  }
-  
-  private isPinDevice(device: models.Device): device is models.PinDevice {
-    return (<models.PinDevice>device).location !== undefined;
+  private isPinDevice(device: Device): device is PinDevice {
+    return (<PinDevice>device).location !== undefined;
   }
   
   private isBeaconDevice(
-    device: models.Device
-  ): device is models.IBeaconDevice {
-    return (<models.IBeaconDevice>device).major !== undefined;
+    device: Device
+  ): device is IBeaconDevice {
+    return (<IBeaconDevice>device).major !== undefined;
   }
   
   /**
@@ -257,11 +258,11 @@ export class Manager {
     duration: number,
     properties: Object,
     deviceId?: string,
-    completion?: (publication: models.Publication) => void
-  ): Promise<models.Publication> {
-    return this.withDevice<Promise<models.Publication>>(deviceId)(deviceId => {
-      let p = new Promise<models.Publication>((resolve, reject) => {
-        let api = new ScalpsCoreRestApi.PublicationApi();
+    completion?: (publication: Publication) => void
+  ): Promise<Publication> {
+    return this.withDevice<Promise<Publication>>(deviceId)(deviceId => {
+      let p = new Promise<Publication>((resolve, reject) => {
+        let api = this.defaultClient;
         let callback = function (error, data, response) {
           if (error) {
             reject(
@@ -276,18 +277,18 @@ export class Manager {
           }
         };
         
-        let publication: models.Publication = {
+        let publication = new Publication({
           worldId: this.token.sub,
           topic: topic,
           deviceId: deviceId,
           range: range,
           duration: duration,
           properties: properties
-        };
+        });
         
-        api.createPublication(deviceId, publication, callback);
+        api.createPublication(deviceId, publication);
       });
-      return p.then((publication: models.Publication) => {
+      return p.then((publication: Publication) => {
         this._persistenceManager.add(publication);
         if (completion) completion(publication);
         return publication;
@@ -298,7 +299,7 @@ export class Manager {
   public deletePublication(deviceId: string, pubId: string, completion?: () => void){
   
     let p = new Promise((resolve, reject) => {
-      let api = new ScalpsCoreRestApi.DeviceApi();
+      let api = this.defaultClient;
       let callback = function (error, data, response) {
         if (error) {
           reject(
@@ -312,7 +313,7 @@ export class Manager {
         }
       };
       
-      api.deletePublication(deviceId, pubId, callback);
+      api.deletePublication(deviceId, pubId);
     });
 
     return p.then(() => {
@@ -339,11 +340,11 @@ export class Manager {
     duration: number,
     selector?: string,
     deviceId?: string,
-    completion?: (subscription: models.Subscription) => void
-  ): Promise<models.Subscription> {
-    return this.withDevice<Promise<models.Subscription>>(deviceId)(deviceId => {
-      let p = new Promise<models.Subscription>((resolve, reject) => {
-        let api = new ScalpsCoreRestApi.SubscriptionApi();
+    completion?: (subscription: Subscription) => void
+  ): Promise<Subscription> {
+    return this.withDevice<Promise<Subscription>>(deviceId)(deviceId => {
+      let p = new Promise<Subscription>((resolve, reject) => {
+        let api = this.defaultClient;
         let callback = function (error, data, response) {
           if (error) {
             reject(
@@ -358,18 +359,18 @@ export class Manager {
           }
         };
         
-        let subscription: models.Subscription = {
+        let subscription = new Subscription({
           worldId: this.token.sub,
           topic: topic,
           deviceId: deviceId,
           range: range,
           duration: duration,
           selector: selector || ""
-        };
+        });
         
-        api.createSubscription(deviceId, subscription, callback);
+        api.createSubscription(deviceId, subscription);
       });
-      return p.then((subscription: models.Subscription) => {
+      return p.then((subscription: Subscription) => {
         this._persistenceManager.add(subscription);
         if (completion) completion(subscription);
         return subscription;
@@ -380,7 +381,7 @@ export class Manager {
   public deleteSubscription(deviceId: string, subId: string, completion?: () => void){
   
     let p = new Promise((resolve, reject) => {
-      let api = new ScalpsCoreRestApi.DeviceApi();
+      let api = this.defaultClient;
       let callback = function (error, data, response) {
         if (error) {
           reject(
@@ -394,7 +395,7 @@ export class Manager {
         }
       };
       
-      api.deleteSubscription(deviceId, subId, callback);
+      api.deleteSubscription(deviceId, subId);
     });
 
     return p.then(() => {
@@ -413,12 +414,12 @@ export class Manager {
    * @param completion optional callback
    */
   public updateLocation(
-    location: models.Location,
+    location: Location,
     deviceId?: string,
   ): Promise<void> {
     return this.withDevice<Promise<void>>(deviceId)(deviceId => {
       let p = new Promise((resolve, reject) => {
-        let api = new ScalpsCoreRestApi.LocationApi();
+        let api = this.defaultClient;
         let callback = function (error, data, response) {
           if (error) {
             reject(
@@ -435,7 +436,7 @@ export class Manager {
           }
         };
         
-        api.createLocation(deviceId, location, callback);
+        api.createLocation(deviceId, location);
       });
       return p.then(_ => {
       });
@@ -449,11 +450,11 @@ export class Manager {
    */
   public getAllMatches(
     deviceId?: string,
-    completion?: (matches: models.Match[]) => void
-  ): Promise<models.Match[]> {
-    return this.withDevice<Promise<models.Match[]>>(deviceId)(deviceId => {
-      let p = new Promise<models.Match[]>((resolve, reject) => {
-        let api = new ScalpsCoreRestApi.DeviceApi();
+    completion?: (matches: Match[]) => void
+  ): Promise<Match[]> {
+    return this.withDevice<Promise<Match[]>>(deviceId)(deviceId => {
+      let p = new Promise<Match[]>((resolve, reject) => {
+        let api = this.defaultClient;
         let callback = function (error, data, response) {
           if (error) {
             reject("An error has occured while fetching matches: " + error);
@@ -463,9 +464,9 @@ export class Manager {
           }
         };
         
-        api.getMatches(deviceId, callback);
+        api.getMatches(deviceId);
       });
-      return p.then((matches: models.Match[]) => {
+      return p.then((matches: Match[]) => {
         if (completion) completion(matches);
         return matches;
       });
@@ -481,11 +482,11 @@ export class Manager {
     matchId,
     string,
     deviceId?: string,
-    completion?: (matches: models.Match) => void
-  ): Promise<models.Match> {
-    return this.withDevice<Promise<models.Match>>(deviceId)(deviceId => {
-      let p = new Promise<models.Match>((resolve, reject) => {
-        let api = new ScalpsCoreRestApi.DeviceApi();
+    completion?: (matches: Match) => void
+  ): Promise<Match> {
+    return this.withDevice<Promise<Match>>(deviceId)(deviceId => {
+      let p = new Promise<Match>((resolve, reject) => {
+        let api = this.defaultClient;
         let callback = function (error, data, response) {
           if (error) {
             reject("An error has occured while fetching matches: " + error);
@@ -495,9 +496,9 @@ export class Manager {
           }
         };
         
-        api.getMatch(deviceId, matchId, callback);
+        api.getMatch(deviceId, matchId);
       });
-      return p.then((matches: models.Match) => {
+      return p.then((matches: Match) => {
         if (completion) completion(matches);
         return matches;
       });
@@ -511,12 +512,12 @@ export class Manager {
    */
   public getAllPublications(
     deviceId?: string,
-    completion?: (publications: models.Publication[]) => void
+    completion?: (publications: Publication[]) => void
   ) {
-    return this.withDevice<Promise<models.Publication[]>>(deviceId)(
+    return this.withDevice<Promise<Publication[]>>(deviceId)(
       deviceId => {
-        let p = new Promise<models.Publication[]>((resolve, reject) => {
-          let api = new ScalpsCoreRestApi.DeviceApi();
+        let p = new Promise<Publication[]>((resolve, reject) => {
+          let api = this.defaultClient;
           let callback = function (error, data, response) {
             if (error) {
               reject(
@@ -528,7 +529,7 @@ export class Manager {
             }
           };
           
-          api.getPublications(deviceId, callback);
+          api.getPublications(deviceId);
         });
         return p;
       }
@@ -557,12 +558,12 @@ export class Manager {
    */
   public getAllSubscriptions(
     deviceId?: string,
-    completion?: (subscriptions: models.Subscription[]) => void
+    completion?: (subscriptions: Subscription[]) => void
   ) {
-    return this.withDevice<Promise<models.Subscription[]>>(deviceId)(
+    return this.withDevice<Promise<Subscription[]>>(deviceId)(
       deviceId => {
-        let p = new Promise<models.Subscription[]>((resolve, reject) => {
-          let api = new ScalpsCoreRestApi.DeviceApi();
+        let p = new Promise<Subscription[]>((resolve, reject) => {
+          let api = this.defaultClient;
           let callback = function (error, data, response) {
             if (error) {
               reject(
@@ -574,7 +575,7 @@ export class Manager {
             }
           };
           
-          api.getSubscriptions(deviceId, callback);
+          api.getSubscriptions(deviceId);
         });
         return p;
       }
@@ -585,7 +586,7 @@ export class Manager {
    * Registers a callback for matches
    * @param completion
    */
-  set onMatch(completion: (match: models.Match) => void) {
+  set onMatch(completion: (match: Match) => void) {
     this._matchMonitor.onMatch = completion;
   }
   
@@ -593,7 +594,7 @@ export class Manager {
    * Register a callback for location updates
    * @param completion
    */
-  set onLocationUpdate(completion: (location: models.Location) => void) {
+  set onLocationUpdate(completion: (location: Location) => void) {
     this._locationManager.onLocationUpdate = completion;
   }
   

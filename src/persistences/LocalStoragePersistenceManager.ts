@@ -3,7 +3,7 @@ import {
   Device,
   Publication,
   Subscription,
-} from "../model/models";
+} from "../client";
 import PlatformConfig from '../platform';
 const storageKey = '@matchmoreSdk:data';
 

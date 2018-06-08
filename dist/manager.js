@@ -8,11 +8,10 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const ScalpsCoreRestApi = require("./api");
+const client_1 = require("./client");
 const Base64 = require("Base64");
 const matchmonitor_1 = require("./matchmonitor");
 const locationmanager_1 = require("./locationmanager");
-const models = require("./model/models");
 const index_1 = require("./index");
 class Manager {
     constructor(apiKey, apiUrlOverride, persistenceManager, gpsConfig) {
@@ -22,14 +21,18 @@ class Manager {
             throw new Error("Api key required");
         this._persistenceManager =
             persistenceManager || new index_1.InMemoryPersistenceManager();
-        this.defaultClient = ScalpsCoreRestApi.ApiClient.instance;
         this.token = JSON.parse(Base64.atob(this.apiKey.split(".")[1])); // as Token;
-        this.defaultClient.authentications["api-key"].apiKey = this.apiKey;
+        // this.defaultClient.authentications["api-key"].apiKey = this.apiKey;
         // Hack the api location (to use an overidden value if needed)
+        var basePath = "https://api.matchmore.io/v5";
         if (this.apiUrlOverride)
-            this.defaultClient.basePath = this.apiUrlOverride;
+            basePath = this.apiUrlOverride;
         else
-            this.apiUrlOverride = this.defaultClient.basePath;
+            this.apiUrlOverride = basePath;
+        this.defaultClient = new client_1.Client(basePath, options => {
+            options.headers["Authorization"] = this.apiKey;
+            return options;
+        });
         this._matchMonitor = new matchmonitor_1.MatchMonitor(this);
         this._locationManager = new locationmanager_1.LocationManager(this, gpsConfig);
     }
@@ -39,7 +42,7 @@ class Manager {
         });
     }
     get apiUrl() {
-        return this.defaultClient.basePath;
+        return this.apiUrlOverride;
     }
     get defaultDevice() {
         return this._persistenceManager.defaultDevice();
@@ -62,7 +65,6 @@ class Manager {
      */
     createMobileDevice(name, platform, deviceToken, completion) {
         return this.createAnyDevice({
-            deviceType: models.DeviceType.MobileDevice,
             name: name,
             platform: platform,
             deviceToken: deviceToken
@@ -75,11 +77,10 @@ class Manager {
      * @param completion optional callback
      */
     createPinDevice(name, location, completion) {
-        return this.createAnyDevice({
-            deviceType: models.DeviceType.PinDevice,
+        return this.createAnyDevice(new client_1.PinDevice({
             name: name,
             location: location
-        }, completion);
+        }), completion);
     }
     /**
      * Creates an ibeacon device
@@ -91,14 +92,12 @@ class Manager {
      * @param completion optional callback
      */
     createIBeaconDevice(name, proximityUUID, major, minor, location, completion) {
-        return this.createAnyDevice({
-            deviceType: models.DeviceType.IBeaconDevice,
+        return this.createAnyDevice(new client_1.IBeaconDevice({
             name: name,
             proximityUUID: proximityUUID,
             major: major,
-            minor: minor,
-            location: location
-        }, completion);
+            minor: minor
+        }), completion);
     }
     /**
      * Create a device
@@ -106,9 +105,8 @@ class Manager {
      * @param completion optional callback
      */
     createAnyDevice(device, completion) {
-        device = this.setDeviceType(device);
         let p = new Promise((resolve, reject) => {
-            let api = new ScalpsCoreRestApi.DeviceApi();
+            let api = this.defaultClient;
             let callback = function (error, data, response) {
                 if (error) {
                     reject("An error has occured while creating device '" +
@@ -121,7 +119,7 @@ class Manager {
                     resolve(JSON.parse(response.text));
                 }
             };
-            api.createDevice(device, callback);
+            api.createDevice(device);
         });
         return p.then((device) => {
             let ddevice = this._persistenceManager.defaultDevice();
@@ -134,7 +132,7 @@ class Manager {
     }
     deleteDevice(deviceId, completion) {
         let p = new Promise((resolve, reject) => {
-            let api = new ScalpsCoreRestApi.DeviceApi();
+            let api = this.defaultClient;
             let callback = function (error, data, response) {
                 if (error) {
                     reject("An error has occured while deleting device '" +
@@ -146,7 +144,7 @@ class Manager {
                     resolve();
                 }
             };
-            api.deleteDevice(deviceId, callback);
+            api.deleteDevice(deviceId);
         });
         return p.then(() => {
             let d = this._persistenceManager.devices().find(d => d.id == deviceId);
@@ -156,21 +154,21 @@ class Manager {
                 completion();
         });
     }
-    setDeviceType(device) {
-        if (this.isMobileDevice(device)) {
-            device.deviceType = models.DeviceType.MobileDevice;
-            return device;
-        }
-        if (this.isBeaconDevice(device)) {
-            device.deviceType = models.DeviceType.IBeaconDevice;
-            return device;
-        }
-        if (this.isPinDevice(device)) {
-            device.deviceType = models.DeviceType.PinDevice;
-            return device;
-        }
-        throw new Error("Cannot determine device type");
-    }
+    // private setDeviceType(device: Device): Device {
+    //   if (this.isMobileDevice(device)) {
+    //     device.deviceType = DeviceType.MobileDevice;
+    //     return device;
+    //   }
+    //   if (this.isBeaconDevice(device)) {
+    //     device.deviceType = DeviceType.IBeaconDevice;
+    //     return device;
+    //   }
+    //   if (this.isPinDevice(device)) {
+    //     device.deviceType = DeviceType.PinDevice;
+    //     return device;
+    //   }
+    //   throw new Error("Cannot determine device type");
+    // }
     isMobileDevice(device) {
         return device.platform !== undefined;
     }
@@ -192,7 +190,7 @@ class Manager {
     createPublication(topic, range, duration, properties, deviceId, completion) {
         return this.withDevice(deviceId)(deviceId => {
             let p = new Promise((resolve, reject) => {
-                let api = new ScalpsCoreRestApi.PublicationApi();
+                let api = this.defaultClient;
                 let callback = function (error, data, response) {
                     if (error) {
                         reject("An error has occured while creating publication '" +
@@ -205,15 +203,15 @@ class Manager {
                         resolve(JSON.parse(response.text));
                     }
                 };
-                let publication = {
+                let publication = new client_1.Publication({
                     worldId: this.token.sub,
                     topic: topic,
                     deviceId: deviceId,
                     range: range,
                     duration: duration,
                     properties: properties
-                };
-                api.createPublication(deviceId, publication, callback);
+                });
+                api.createPublication(deviceId, publication);
             });
             return p.then((publication) => {
                 this._persistenceManager.add(publication);
@@ -225,7 +223,7 @@ class Manager {
     }
     deletePublication(deviceId, pubId, completion) {
         let p = new Promise((resolve, reject) => {
-            let api = new ScalpsCoreRestApi.DeviceApi();
+            let api = this.defaultClient;
             let callback = function (error, data, response) {
                 if (error) {
                     reject("An error has occured while deleting publication '" +
@@ -237,7 +235,7 @@ class Manager {
                     resolve();
                 }
             };
-            api.deletePublication(deviceId, pubId, callback);
+            api.deletePublication(deviceId, pubId);
         });
         return p.then(() => {
             let d = this._persistenceManager.publications().find(d => d.id == pubId);
@@ -259,7 +257,7 @@ class Manager {
     createSubscription(topic, range, duration, selector, deviceId, completion) {
         return this.withDevice(deviceId)(deviceId => {
             let p = new Promise((resolve, reject) => {
-                let api = new ScalpsCoreRestApi.SubscriptionApi();
+                let api = this.defaultClient;
                 let callback = function (error, data, response) {
                     if (error) {
                         reject("An error has occured while creating subscription '" +
@@ -272,15 +270,15 @@ class Manager {
                         resolve(JSON.parse(response.text));
                     }
                 };
-                let subscription = {
+                let subscription = new client_1.Subscription({
                     worldId: this.token.sub,
                     topic: topic,
                     deviceId: deviceId,
                     range: range,
                     duration: duration,
                     selector: selector || ""
-                };
-                api.createSubscription(deviceId, subscription, callback);
+                });
+                api.createSubscription(deviceId, subscription);
             });
             return p.then((subscription) => {
                 this._persistenceManager.add(subscription);
@@ -292,7 +290,7 @@ class Manager {
     }
     deleteSubscription(deviceId, subId, completion) {
         let p = new Promise((resolve, reject) => {
-            let api = new ScalpsCoreRestApi.DeviceApi();
+            let api = this.defaultClient;
             let callback = function (error, data, response) {
                 if (error) {
                     reject("An error has occured while deleting Ssbscription '" +
@@ -304,7 +302,7 @@ class Manager {
                     resolve();
                 }
             };
-            api.deleteSubscription(deviceId, subId, callback);
+            api.deleteSubscription(deviceId, subId);
         });
         return p.then(() => {
             let d = this._persistenceManager.publications().find(d => d.id == subId);
@@ -323,7 +321,7 @@ class Manager {
     updateLocation(location, deviceId) {
         return this.withDevice(deviceId)(deviceId => {
             let p = new Promise((resolve, reject) => {
-                let api = new ScalpsCoreRestApi.LocationApi();
+                let api = this.defaultClient;
                 let callback = function (error, data, response) {
                     if (error) {
                         reject("An error has occured while creating location ['" +
@@ -338,7 +336,7 @@ class Manager {
                         resolve();
                     }
                 };
-                api.createLocation(deviceId, location, callback);
+                api.createLocation(deviceId, location);
             });
             return p.then(_ => {
             });
@@ -352,7 +350,7 @@ class Manager {
     getAllMatches(deviceId, completion) {
         return this.withDevice(deviceId)(deviceId => {
             let p = new Promise((resolve, reject) => {
-                let api = new ScalpsCoreRestApi.DeviceApi();
+                let api = this.defaultClient;
                 let callback = function (error, data, response) {
                     if (error) {
                         reject("An error has occured while fetching matches: " + error);
@@ -362,7 +360,7 @@ class Manager {
                         resolve(JSON.parse(response.text));
                     }
                 };
-                api.getMatches(deviceId, callback);
+                api.getMatches(deviceId);
             });
             return p.then((matches) => {
                 if (completion)
@@ -379,7 +377,7 @@ class Manager {
     getMatch(matchId, string, deviceId, completion) {
         return this.withDevice(deviceId)(deviceId => {
             let p = new Promise((resolve, reject) => {
-                let api = new ScalpsCoreRestApi.DeviceApi();
+                let api = this.defaultClient;
                 let callback = function (error, data, response) {
                     if (error) {
                         reject("An error has occured while fetching matches: " + error);
@@ -389,7 +387,7 @@ class Manager {
                         resolve(JSON.parse(response.text));
                     }
                 };
-                api.getMatch(deviceId, matchId, callback);
+                api.getMatch(deviceId, matchId);
             });
             return p.then((matches) => {
                 if (completion)
@@ -406,7 +404,7 @@ class Manager {
     getAllPublications(deviceId, completion) {
         return this.withDevice(deviceId)(deviceId => {
             let p = new Promise((resolve, reject) => {
-                let api = new ScalpsCoreRestApi.DeviceApi();
+                let api = this.defaultClient;
                 let callback = function (error, data, response) {
                     if (error) {
                         reject("An error has occured while fetching publications: " + error);
@@ -416,7 +414,7 @@ class Manager {
                         resolve(JSON.parse(response.text));
                     }
                 };
-                api.getPublications(deviceId, callback);
+                api.getPublications(deviceId);
             });
             return p;
         });
@@ -440,7 +438,7 @@ class Manager {
     getAllSubscriptions(deviceId, completion) {
         return this.withDevice(deviceId)(deviceId => {
             let p = new Promise((resolve, reject) => {
-                let api = new ScalpsCoreRestApi.DeviceApi();
+                let api = this.defaultClient;
                 let callback = function (error, data, response) {
                     if (error) {
                         reject("An error has occured while fetching subscriptions: " + error);
@@ -450,7 +448,7 @@ class Manager {
                         resolve(JSON.parse(response.text));
                     }
                 };
-                api.getSubscriptions(deviceId, callback);
+                api.getSubscriptions(deviceId);
             });
             return p;
         });
