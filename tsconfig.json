@@ -1,23 +1,17 @@
 {
     "compilerOptions": {
         "module": "commonjs",
-        "target": "es5",
-        "noImplicitAny": false,
-        "removeComments": true,
-        "preserveConstEnums": true,
-        "outDir": "lib/",
-        "lib": ["es6", "dom"],
-        "sourceMap": true,
+        "target": "es6",
         "declaration": true,
-        "strict": true,
-        "strictNullChecks": true,
-        "strictFunctionTypes": true
+        "outDir": "./dist"
     },
     "include": [
-        "src/**/*",
-        "test/**/*"
+        "src/**/*"
     ],
     "exclude": [
-        "node_modules"
+        ".idea",
+        "build",
+        "node_modules",
+        "samples"
     ]
 }

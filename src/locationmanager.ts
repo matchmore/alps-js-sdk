@@ -50,14 +50,20 @@ export class LocationManager {
     this._onLocationUpdate = onLocationUpdate;
   }
 
-  private onLocationReceived(loc) {
+  private onLocationReceived = (loc) => {
     loc.coords.horizontalAccuracy = 1.0;
     loc.coords.verticalAccuracy = 1.0;
 
     if (this._onLocationUpdate) {
       this._onLocationUpdate(loc);
     }
-    this.manager.updateLocation(loc.coords);
+    const { latitude, longitude, altitude } = loc.coords;
+    const coords = {
+      latitude,
+      longitude,
+      altitude: altitude || 0,
+    }
+    this.manager.updateLocation(coords);
   }
 
   private onError(error) {
