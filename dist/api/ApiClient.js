@@ -169,7 +169,8 @@
         if (typeof require === 'function') {
             var fs;
             try {
-                fs = require('fs');
+                const fsPath = 'fs';
+                fs = require(fsPath);
             }
             catch (err) { }
             if (fs && fs.ReadStream && param instanceof fs.ReadStream) {
