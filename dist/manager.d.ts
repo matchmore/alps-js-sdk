@@ -7,7 +7,7 @@ export interface Token {
 }
 export declare class Manager {
     apiKey: string;
-    apiUrlOverride: string;
+    apiUrlOverride?: string;
     private defaultClient;
     private _matchMonitor;
     private _locationManager;
@@ -52,10 +52,10 @@ export declare class Manager {
      */
     createAnyDevice<T extends models.Device>(device: models.Device, completion?: (device: T) => void): Promise<T>;
     deleteDevice(deviceId: string, completion?: () => void): Promise<void>;
-    private setDeviceType(device);
-    private isMobileDevice(device);
-    private isPinDevice(device);
-    private isBeaconDevice(device);
+    private setDeviceType;
+    private isMobileDevice;
+    private isPinDevice;
+    private isBeaconDevice;
     /**
      * Create a publication for a device
      * @param topic topic of the publication
@@ -103,7 +103,7 @@ export declare class Manager {
      * @param completion optional callback
      */
     getAllPublications(deviceId?: string, completion?: (publications: models.Publication[]) => void): Promise<models.Publication[]>;
-    private withDevice<T>(deviceId?);
+    private withDevice;
     /**
      * Gets subscriptions
      * @param deviceId optional, if not provided the default device will be used

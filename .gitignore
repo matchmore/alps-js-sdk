@@ -3,3 +3,6 @@ node_modules/
 .idea
 Podfile.lock
 samples/ReactNativeSample/ios/Pods
+samples/ReactNativeSample/android/app/build
+samples/ReactNativeSample/android/build
+samples/ReactNativeSample/ios/build

@@ -15,5 +15,5 @@ export declare class LocationManager {
     stopUpdatingLocation(): void;
     onLocationUpdate: (location: models.Location) => void;
     private onLocationReceived;
-    private onError(error);
+    private onError;
 }
