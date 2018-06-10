@@ -1,4 +1,4 @@
-import ScalpsCoreRestApi = require("matchmore_alps_core_rest_api");
+import * as ScalpsCoreRestApi from "./api";
 import Base64 = require("Base64");
 import {MatchMonitor, MatchMonitorMode} from "./matchmonitor";
 import {LocationManager, GPSConfig} from "./locationmanager";

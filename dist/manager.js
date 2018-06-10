@@ -8,7 +8,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const ScalpsCoreRestApi = require("matchmore_alps_core_rest_api");
+const ScalpsCoreRestApi = require("./api");
 const Base64 = require("Base64");
 const matchmonitor_1 = require("./matchmonitor");
 const locationmanager_1 = require("./locationmanager");
