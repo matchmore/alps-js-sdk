@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "homepage": "https://matchmore.io",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && copyfiles src/**/*.js dist/",
     "test": "./node_modules/.bin/mocha --compilers ts:ts-node/register ./test/**/*.ts",
     "browserify": "browserify ./dist/index.js --standalone matchmore > ./dist/web/matchmore.js",
     "reactify": "browserify -t [ babelify --presets [ react-native-stage-0 ] ] ./lib/src/manager.js --standalone matchmore > ./build/matchmore-react.js",
@@ -20,6 +20,7 @@
     "browserify": "^16.1.1",
     "chai": "^3.5.0",
     "chai-as-promised": "^6.0.0",
+    "copyfiles": "^2.0.0",
     "mocha": "^3.2.0",
     "ts-node": "^5.0.1",
     "typescript": "^2.7.2"

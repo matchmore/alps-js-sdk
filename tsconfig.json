@@ -1,17 +1,17 @@
 {
-    "compilerOptions": {
-        "module": "commonjs",
-        "target": "es6",
-        "declaration": true,
-        "outDir": "./dist"
-    },
-    "include": [
-        "src/**/*"
-    ],
-    "exclude": [
-        ".idea",
-        "build",
-        "node_modules",
-        "samples"
-    ]
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es6",
+    "declaration": true,
+    "outDir": "./dist"
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    ".idea",
+    "build",
+    "node_modules",
+    "samples"
+  ]
 }
