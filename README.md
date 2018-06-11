@@ -24,7 +24,7 @@ yarn add @matchmore/matchmore
 2. Then import the library
 
 ```
-import { Manager } from "matchmore";
+import { Manager } from "@matchmore/matchmore";
 ```
 
 3. And then start your application with minimum config
