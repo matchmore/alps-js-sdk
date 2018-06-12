@@ -434,8 +434,9 @@
     lodash "^4.17.5"
     to-fast-properties "^2.0.0"
 
-"@matchmore/matchmore@../../":
-  version "0.7.2"
+"@matchmore/matchmore@^0.7.3":
+  version "0.7.3"
+  resolved "https://registry.yarnpkg.com/@matchmore/matchmore/-/matchmore-0.7.3.tgz#6230e726144cdfe0644dcbb96416ab50ea2f7c74"
   dependencies:
     Base64 "^1.0.1"
     querystring "^0.2.0"
