@@ -4,17 +4,18 @@
  * @flow
  */
 
-import React, { Component } from "react";
+import React, {Component} from "react";
 import "./src/PlatformConfig";
-import { Manager, LocalStoragePersistenceManager } from "matchmore";
-import { StyleSheet, View, Dimensions } from "react-native";
-import MapView, { Marker } from 'react-native-maps';
+import {Manager, LocalStoragePersistenceManager} from "@matchmore/matchmore";
+import {StyleSheet, View, Dimensions} from "react-native";
+import MapView, {Marker} from 'react-native-maps';
 
-const { width, height } = Dimensions.get('window');
+const {width, height} = Dimensions.get('window');
 
 const apiKey = "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJpc3MiOiJhbHBzIiwic3ViIjoiZmUwNjk5ZDgtNTFkYS00ZGQ5LWIwNTUtMjM1ODJlNGVjYzM2IiwiYXVkIjpbIlB1YmxpYyJdLCJuYmYiOjE1Mjc1MTU0MDIsImlhdCI6MTUyNzUxNTQwMiwianRpIjoiMSJ9.aEXifqwUatHmUKoVsB0SFao5mfQioXAX8r4ehgBzhJ5zoa_WKSOYREEipSDYQFoYTuL-du13KkWvoQaZS6Fgsg";
 
-type Props = {};
+type
+Props = {};
 export default class App extends Component<Props> {
   manager = null;
 
@@ -49,13 +50,13 @@ export default class App extends Component<Props> {
     this.manager.onLocationUpdate = (location) => {
       console.log("BINHNX: Got location ", location);
       this.createPin(location);
-      this.setState({ coords: location.coords });
+      this.setState({coords: location.coords});
     }
 
     this.manager.onMatch = match => {
       console.log("BINHNX: Got new match", match);
       this.setState(previousState => {
-        return { matches: [ ...previousState.matches, match ] };
+        return {matches: [...previousState.matches, match]};
       });
     };
   }
@@ -88,21 +89,21 @@ export default class App extends Component<Props> {
           "my-topic",
           99999 /* m */,
           20 /* s */,
-          { age: 20, name: "Clara" },
+          {age: 20, name: "Clara"},
           pin.id
         );
         let p2 = this.manager.createPublication(
           "my-topic",
           99999 /* m */,
           20 /* s */,
-          { age: 18, name: "Justine" },
+          {age: 18, name: "Justine"},
           pin.id
         );
         let p3 = this.manager.createPublication(
           "my-topic",
           99999 /* m */,
           20 /* s */,
-          { age: 17, name: "Alex" },
+          {age: 17, name: "Alex"},
           pin.id
         );
         return Promise.all([p1, p2, p3]);
@@ -122,9 +123,9 @@ export default class App extends Component<Props> {
 
   render() {
     return (
-      <MapView ref={(ref) => this.map = ref} style={{ height, width }} region={this.mapRegion()}>
+      <MapView ref={(ref) => this.map = ref} style={{height, width}} region={this.mapRegion()}>
         {this.state.coords && (
-          <Marker coordinate={this.state.coords} />
+          <Marker coordinate={this.state.coords}/>
         )}
         {this.state.matches.map(match => (
           <Marker key={match.id} coordinate={match.publication.location} pinColor="blue"/>
