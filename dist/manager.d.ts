@@ -7,7 +7,7 @@ export interface Token {
 }
 export declare class Manager {
     apiKey: string;
-    apiUrlOverride: string;
+    apiUrlOverride?: string;
     private defaultClient;
     private _matchMonitor;
     private _locationManager;
@@ -52,10 +52,10 @@ export declare class Manager {
      */
     createAnyDevice<T extends models.Device>(device: models.Device, completion?: (device: T) => void): Promise<T>;
     deleteDevice(deviceId: string, completion?: () => void): Promise<void>;
-    private setDeviceType(device);
-    private isMobileDevice(device);
-    private isPinDevice(device);
-    private isBeaconDevice(device);
+    private setDeviceType;
+    private isMobileDevice;
+    private isPinDevice;
+    private isBeaconDevice;
     /**
      * Create a publication for a device
      * @param topic topic of the publication
@@ -66,7 +66,7 @@ export declare class Manager {
      * @param completion optional callback
      */
     createPublication(topic: string, range: number, duration: number, properties: Object, deviceId?: string, completion?: (publication: models.Publication) => void): Promise<models.Publication>;
-    deletePublication(deviceId: string, pubId: string, completion?: () => void): Promise<void>;
+    deletePublication(deviceId: string, pubId: string, completion?: () => void): Promise<any>;
     /**
      * Create a subscription for a device
      * @param topic topic of the subscription
@@ -77,7 +77,7 @@ export declare class Manager {
      * @param completion optional callback
      */
     createSubscription(topic: string, range: number, duration: number, selector?: string, deviceId?: string, completion?: (subscription: models.Subscription) => void): Promise<models.Subscription>;
-    deleteSubscription(deviceId: string, subId: string, completion?: () => void): Promise<void>;
+    deleteSubscription(deviceId: string, subId: string, completion?: () => void): Promise<any>;
     /**
      * Updates the device location
      * @param location
@@ -102,14 +102,15 @@ export declare class Manager {
      * @param deviceId optional, if not provided the default device will be used
      * @param completion optional callback
      */
-    getAllPublications(deviceId?: string, completion?: (publications: models.Publication[]) => void): Promise<models.Publication[]>;
-    private withDevice<T>(deviceId?);
+    getAllPublications(deviceId?: string, completion?: (publications: models.Publication[]) => void): Promise<any>;
+    private deviceWithId;
+    private withDevice;
     /**
      * Gets subscriptions
      * @param deviceId optional, if not provided the default device will be used
      * @param completion optional callback
      */
-    getAllSubscriptions(deviceId?: string, completion?: (subscriptions: models.Subscription[]) => void): Promise<models.Subscription[]>;
+    getAllSubscriptions(deviceId?: string, completion?: (subscriptions: models.Subscription[]) => void): Promise<any>;
     /**
      * Registers a callback for matches
      * @param completion
