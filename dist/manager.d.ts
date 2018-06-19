@@ -102,7 +102,7 @@ export declare class Manager {
      * @param deviceId optional, if not provided the default device will be used
      * @param completion optional callback
      */
-    getAllPublications(deviceId?: string, completion?: (publications: models.Publication[]) => void): Promise<any>;
+    getAllPublications(deviceId?: string, completion?: (publications: models.Publication[]) => void): Promise<models.Publication[]>;
     private deviceWithId;
     private withDevice;
     /**
@@ -110,7 +110,7 @@ export declare class Manager {
      * @param deviceId optional, if not provided the default device will be used
      * @param completion optional callback
      */
-    getAllSubscriptions(deviceId?: string, completion?: (subscriptions: models.Subscription[]) => void): Promise<any>;
+    getAllSubscriptions(deviceId?: string, completion?: (subscriptions: models.Subscription[]) => void): Promise<models.Subscription[]>;
     /**
      * Registers a callback for matches
      * @param completion

@@ -422,7 +422,7 @@ export class Manager {
   public async getAllPublications(
     deviceId?: string,
     completion?: (publications: models.Publication[]) => void
-  ) {
+  ): Promise<models.Publication[]> {
     try {
       const deviceWithId = this.deviceWithId(deviceId);
       let api = new ScalpsCoreRestApi.DeviceApi();
@@ -474,7 +474,7 @@ export class Manager {
   public async getAllSubscriptions(
     deviceId?: string,
     completion?: (subscriptions: models.Subscription[]) => void
-  ) {
+  ): Promise<models.Subscription[]> {
     try {
       const deviceWithId = this.deviceWithId(deviceId);
       let api = new ScalpsCoreRestApi.DeviceApi();
