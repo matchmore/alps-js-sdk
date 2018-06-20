@@ -111,8 +111,8 @@ class Manager {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const result = yield this.api.createDevice(device);
-                let ddevice = this._persistenceManager.defaultDevice();
-                let isDefault = !ddevice;
+                const ddevice = this._persistenceManager.defaultDevice();
+                const isDefault = !ddevice;
                 this._persistenceManager.addDevice(result, isDefault);
                 return result;
             }
@@ -131,7 +131,7 @@ class Manager {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 yield this.api.deleteDevice(deviceId);
-                let d = this._persistenceManager.devices().find(d => d.id == deviceId);
+                const d = this._persistenceManager.devices().find(d => d.id == deviceId);
                 if (d)
                     this._persistenceManager.remove(d);
                 return;
@@ -154,7 +154,7 @@ class Manager {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const deviceWithId = this.deviceWithId(deviceId);
-                let publication = new client_1.Publication({
+                const publication = new client_1.Publication({
                     worldId: this.token.sub,
                     topic: topic,
                     deviceId: deviceWithId,
@@ -175,7 +175,7 @@ class Manager {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 yield this.api.deletePublication(deviceId, pubId);
-                let d = this._persistenceManager.publications().find(d => d.id == pubId);
+                const d = this._persistenceManager.publications().find(d => d.id == pubId);
                 if (d)
                     this._persistenceManager.remove(d);
             }
@@ -197,7 +197,7 @@ class Manager {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const deviceWithId = this.deviceWithId(deviceId);
-                let subscription = new client_1.Subscription({
+                const subscription = new client_1.Subscription({
                     worldId: this.token.sub,
                     topic: topic,
                     deviceId: deviceWithId,
@@ -218,7 +218,7 @@ class Manager {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const result = yield this.api.deleteSubscription(deviceId, subId);
-                let d = this._persistenceManager.publications().find(d => d.id == subId);
+                const d = this._persistenceManager.publications().find(d => d.id == subId);
                 if (d)
                     this._persistenceManager.remove(d);
                 return result;

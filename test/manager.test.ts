@@ -1,7 +1,7 @@
 // API key and apiEndpoint are stored in test/config.js
 import { environment } from "./config";
 
-// let assert = require('assert');
+// const assert = require('assert');
 import chai = require("chai");
 import chaiAsPromised = require("chai-as-promised");
 import "mocha";
@@ -24,14 +24,14 @@ const apiLocation = environment.apiLocation;
 describe("Manager", function() {
   describe("#instantiation", function() {
     it("should allow being instantiated with an apiKey", function() {
-      let mgr = new Manager(apiKey, apiLocation);
+      const mgr = new Manager(apiKey, apiLocation);
       mgr.should.have.property("apiKey");
     });
   });
 
   describe("createMobileDevice()", function() {
     it("should create and send a device back", async () => {
-      let mgr = new Manager(apiKey, apiLocation);
+      const mgr = new Manager(apiKey, apiLocation);
       const device = await mgr.createMobileDevice(
         sampleDevice.name,
         sampleDevice.platform,
@@ -43,7 +43,7 @@ describe("Manager", function() {
       chai.expect(device).to.have.property("location");
     });
     it('should define the "defaultDevice"', async () => {
-      let mgr = new Manager(apiKey, apiLocation);
+      const mgr = new Manager(apiKey, apiLocation);
       const device = await mgr.createMobileDevice(
         sampleDevice.name,
         sampleDevice.platform,
@@ -54,7 +54,7 @@ describe("Manager", function() {
       chai.assert.equal(mgr.defaultDevice, device);
     });
     it("should allow to be used as a promise", async () => {
-      let mgr = new Manager(apiKey, apiLocation);
+      const mgr = new Manager(apiKey, apiLocation);
       const device = await mgr.createMobileDevice(
         sampleDevice.name,
         sampleDevice.platform,
@@ -65,7 +65,7 @@ describe("Manager", function() {
       device.should.have.property("location");
     });
     it("should add the newly created device to devices", async () => {
-      let mgr = new Manager(apiKey, apiLocation);
+      const mgr = new Manager(apiKey, apiLocation);
       const device = await mgr.createMobileDevice(
         sampleDevice.name,
         sampleDevice.platform,
@@ -77,7 +77,7 @@ describe("Manager", function() {
   });
   describe("createPublication()", function() {
     it("should create and send a publication back", async () => {
-      let mgr = new Manager(apiKey, apiLocation);
+      const mgr = new Manager(apiKey, apiLocation);
       await mgr.createMobileDevice(
         sampleDevice.name,
         sampleDevice.platform,
@@ -95,7 +95,7 @@ describe("Manager", function() {
       publication.topic.should.equal(samplePublication.topic);
     });
     it("should add the newly created publication to publications", async () => {
-      let mgr = new Manager(apiKey, apiLocation);
+      const mgr = new Manager(apiKey, apiLocation);
       await mgr.createMobileDevice(
         sampleDevice.name,
         sampleDevice.platform,
@@ -111,8 +111,8 @@ describe("Manager", function() {
       mgr.publications.should.include(publication);
     });
     it("should not allow to be called before createUser and createMobileDevice", function() {
-      let completionDevice = function(device) {
-        let mgr = new Manager(apiKey, apiLocation);
+      const completionDevice = function(device) {
+        const mgr = new Manager(apiKey, apiLocation);
         chai
           .expect(() => {
             mgr.createPublication(
@@ -128,7 +128,7 @@ describe("Manager", function() {
   });
   describe("createSubscription()", function() {
     it("should create and send a subscription back", async () => {
-      let mgr = new Manager(apiKey, apiLocation);
+      const mgr = new Manager(apiKey, apiLocation);
       await mgr.createMobileDevice(
         sampleDevice.name,
         sampleDevice.platform,
@@ -145,7 +145,7 @@ describe("Manager", function() {
       subscription.topic.should.equal(sampleSubscription.topic);
     });
     it("should add the newly created subscription to subscriptions", async () => {
-      let mgr = new Manager(apiKey, apiLocation);
+      const mgr = new Manager(apiKey, apiLocation);
       await mgr.createMobileDevice(
         sampleDevice.name,
         sampleDevice.platform,
@@ -161,7 +161,7 @@ describe("Manager", function() {
       mgr.subscriptions.should.include(subscription);
     });
     it("should not allow to be called before createMobileDevice", function() {
-      let mgr = new Manager(apiKey, apiLocation);
+      const mgr = new Manager(apiKey, apiLocation);
       return chai
         .expect(
           mgr.createSubscription(
@@ -178,7 +178,7 @@ describe("Manager", function() {
   });
   describe("updateLocation()", function() {
     it("should create location", async () => {
-      let mgr = new Manager(apiKey, apiLocation);
+      const mgr = new Manager(apiKey, apiLocation);
       await mgr.createMobileDevice(
         sampleDevice.name,
         sampleDevice.platform,
@@ -187,7 +187,7 @@ describe("Manager", function() {
       await mgr.updateLocation(sampleLocation);
     });
     it("should not allow to be called before createMobileDevice", function() {
-      let mgr = new Manager(apiKey, apiLocation);
+      const mgr = new Manager(apiKey, apiLocation);
       return chai
         .expect(mgr.updateLocation(sampleLocation))
         .to.be.eventually.rejectedWith(
@@ -198,7 +198,7 @@ describe("Manager", function() {
 
   describe("getAllMatches()", function() {
     it("should not allow to be called before createMobileDevice", function() {
-      let mgr = new Manager(apiKey, apiLocation);
+      const mgr = new Manager(apiKey, apiLocation);
       return chai
         .expect(mgr.getAllMatches())
         .to.be.eventually.rejectedWith(
@@ -206,7 +206,7 @@ describe("Manager", function() {
         );
     });
     it("should get an empty array when no matches are available", async () => {
-      let mgr = new Manager(apiKey, apiLocation);
+      const mgr = new Manager(apiKey, apiLocation);
       await mgr.createMobileDevice(
         sampleDevice.name,
         sampleDevice.platform,
@@ -219,7 +219,7 @@ describe("Manager", function() {
   });
   describe("getAllPublications()", function() {
     it("should return an empty [] when no publication exist for a given device", async () => {
-      let mgr = new Manager(apiKey, apiLocation);
+      const mgr = new Manager(apiKey, apiLocation);
       const device = await mgr.createMobileDevice(
         sampleDevice.name,
         sampleDevice.platform,
@@ -231,7 +231,7 @@ describe("Manager", function() {
       publications.should.eql([]);
     });
     it("should return a publication when it has been created for a given device", async () => {
-      let mgr = new Manager(apiKey, apiLocation);
+      const mgr = new Manager(apiKey, apiLocation);
       const device = await mgr.createMobileDevice(
         sampleDevice.name,
         sampleDevice.platform,
@@ -252,7 +252,7 @@ describe("Manager", function() {
   });
   describe("getAllSubscriptions()", function() {
     it("should return an empty [] when no publication exist for a given device", async () => {
-      let mgr = new Manager(apiKey, apiLocation);
+      const mgr = new Manager(apiKey, apiLocation);
       const device = await mgr.createMobileDevice(
         sampleDevice.name,
         sampleDevice.platform,
@@ -263,7 +263,7 @@ describe("Manager", function() {
       subscriptions.should.eql([]);
     });
     it("should return a subscription when it has been created for a given device", async () => {
-      let mgr = new Manager(apiKey, apiLocation);
+      const mgr = new Manager(apiKey, apiLocation);
       const device = await mgr.createMobileDevice(
         sampleDevice.name,
         sampleDevice.platform,

@@ -2,7 +2,7 @@
 // API key and apiEndpoint are stored in test/config.ts
 import { environment } from "./config";
 
-// let assert = require('assert');
+// const assert = require('assert');
 import chai = require("chai");
 import chaiAsPromised = require("chai-as-promised");
 import "mocha";
@@ -30,7 +30,7 @@ function setup(
   mgr: Manager,
   onDevice?: (device: models.Device) => void
 ): Promise<{ pub: models.Publication; sub: models.Subscription }> {
-  let deviceWithSub = mgr
+  const deviceWithSub = mgr
     .createMobileDevice(
       sampleDevice.name,
       sampleDevice.platform,
@@ -49,7 +49,7 @@ function setup(
       return mgr.updateLocation(sampleLocation, sub.deviceId).then(_ => sub);
     });
 
-  let deviceWithPub = mgr
+  const deviceWithPub = mgr
     .createMobileDevice(
       sampleDevice.name,
       sampleDevice.platform,
@@ -73,7 +73,7 @@ function setup(
 
 describe("Matches", function() {
   it("should provide matches via single call", function() {
-    let mgr = new Manager(apiKey, apiLocation);
+    const mgr = new Manager(apiKey, apiLocation);
 
     setup(mgr)
       .then(f => {
@@ -82,13 +82,13 @@ describe("Matches", function() {
         });
       })
       .then(m => {
-        let matches = m.matches;
+        const matches = m.matches;
 
         matches.should.be.instanceof(Array);
         matches.should.not.be.empty;
-        let pub = m.pubsub.pub;
-        let sub = m.pubsub.sub;
-        let match = matches.filter(
+        const pub = m.pubsub.pub;
+        const sub = m.pubsub.sub;
+        const match = matches.filter(
           m => m.publication.id == pub.id && m.subscription.id == sub.id
         )[0];
         chai.assert.equal(match.publication.id, pub.id);
@@ -97,11 +97,11 @@ describe("Matches", function() {
   });
 
   it("should provide matches via polling", function() {
-    let mgr = new Manager(apiKey, apiLocation);
+    const mgr = new Manager(apiKey, apiLocation);
 
     var p: Promise<models.Match>;
 
-    let onDevice = (device: models.Device) => {
+    const onDevice = (device: models.Device) => {
       mgr.startMonitoringMatches(MatchMonitorMode.polling);
       p = new Promise<models.Match>(resolve => {
         mgr.onMatch = resolve;
@@ -109,8 +109,8 @@ describe("Matches", function() {
     };
 
     setup(mgr, onDevice).then(m => {
-      let pub = m.pub;
-      let sub = m.sub;
+      const pub = m.pub;
+      const sub = m.sub;
       return filter(
         p,
         f => f.publication.id == pub.id || f.subscription.id == sub.id
@@ -123,11 +123,11 @@ describe("Matches", function() {
 
   it("should provide matches via websocket", function() {
     this.timeout(20000);
-    let mgr = new Manager(apiKey, apiLocation);
+    const mgr = new Manager(apiKey, apiLocation);
 
     var p: Promise<models.Match>;
 
-    let onDevice = (device: models.Device) => {
+    const onDevice = (device: models.Device) => {
       mgr.startMonitoringMatches(MatchMonitorMode.websocket);
       p = new Promise<models.Match>(resolve => {
         mgr.onMatch = resolve;
@@ -135,8 +135,8 @@ describe("Matches", function() {
     };
 
     setup(mgr, onDevice).then(m => {
-      let pub = m.pub;
-      let sub = m.sub;
+      const pub = m.pub;
+      const sub = m.sub;
       return filter(
         p,
         f => f.publication.id == pub.id || f.subscription.id == sub.id

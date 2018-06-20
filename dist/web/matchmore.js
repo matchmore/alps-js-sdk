@@ -1734,8 +1734,8 @@ class Manager {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const result = yield this.api.createDevice(device);
-                let ddevice = this._persistenceManager.defaultDevice();
-                let isDefault = !ddevice;
+                const ddevice = this._persistenceManager.defaultDevice();
+                const isDefault = !ddevice;
                 this._persistenceManager.addDevice(result, isDefault);
                 return result;
             }
@@ -1754,7 +1754,7 @@ class Manager {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 yield this.api.deleteDevice(deviceId);
-                let d = this._persistenceManager.devices().find(d => d.id == deviceId);
+                const d = this._persistenceManager.devices().find(d => d.id == deviceId);
                 if (d)
                     this._persistenceManager.remove(d);
                 return;
@@ -1777,7 +1777,7 @@ class Manager {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const deviceWithId = this.deviceWithId(deviceId);
-                let publication = new client_1.Publication({
+                const publication = new client_1.Publication({
                     worldId: this.token.sub,
                     topic: topic,
                     deviceId: deviceWithId,
@@ -1798,7 +1798,7 @@ class Manager {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 yield this.api.deletePublication(deviceId, pubId);
-                let d = this._persistenceManager.publications().find(d => d.id == pubId);
+                const d = this._persistenceManager.publications().find(d => d.id == pubId);
                 if (d)
                     this._persistenceManager.remove(d);
             }
@@ -1820,7 +1820,7 @@ class Manager {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const deviceWithId = this.deviceWithId(deviceId);
-                let subscription = new client_1.Subscription({
+                const subscription = new client_1.Subscription({
                     worldId: this.token.sub,
                     topic: topic,
                     deviceId: deviceWithId,
@@ -1841,7 +1841,7 @@ class Manager {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const result = yield this.api.deleteSubscription(deviceId, subId);
-                let d = this._persistenceManager.publications().find(d => d.id == subId);
+                const d = this._persistenceManager.publications().find(d => d.id == subId);
                 if (d)
                     this._persistenceManager.remove(d);
                 return result;
@@ -2000,19 +2000,19 @@ class MatchMonitor {
             throw new Error("Default device not yet set!");
         if (mode === undefined || mode == +MatchMonitorMode.polling) {
             this.stopMonitoringMatches();
-            let timer = setInterval(() => {
+            const timer = setInterval(() => {
                 this.checkMatches();
             }, 1000);
             return;
         }
         if (mode == MatchMonitorMode.websocket) {
-            let socketUrl = this.manager.apiUrl
+            const socketUrl = this.manager.apiUrl
                 .replace("https://", "wss://")
                 .replace("http://", "ws://")
                 .replace("v5", "") +
                 "pusher/v5/ws/" +
                 this.manager.defaultDevice.id;
-            let ws = new WebSocket(socketUrl, ["api-key", this.manager.token.sub]);
+            const ws = new WebSocket(socketUrl, ["api-key", this.manager.token.sub]);
             ws.onopen = msg => console.log("opened");
             ws.onerror = msg => console.log(msg);
             ws.onmessage = msg => this.checkMatch(msg.data);
@@ -2037,8 +2037,8 @@ class MatchMonitor {
     }
     checkMatches() {
         this.manager.getAllMatches().then(matches => {
-            for (let idx in matches) {
-                let match = matches[idx];
+            for (const idx in matches) {
+                const match = matches[idx];
                 if (this.hasNotBeenDelivered(match)) {
                     this._deliveredMatches.push(match);
                     this._onMatch(match);
@@ -2047,8 +2047,8 @@ class MatchMonitor {
         });
     }
     hasNotBeenDelivered(match) {
-        for (let idx in this._deliveredMatches) {
-            let deliveredMatch = this._deliveredMatches[idx];
+        for (const idx in this._deliveredMatches) {
+            const deliveredMatch = this._deliveredMatches[idx];
             if (deliveredMatch.id == match.id)
                 return false;
         }
@@ -2107,36 +2107,36 @@ class InMemoryPersistenceManager {
     }
     add(entity) {
         if (persistence_1.MatchmoreEntityDiscriminator.isDevice(entity)) {
-            let device = entity;
+            const device = entity;
             this._devices.push(device);
             return;
         }
         if (persistence_1.MatchmoreEntityDiscriminator.isPublication(entity)) {
-            let pub = entity;
+            const pub = entity;
             this._publications.push(pub);
             return;
         }
         if (persistence_1.MatchmoreEntityDiscriminator.isSubscription(entity)) {
-            let sub = entity;
+            const sub = entity;
             this._subscriptions.push(sub);
             return;
         }
     }
     remove(entity) {
         if (persistence_1.MatchmoreEntityDiscriminator.isDevice(entity)) {
-            let device = entity;
+            const device = entity;
             if (device.id == this._defaultDevice.id)
-                throw new Error("Cannot delete default device");
+                throw new Error("Cannot deconste default device");
             this._devices = this._devices.filter(d => device.id != d.id);
             return;
         }
         if (persistence_1.MatchmoreEntityDiscriminator.isPublication(entity)) {
-            let pub = entity;
+            const pub = entity;
             this._publications = this._publications.filter(d => pub.id != d.id);
             return;
         }
         if (persistence_1.MatchmoreEntityDiscriminator.isSubscription(entity)) {
-            let sub = entity;
+            const sub = entity;
             this._subscriptions = this._subscriptions.filter(d => sub.id != d.id);
             return;
         }
@@ -2195,19 +2195,19 @@ class LocalStoragePersistenceManager {
     }
     add(entity) {
         if (persistence_1.MatchmoreEntityDiscriminator.isDevice(entity)) {
-            let device = entity;
+            const device = entity;
             this._devices.push(device);
             this.save();
             return;
         }
         if (persistence_1.MatchmoreEntityDiscriminator.isPublication(entity)) {
-            let pub = entity;
+            const pub = entity;
             this._publications.push(pub);
             this.save();
             return;
         }
         if (persistence_1.MatchmoreEntityDiscriminator.isSubscription(entity)) {
-            let sub = entity;
+            const sub = entity;
             this._subscriptions.push(sub);
             this.save();
             return;
@@ -2215,21 +2215,21 @@ class LocalStoragePersistenceManager {
     }
     remove(entity) {
         if (persistence_1.MatchmoreEntityDiscriminator.isDevice(entity)) {
-            let device = entity;
+            const device = entity;
             if (device.id == this._defaultDevice.id)
-                throw new Error("Cannot delete default device");
+                throw new Error("Cannot deconste default device");
             this._devices = this._devices.filter(d => device.id != d.id);
             this.save();
             return;
         }
         if (persistence_1.MatchmoreEntityDiscriminator.isPublication(entity)) {
-            let pub = entity;
+            const pub = entity;
             this._publications = this._publications.filter(d => pub.id != d.id);
             this.save();
             return;
         }
         if (persistence_1.MatchmoreEntityDiscriminator.isSubscription(entity)) {
-            let sub = entity;
+            const sub = entity;
             this._subscriptions = this._subscriptions.filter(d => sub.id != d.id);
             this.save();
             return;
