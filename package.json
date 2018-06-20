@@ -1,13 +1,13 @@
 {
   "name": "@matchmore/matchmore",
   "version": "0.7.3",
-  "description": "A  cloud service for creating highly dynamic, location-based applications",
+  "description": "A cloud service for creating highly dynamic, location-based applications",
   "license": "MIT",
   "main": "dist/index.js",
   "homepage": "https://matchmore.io",
   "scripts": {
-    "build": "tsc && cp -rf src/api dist/api",
-    "test": "./node_modules/.bin/mocha --compilers ts:ts-node/register ./test/**/*.ts",
+    "build": "tsc",
+    "test": "./node_modules/.bin/mocha --require isomorphic-fetch --compilers ts:ts-node/register ./test/**/*.ts",
     "browserify": "browserify ./dist/index.js --standalone matchmore > ./dist/web/matchmore.js",
     "minify": "browserify ./dist/index.js --standalone matchmore | uglifyjs -c > ./dist/web/matchmore.min.js",
     "dist": "npm run build && npm run browserify && npm run minify"
@@ -21,13 +21,13 @@
     "chai": "^3.5.0",
     "chai-as-promised": "^6.0.0",
     "copyfiles": "^2.0.0",
+    "isomorphic-fetch": "^2.2.1",
     "mocha": "^3.2.0",
     "ts-node": "^5.0.1",
     "typescript": "^2.7.2"
   },
   "dependencies": {
     "Base64": "^1.0.1",
-    "isomorphic-fetch": "^2.2.1",
     "querystring": "^0.2.0",
     "superagent": "^3.8.3",
     "websocket": "^1.0.25"
