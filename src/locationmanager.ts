@@ -1,5 +1,6 @@
 import { Manager } from "./manager";
-import * as models from "./model/models";
+import { Location } from "./client";
+
 
 export interface GPSConfig {
   enableHighAccuracy: boolean;
@@ -8,7 +9,7 @@ export interface GPSConfig {
 }
 
 export class LocationManager {
-  private _onLocationUpdate: (location: models.Location) => void;
+  private _onLocationUpdate: (location: Location) => void;
   private _geoId;
   private _gpsConfig: GPSConfig;
 
@@ -46,7 +47,7 @@ export class LocationManager {
     }
   }
 
-  set onLocationUpdate(onLocationUpdate: (location: models.Location) => void) {
+  set onLocationUpdate(onLocationUpdate: (location: Location) => void) {
     this._onLocationUpdate = onLocationUpdate;
   }
 
@@ -63,7 +64,7 @@ export class LocationManager {
       longitude,
       altitude: altitude || 0,
     }
-    this.manager.updateLocation(coords);
+    this.manager.updateLocation(new Location());
   }
 
   private onError(error) {

@@ -1,5 +1,5 @@
 import { Manager } from "./manager";
-import * as models from "./model/models";
+import * as models from "./client";
 // import WebSocket = require("websocket");
 
 export enum MatchMonitorMode {

@@ -1,4 +1,4 @@
-import * as models from "./model/models";
+import * as models from "./client";
 export declare type MatchmoreEntity = models.Device | models.Publication | models.Subscription;
 export interface IPersistenceManager {
     defaultDevice(): models.Device | undefined;

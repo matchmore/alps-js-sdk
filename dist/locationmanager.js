@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const client_1 = require("./client");
 class LocationManager {
     constructor(manager, config) {
         this.manager = manager;
@@ -15,7 +16,7 @@ class LocationManager {
                 longitude,
                 altitude: altitude || 0,
             };
-            this.manager.updateLocation(coords);
+            this.manager.updateLocation(new client_1.Location());
         };
         this._gpsConfig = config || {
             enableHighAccuracy: false,
