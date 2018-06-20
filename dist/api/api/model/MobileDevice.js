@@ -17,245 +17,93 @@
 (function(root, factory) {
   if (typeof define === 'function' && define.amd) {
     // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/APIError', 'model/Publication', 'model/Publications'], factory);
+    define(['ApiClient', 'model/Device', 'model/DeviceType', 'model/Location'], factory);
   } else if (typeof module === 'object' && module.exports) {
     // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('../model/APIError'), require('../model/Publication'), require('../model/Publications'));
+    module.exports = factory(require('../ApiClient'), require('./Device'), require('./DeviceType'), require('./Location'));
   } else {
     // Browser globals (root is window)
     if (!root.MatchmoreAlpsCoreRestApi) {
       root.MatchmoreAlpsCoreRestApi = {};
     }
-    root.MatchmoreAlpsCoreRestApi.PublicationApi = factory(root.MatchmoreAlpsCoreRestApi.ApiClient, root.MatchmoreAlpsCoreRestApi.APIError, root.MatchmoreAlpsCoreRestApi.Publication, root.MatchmoreAlpsCoreRestApi.Publications);
+    root.MatchmoreAlpsCoreRestApi.MobileDevice = factory(root.MatchmoreAlpsCoreRestApi.ApiClient, root.MatchmoreAlpsCoreRestApi.Device, root.MatchmoreAlpsCoreRestApi.DeviceType, root.MatchmoreAlpsCoreRestApi.Location);
   }
-}(this, function(ApiClient, APIError, Publication, Publications) {
+}(this, function(ApiClient, Device, DeviceType, Location) {
   'use strict';
 
+
+
+
   /**
-   * Publication service.
-   * @module api/PublicationApi
+   * The MobileDevice model module.
+   * @module model/MobileDevice
    * @version 0.5.0
    */
 
   /**
-   * Constructs a new PublicationApi. 
-   * @alias module:api/PublicationApi
+   * Constructs a new <code>MobileDevice</code>.
+   * A mobile device is one that potentially moves together with its user and therefore has a geographical location associated with it. 
+   * @alias module:model/MobileDevice
    * @class
-   * @param {module:ApiClient} [apiClient] Optional API client implementation to use,
-   * default to {@link module:ApiClient#instance} if unspecified.
+   * @extends module:model/Device
+   * @param deviceType {module:model/DeviceType} 
+   * @param platform {String} The platform of the device, this can be any string representing the platform type, for instance 'iOS'. 
+   * @param deviceToken {String} The deviceToken is the device push notification token given to this device by the OS, either iOS or Android for identifying the device with push notification services. 
+   * @param location {module:model/Location} 
    */
-  var exports = function(apiClient) {
-    this.apiClient = apiClient || ApiClient.instance;
-
-
-    /**
-     * Callback function to receive the result of the createPublication operation.
-     * @callback module:api/PublicationApi~createPublicationCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Publication} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Create a publication for a device
-     * @param {String} deviceId The id (UUID) of the device.
-     * @param {module:model/Publication} publication Publication to create on a device. 
-     * @param {module:api/PublicationApi~createPublicationCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Publication}
-     */
-    this.createPublication = function(deviceId, publication, callback) {
-      var postBody = publication;
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId === undefined || deviceId === null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling createPublication");
-      }
-
-      // verify the required parameter 'publication' is set
-      if (publication === undefined || publication === null) {
-        throw new Error("Missing the required parameter 'publication' when calling createPublication");
-      }
-
-
-      var pathParams = {
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var collectionQueryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Publication;
-
-      return this.apiClient.callApi(
-        '/devices/{deviceId}/publications', 'POST',
-        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the deletePublication operation.
-     * @callback module:api/PublicationApi~deletePublicationCallback
-     * @param {String} error Error message, if any.
-     * @param data This operation does not return a value.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Delete a Publication
-     * 
-     * @param {String} deviceId The id (UUID) of the device.
-     * @param {String} publicationId The id (UUID) of the subscription.
-     * @param {module:api/PublicationApi~deletePublicationCallback} callback The callback function, accepting three arguments: error, data, response
-     */
-    this.deletePublication = function(deviceId, publicationId, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId === undefined || deviceId === null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling deletePublication");
-      }
-
-      // verify the required parameter 'publicationId' is set
-      if (publicationId === undefined || publicationId === null) {
-        throw new Error("Missing the required parameter 'publicationId' when calling deletePublication");
-      }
-
-
-      var pathParams = {
-        'deviceId': deviceId,
-        'publicationId': publicationId
-      };
-      var queryParams = {
-      };
-      var collectionQueryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = null;
-
-      return this.apiClient.callApi(
-        '/devices/{deviceId}/publications/{publicationId}', 'DELETE',
-        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the getPublication operation.
-     * @callback module:api/PublicationApi~getPublicationCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Publication} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Info about a publication on a device
-     * @param {String} deviceId The id (UUID) of the device.
-     * @param {String} publicationId The id (UUID) of the publication.
-     * @param {module:api/PublicationApi~getPublicationCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Publication}
-     */
-    this.getPublication = function(deviceId, publicationId, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId === undefined || deviceId === null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling getPublication");
-      }
-
-      // verify the required parameter 'publicationId' is set
-      if (publicationId === undefined || publicationId === null) {
-        throw new Error("Missing the required parameter 'publicationId' when calling getPublication");
-      }
-
-
-      var pathParams = {
-        'deviceId': deviceId,
-        'publicationId': publicationId
-      };
-      var queryParams = {
-      };
-      var collectionQueryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Publication;
-
-      return this.apiClient.callApi(
-        '/devices/{deviceId}/publications/{publicationId}', 'GET',
-        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the getPublications operation.
-     * @callback module:api/PublicationApi~getPublicationsCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Publications} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Get all publications for a device
-     * @param {String} deviceId The id (UUID) of the device.
-     * @param {module:api/PublicationApi~getPublicationsCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Publications}
-     */
-    this.getPublications = function(deviceId, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId === undefined || deviceId === null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling getPublications");
-      }
-
-
-      var pathParams = {
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var collectionQueryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Publications;
-
-      return this.apiClient.callApi(
-        '/devices/{deviceId}/publications', 'GET',
-        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
+  var exports = function(deviceType, platform, deviceToken, location) {
+    var _this = this;
+    Device.call(_this, deviceType);
+    _this['platform'] = platform;
+    _this['deviceToken'] = deviceToken;
+    _this['location'] = location;
   };
+
+  /**
+   * Constructs a <code>MobileDevice</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/MobileDevice} obj Optional instance to populate.
+   * @return {module:model/MobileDevice} The populated <code>MobileDevice</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+      Device.constructFromObject(data, obj);
+      if (data.hasOwnProperty('platform')) {
+        obj['platform'] = ApiClient.convertToType(data['platform'], 'String');
+      }
+      if (data.hasOwnProperty('deviceToken')) {
+        obj['deviceToken'] = ApiClient.convertToType(data['deviceToken'], 'String');
+      }
+      if (data.hasOwnProperty('location')) {
+        obj['location'] = Location.constructFromObject(data['location']);
+      }
+    }
+    return obj;
+  }
+
+  exports.prototype = Object.create(Device.prototype);
+  exports.prototype.constructor = exports;
+
+  /**
+   * The platform of the device, this can be any string representing the platform type, for instance 'iOS'. 
+   * @member {String} platform
+   */
+  exports.prototype['platform'] = undefined;
+  /**
+   * The deviceToken is the device push notification token given to this device by the OS, either iOS or Android for identifying the device with push notification services. 
+   * @member {String} deviceToken
+   */
+  exports.prototype['deviceToken'] = undefined;
+  /**
+   * @member {module:model/Location} location
+   */
+  exports.prototype['location'] = undefined;
+
+
 
   return exports;
 }));
+
+

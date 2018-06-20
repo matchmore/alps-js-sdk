@@ -374,103 +374,101 @@
   exports.prototype.callApi = function callApi(path, httpMethod, pathParams,
       queryParams, collectionQueryParams, headerParams, formParams, bodyParam, authNames, contentTypes, accepts,
       returnType, callback) {
+    return new Promise((resolve, reject) => {
+      var _this = this;
+      var url = this.buildUrl(path, pathParams);
+      var request = superagent(httpMethod, url);
 
-    var _this = this;
-    var url = this.buildUrl(path, pathParams);
-    var request = superagent(httpMethod, url);
+      // apply authentications
+      this.applyAuthToRequest(request, authNames);
 
-    // apply authentications
-    this.applyAuthToRequest(request, authNames);
-
-    // set collection query parameters
-    for (var key in collectionQueryParams) {
-      if (collectionQueryParams.hasOwnProperty(key)) {
-        var param = collectionQueryParams[key];
-        if (param.collectionFormat === 'csv') {
-          // SuperAgent normally percent-encodes all reserved characters in a query parameter. However,
-          // commas are used as delimiters for the 'csv' collectionFormat so they must not be encoded. We
-          // must therefore construct and encode 'csv' collection query parameters manually.
-          if (param.value != null) {
-            var value = param.value.map(this.paramToString).map(encodeURIComponent).join(',');
-            request.query(encodeURIComponent(key) + "=" + value);
-          }
-        } else {
-          // All other collection query parameters should be treated as ordinary query parameters.
-          queryParams[key] = this.buildCollectionParam(param.value, param.collectionFormat);
-        }
-      }
-    }
-
-    // set query parameters
-    if (httpMethod.toUpperCase() === 'GET' && this.cache === false) {
-        queryParams['_'] = new Date().getTime();
-    }
-    request.query(this.normalizeParams(queryParams));
-
-    // set header parameters
-    request.set(this.defaultHeaders).set(this.normalizeParams(headerParams));
-
-
-    // set requestAgent if it is set by user
-    if (this.requestAgent) {
-      request.agent(this.requestAgent);
-    }
-
-    // set request timeout
-    request.timeout(this.timeout);
-
-    var contentType = this.jsonPreferredMime(contentTypes);
-    if (contentType) {
-      // Issue with superagent and multipart/form-data (https://github.com/visionmedia/superagent/issues/746)
-      if(contentType != 'multipart/form-data') {
-        request.type(contentType);
-      }
-    } else if (!request.header['Content-Type']) {
-      request.type('application/json');
-    }
-
-    if (contentType === 'application/x-www-form-urlencoded') {
-      request.send(querystring.stringify(this.normalizeParams(formParams)));
-    } else if (contentType == 'multipart/form-data') {
-      var _formParams = this.normalizeParams(formParams);
-      for (var key in _formParams) {
-        if (_formParams.hasOwnProperty(key)) {
-          if (this.isFileParam(_formParams[key])) {
-            // file field
-            request.attach(key, _formParams[key]);
+      // set collection query parameters
+      for (var key in collectionQueryParams) {
+        if (collectionQueryParams.hasOwnProperty(key)) {
+          var param = collectionQueryParams[key];
+          if (param.collectionFormat === 'csv') {
+            // SuperAgent normally percent-encodes all reserved characters in a query parameter. However,
+            // commas are used as delimiters for the 'csv' collectionFormat so they must not be encoded. We
+            // must therefore construct and encode 'csv' collection query parameters manually.
+            if (param.value != null) {
+              var value = param.value.map(this.paramToString).map(encodeURIComponent).join(',');
+              request.query(encodeURIComponent(key) + "=" + value);
+            }
           } else {
-            request.field(key, _formParams[key]);
+            // All other collection query parameters should be treated as ordinary query parameters.
+            queryParams[key] = this.buildCollectionParam(param.value, param.collectionFormat);
           }
         }
       }
-    } else if (bodyParam) {
-      request.send(bodyParam);
-    }
 
-    var accept = this.jsonPreferredMime(accepts);
-    if (accept) {
-      request.accept(accept);
-    }
-
-    if (returnType === 'Blob') {
-      request.responseType('blob');
-    } else if (returnType === 'String') {
-      request.responseType('string');
-    }
-
-    // Attach previously saved cookies, if enabled
-    if (this.enableCookies){
-      if (typeof window === 'undefined') {
-        this.agent.attachCookies(request);
+      // set query parameters
+      if (httpMethod.toUpperCase() === 'GET' && this.cache === false) {
+        queryParams['_'] = new Date().getTime();
       }
-      else {
-        request.withCredentials();
+      request.query(this.normalizeParams(queryParams));
+
+      // set header parameters
+      request.set(this.defaultHeaders).set(this.normalizeParams(headerParams));
+
+
+      // set requestAgent if it is set by user
+      if (this.requestAgent) {
+        request.agent(this.requestAgent);
       }
-    }
 
+      // set request timeout
+      request.timeout(this.timeout);
 
-    request.end(function(error, response) {
-      if (callback) {
+      var contentType = this.jsonPreferredMime(contentTypes);
+      if (contentType) {
+        // Issue with superagent and multipart/form-data (https://github.com/visionmedia/superagent/issues/746)
+        if(contentType != 'multipart/form-data') {
+          request.type(contentType);
+        }
+      } else if (!request.header['Content-Type']) {
+        request.type('application/json');
+      }
+
+      if (contentType === 'application/x-www-form-urlencoded') {
+        request.send(querystring.stringify(this.normalizeParams(formParams)));
+      } else if (contentType == 'multipart/form-data') {
+        var _formParams = this.normalizeParams(formParams);
+        for (var key in _formParams) {
+          if (_formParams.hasOwnProperty(key)) {
+            if (this.isFileParam(_formParams[key])) {
+              // file field
+              request.attach(key, _formParams[key]);
+            } else {
+              request.field(key, _formParams[key]);
+            }
+          }
+        }
+      } else if (bodyParam) {
+        request.send(bodyParam);
+      }
+
+      var accept = this.jsonPreferredMime(accepts);
+      if (accept) {
+        request.accept(accept);
+      }
+
+      if (returnType === 'Blob') {
+        request.responseType('blob');
+      } else if (returnType === 'String') {
+        request.responseType('string');
+      }
+
+      // Attach previously saved cookies, if enabled
+      if (this.enableCookies){
+        if (typeof window === 'undefined') {
+          this.agent.attachCookies(request);
+        }
+        else {
+          request.withCredentials();
+        }
+      }
+
+      request.end(function(error, response) {
         var data = null;
         if (!error) {
           try {
@@ -479,14 +477,21 @@
               _this.agent.saveCookies(response);
             }
           } catch (err) {
-            error = err;
+            reject(err);
+            if (callback) callback(error, data, response);
+            return;
           }
         }
-        callback(error, data, response);
-      }
+        else {
+          reject(error);
+          if (callback) callback(error, data, response);
+          return;
+        }
+        resolve({ data, response });
+        if (callback) callback(error, data, response);
+        return;
+      });
     });
-
-    return request;
   };
 
   /**
@@ -525,7 +530,7 @@
       case 'Blob':
       	return data;
       default:
-        return data;
+       return data;
     }
   };
 

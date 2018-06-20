@@ -7,7 +7,7 @@
 
 ### In a browser
 
-Include `dist/matchmore.js` into your page and start by creating a Manager() instance. The Manager will allow you to create Users, Devices, Publications, Subscriptions, ...
+Include `dist/web/matchmore.js` into your page and start by creating a Manager() instance. The Manager will allow you to create Users, Devices, Publications, Subscriptions, ...
 
 ### In your project 
 
@@ -24,7 +24,7 @@ yarn add @matchmore/matchmore
 2. Then import the library
 
 ```
-import { Manager } from "matchmore";
+import { Manager } from "@matchmore/matchmore";
 ```
 
 3. And then start your application with minimum config

@@ -66,7 +66,7 @@ export declare class Manager {
      * @param completion optional callback
      */
     createPublication(topic: string, range: number, duration: number, properties: Object, deviceId?: string, completion?: (publication: models.Publication) => void): Promise<models.Publication>;
-    deletePublication(deviceId: string, pubId: string, completion?: () => void): Promise<void>;
+    deletePublication(deviceId: string, pubId: string, completion?: () => void): Promise<any>;
     /**
      * Create a subscription for a device
      * @param topic topic of the subscription
@@ -77,7 +77,7 @@ export declare class Manager {
      * @param completion optional callback
      */
     createSubscription(topic: string, range: number, duration: number, selector?: string, deviceId?: string, completion?: (subscription: models.Subscription) => void): Promise<models.Subscription>;
-    deleteSubscription(deviceId: string, subId: string, completion?: () => void): Promise<void>;
+    deleteSubscription(deviceId: string, subId: string, completion?: () => void): Promise<any>;
     /**
      * Updates the device location
      * @param location
@@ -103,6 +103,7 @@ export declare class Manager {
      * @param completion optional callback
      */
     getAllPublications(deviceId?: string, completion?: (publications: models.Publication[]) => void): Promise<models.Publication[]>;
+    private deviceWithId(deviceId?);
     private withDevice<T>(deviceId?);
     /**
      * Gets subscriptions

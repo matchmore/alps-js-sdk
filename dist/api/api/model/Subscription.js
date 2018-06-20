@@ -17,245 +17,155 @@
 (function(root, factory) {
   if (typeof define === 'function' && define.amd) {
     // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/APIError', 'model/Publication', 'model/Publications'], factory);
+    define(['ApiClient'], factory);
   } else if (typeof module === 'object' && module.exports) {
     // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('../model/APIError'), require('../model/Publication'), require('../model/Publications'));
+    module.exports = factory(require('../ApiClient'));
   } else {
     // Browser globals (root is window)
     if (!root.MatchmoreAlpsCoreRestApi) {
       root.MatchmoreAlpsCoreRestApi = {};
     }
-    root.MatchmoreAlpsCoreRestApi.PublicationApi = factory(root.MatchmoreAlpsCoreRestApi.ApiClient, root.MatchmoreAlpsCoreRestApi.APIError, root.MatchmoreAlpsCoreRestApi.Publication, root.MatchmoreAlpsCoreRestApi.Publications);
+    root.MatchmoreAlpsCoreRestApi.Subscription = factory(root.MatchmoreAlpsCoreRestApi.ApiClient);
   }
-}(this, function(ApiClient, APIError, Publication, Publications) {
+}(this, function(ApiClient) {
   'use strict';
 
+
+
+
   /**
-   * Publication service.
-   * @module api/PublicationApi
+   * The Subscription model module.
+   * @module model/Subscription
    * @version 0.5.0
    */
 
   /**
-   * Constructs a new PublicationApi. 
-   * @alias module:api/PublicationApi
+   * Constructs a new <code>Subscription</code>.
+   * A subscription can be seen as a JMS subscription extended with the notion of geographical zone. The zone again being defined as circle with a center at the given location and a range around that location. 
+   * @alias module:model/Subscription
    * @class
-   * @param {module:ApiClient} [apiClient] Optional API client implementation to use,
-   * default to {@link module:ApiClient#instance} if unspecified.
+   * @param worldId {String} The id (UUID) of the world that contains device to attach a subscription to.
+   * @param deviceId {String} The id (UUID) of the device to attach a subscription to.
+   * @param topic {String} The topic of the subscription. This will act as a first match filter. For a subscription to be able to match a publication they must have the exact same topic. 
+   * @param selector {String} This is an expression to filter the publications. For instance 'job='developer'' will allow matching only with publications containing a 'job' key with a value of 'developer'. 
+   * @param range {Number} The range of the subscription in meters. This is the range around the device holding the subscription in which matches with publications can be triggered. 
+   * @param duration {Number} The duration of the subscription in seconds. If set to '0' it will be instant at the time of subscription. Negative values are not allowed. 
    */
-  var exports = function(apiClient) {
-    this.apiClient = apiClient || ApiClient.instance;
+  var exports = function(worldId, deviceId, topic, selector, range, duration) {
+    var _this = this;
 
 
-    /**
-     * Callback function to receive the result of the createPublication operation.
-     * @callback module:api/PublicationApi~createPublicationCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Publication} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
 
-    /**
-     * Create a publication for a device
-     * @param {String} deviceId The id (UUID) of the device.
-     * @param {module:model/Publication} publication Publication to create on a device. 
-     * @param {module:api/PublicationApi~createPublicationCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Publication}
-     */
-    this.createPublication = function(deviceId, publication, callback) {
-      var postBody = publication;
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId === undefined || deviceId === null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling createPublication");
-      }
-
-      // verify the required parameter 'publication' is set
-      if (publication === undefined || publication === null) {
-        throw new Error("Missing the required parameter 'publication' when calling createPublication");
-      }
+    _this['worldId'] = worldId;
+    _this['deviceId'] = deviceId;
+    _this['topic'] = topic;
+    _this['selector'] = selector;
+    _this['range'] = range;
+    _this['duration'] = duration;
 
 
-      var pathParams = {
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var collectionQueryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Publication;
-
-      return this.apiClient.callApi(
-        '/devices/{deviceId}/publications', 'POST',
-        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the deletePublication operation.
-     * @callback module:api/PublicationApi~deletePublicationCallback
-     * @param {String} error Error message, if any.
-     * @param data This operation does not return a value.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Delete a Publication
-     * 
-     * @param {String} deviceId The id (UUID) of the device.
-     * @param {String} publicationId The id (UUID) of the subscription.
-     * @param {module:api/PublicationApi~deletePublicationCallback} callback The callback function, accepting three arguments: error, data, response
-     */
-    this.deletePublication = function(deviceId, publicationId, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId === undefined || deviceId === null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling deletePublication");
-      }
-
-      // verify the required parameter 'publicationId' is set
-      if (publicationId === undefined || publicationId === null) {
-        throw new Error("Missing the required parameter 'publicationId' when calling deletePublication");
-      }
-
-
-      var pathParams = {
-        'deviceId': deviceId,
-        'publicationId': publicationId
-      };
-      var queryParams = {
-      };
-      var collectionQueryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = null;
-
-      return this.apiClient.callApi(
-        '/devices/{deviceId}/publications/{publicationId}', 'DELETE',
-        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the getPublication operation.
-     * @callback module:api/PublicationApi~getPublicationCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Publication} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Info about a publication on a device
-     * @param {String} deviceId The id (UUID) of the device.
-     * @param {String} publicationId The id (UUID) of the publication.
-     * @param {module:api/PublicationApi~getPublicationCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Publication}
-     */
-    this.getPublication = function(deviceId, publicationId, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId === undefined || deviceId === null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling getPublication");
-      }
-
-      // verify the required parameter 'publicationId' is set
-      if (publicationId === undefined || publicationId === null) {
-        throw new Error("Missing the required parameter 'publicationId' when calling getPublication");
-      }
-
-
-      var pathParams = {
-        'deviceId': deviceId,
-        'publicationId': publicationId
-      };
-      var queryParams = {
-      };
-      var collectionQueryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Publication;
-
-      return this.apiClient.callApi(
-        '/devices/{deviceId}/publications/{publicationId}', 'GET',
-        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the getPublications operation.
-     * @callback module:api/PublicationApi~getPublicationsCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Publications} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Get all publications for a device
-     * @param {String} deviceId The id (UUID) of the device.
-     * @param {module:api/PublicationApi~getPublicationsCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Publications}
-     */
-    this.getPublications = function(deviceId, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId === undefined || deviceId === null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling getPublications");
-      }
-
-
-      var pathParams = {
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var collectionQueryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Publications;
-
-      return this.apiClient.callApi(
-        '/devices/{deviceId}/publications', 'GET',
-        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
   };
+
+  /**
+   * Constructs a <code>Subscription</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/Subscription} obj Optional instance to populate.
+   * @return {module:model/Subscription} The populated <code>Subscription</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('id')) {
+        obj['id'] = ApiClient.convertToType(data['id'], 'String');
+      }
+      if (data.hasOwnProperty('createdAt')) {
+        obj['createdAt'] = ApiClient.convertToType(data['createdAt'], 'Number');
+      }
+      if (data.hasOwnProperty('worldId')) {
+        obj['worldId'] = ApiClient.convertToType(data['worldId'], 'String');
+      }
+      if (data.hasOwnProperty('deviceId')) {
+        obj['deviceId'] = ApiClient.convertToType(data['deviceId'], 'String');
+      }
+      if (data.hasOwnProperty('topic')) {
+        obj['topic'] = ApiClient.convertToType(data['topic'], 'String');
+      }
+      if (data.hasOwnProperty('selector')) {
+        obj['selector'] = ApiClient.convertToType(data['selector'], 'String');
+      }
+      if (data.hasOwnProperty('range')) {
+        obj['range'] = ApiClient.convertToType(data['range'], 'Number');
+      }
+      if (data.hasOwnProperty('duration')) {
+        obj['duration'] = ApiClient.convertToType(data['duration'], 'Number');
+      }
+      if (data.hasOwnProperty('matchTTL')) {
+        obj['matchTTL'] = ApiClient.convertToType(data['matchTTL'], 'Number');
+      }
+      if (data.hasOwnProperty('pushers')) {
+        obj['pushers'] = ApiClient.convertToType(data['pushers'], ['String']);
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * The id (UUID) of the subscription.
+   * @member {String} id
+   */
+  exports.prototype['id'] = undefined;
+  /**
+   * The timestamp of the subscription creation in seconds since Jan 01 1970 (UTC). 
+   * @member {Number} createdAt
+   */
+  exports.prototype['createdAt'] = undefined;
+  /**
+   * The id (UUID) of the world that contains device to attach a subscription to.
+   * @member {String} worldId
+   */
+  exports.prototype['worldId'] = undefined;
+  /**
+   * The id (UUID) of the device to attach a subscription to.
+   * @member {String} deviceId
+   */
+  exports.prototype['deviceId'] = undefined;
+  /**
+   * The topic of the subscription. This will act as a first match filter. For a subscription to be able to match a publication they must have the exact same topic. 
+   * @member {String} topic
+   */
+  exports.prototype['topic'] = undefined;
+  /**
+   * This is an expression to filter the publications. For instance 'job='developer'' will allow matching only with publications containing a 'job' key with a value of 'developer'. 
+   * @member {String} selector
+   */
+  exports.prototype['selector'] = undefined;
+  /**
+   * The range of the subscription in meters. This is the range around the device holding the subscription in which matches with publications can be triggered. 
+   * @member {Number} range
+   */
+  exports.prototype['range'] = undefined;
+  /**
+   * The duration of the subscription in seconds. If set to '0' it will be instant at the time of subscription. Negative values are not allowed. 
+   * @member {Number} duration
+   */
+  exports.prototype['duration'] = undefined;
+  /**
+   * The duration of the match in seconds, this describes how often you will get matches when publication and subscription are moving in each other range. If set to '0' you will get matches every time publication or subscription in range will move. Negative values are not allowed. 
+   * @member {Number} matchTTL
+   */
+  exports.prototype['matchTTL'] = undefined;
+  /**
+   * When match will occurs, they will be notified on these provided URI(s) address(es) in the pushers array. 
+   * @member {Array.<String>} pushers
+   */
+  exports.prototype['pushers'] = undefined;
+
+
 
   return exports;
 }));
+
+

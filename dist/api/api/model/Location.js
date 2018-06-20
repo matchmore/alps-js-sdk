@@ -17,245 +17,120 @@
 (function(root, factory) {
   if (typeof define === 'function' && define.amd) {
     // AMD. Register as an anonymous module.
-    define(['ApiClient', 'model/APIError', 'model/Publication', 'model/Publications'], factory);
+    define(['ApiClient'], factory);
   } else if (typeof module === 'object' && module.exports) {
     // CommonJS-like environments that support module.exports, like Node.
-    module.exports = factory(require('../ApiClient'), require('../model/APIError'), require('../model/Publication'), require('../model/Publications'));
+    module.exports = factory(require('../ApiClient'));
   } else {
     // Browser globals (root is window)
     if (!root.MatchmoreAlpsCoreRestApi) {
       root.MatchmoreAlpsCoreRestApi = {};
     }
-    root.MatchmoreAlpsCoreRestApi.PublicationApi = factory(root.MatchmoreAlpsCoreRestApi.ApiClient, root.MatchmoreAlpsCoreRestApi.APIError, root.MatchmoreAlpsCoreRestApi.Publication, root.MatchmoreAlpsCoreRestApi.Publications);
+    root.MatchmoreAlpsCoreRestApi.Location = factory(root.MatchmoreAlpsCoreRestApi.ApiClient);
   }
-}(this, function(ApiClient, APIError, Publication, Publications) {
+}(this, function(ApiClient) {
   'use strict';
 
+
+
+
   /**
-   * Publication service.
-   * @module api/PublicationApi
+   * The Location model module.
+   * @module model/Location
    * @version 0.5.0
    */
 
   /**
-   * Constructs a new PublicationApi. 
-   * @alias module:api/PublicationApi
+   * Constructs a new <code>Location</code>.
+   * @alias module:model/Location
    * @class
-   * @param {module:ApiClient} [apiClient] Optional API client implementation to use,
-   * default to {@link module:ApiClient#instance} if unspecified.
+   * @param latitude {Number} The latitude of the device in degrees, for instance '46.5333' (Lausanne, Switzerland). 
+   * @param longitude {Number} The longitude of the device in degrees, for instance '6.6667' (Lausanne, Switzerland). 
+   * @param altitude {Number} The altitude of the device in meters, for instance '495.0' (Lausanne, Switzerland). 
    */
-  var exports = function(apiClient) {
-    this.apiClient = apiClient || ApiClient.instance;
+  var exports = function(latitude, longitude, altitude) {
+    var _this = this;
 
 
-    /**
-     * Callback function to receive the result of the createPublication operation.
-     * @callback module:api/PublicationApi~createPublicationCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Publication} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Create a publication for a device
-     * @param {String} deviceId The id (UUID) of the device.
-     * @param {module:model/Publication} publication Publication to create on a device. 
-     * @param {module:api/PublicationApi~createPublicationCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Publication}
-     */
-    this.createPublication = function(deviceId, publication, callback) {
-      var postBody = publication;
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId === undefined || deviceId === null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling createPublication");
-      }
-
-      // verify the required parameter 'publication' is set
-      if (publication === undefined || publication === null) {
-        throw new Error("Missing the required parameter 'publication' when calling createPublication");
-      }
+    _this['latitude'] = latitude;
+    _this['longitude'] = longitude;
+    _this['altitude'] = altitude;
 
 
-      var pathParams = {
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var collectionQueryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Publication;
-
-      return this.apiClient.callApi(
-        '/devices/{deviceId}/publications', 'POST',
-        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the deletePublication operation.
-     * @callback module:api/PublicationApi~deletePublicationCallback
-     * @param {String} error Error message, if any.
-     * @param data This operation does not return a value.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Delete a Publication
-     * 
-     * @param {String} deviceId The id (UUID) of the device.
-     * @param {String} publicationId The id (UUID) of the subscription.
-     * @param {module:api/PublicationApi~deletePublicationCallback} callback The callback function, accepting three arguments: error, data, response
-     */
-    this.deletePublication = function(deviceId, publicationId, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId === undefined || deviceId === null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling deletePublication");
-      }
-
-      // verify the required parameter 'publicationId' is set
-      if (publicationId === undefined || publicationId === null) {
-        throw new Error("Missing the required parameter 'publicationId' when calling deletePublication");
-      }
-
-
-      var pathParams = {
-        'deviceId': deviceId,
-        'publicationId': publicationId
-      };
-      var queryParams = {
-      };
-      var collectionQueryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = null;
-
-      return this.apiClient.callApi(
-        '/devices/{deviceId}/publications/{publicationId}', 'DELETE',
-        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the getPublication operation.
-     * @callback module:api/PublicationApi~getPublicationCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Publication} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Info about a publication on a device
-     * @param {String} deviceId The id (UUID) of the device.
-     * @param {String} publicationId The id (UUID) of the publication.
-     * @param {module:api/PublicationApi~getPublicationCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Publication}
-     */
-    this.getPublication = function(deviceId, publicationId, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId === undefined || deviceId === null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling getPublication");
-      }
-
-      // verify the required parameter 'publicationId' is set
-      if (publicationId === undefined || publicationId === null) {
-        throw new Error("Missing the required parameter 'publicationId' when calling getPublication");
-      }
-
-
-      var pathParams = {
-        'deviceId': deviceId,
-        'publicationId': publicationId
-      };
-      var queryParams = {
-      };
-      var collectionQueryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Publication;
-
-      return this.apiClient.callApi(
-        '/devices/{deviceId}/publications/{publicationId}', 'GET',
-        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
-
-    /**
-     * Callback function to receive the result of the getPublications operation.
-     * @callback module:api/PublicationApi~getPublicationsCallback
-     * @param {String} error Error message, if any.
-     * @param {module:model/Publications} data The data returned by the service call.
-     * @param {String} response The complete HTTP response.
-     */
-
-    /**
-     * Get all publications for a device
-     * @param {String} deviceId The id (UUID) of the device.
-     * @param {module:api/PublicationApi~getPublicationsCallback} callback The callback function, accepting three arguments: error, data, response
-     * data is of type: {@link module:model/Publications}
-     */
-    this.getPublications = function(deviceId, callback) {
-      var postBody = null;
-
-      // verify the required parameter 'deviceId' is set
-      if (deviceId === undefined || deviceId === null) {
-        throw new Error("Missing the required parameter 'deviceId' when calling getPublications");
-      }
-
-
-      var pathParams = {
-        'deviceId': deviceId
-      };
-      var queryParams = {
-      };
-      var collectionQueryParams = {
-      };
-      var headerParams = {
-      };
-      var formParams = {
-      };
-
-      var authNames = ['api-key'];
-      var contentTypes = ['application/json'];
-      var accepts = ['application/json'];
-      var returnType = Publications;
-
-      return this.apiClient.callApi(
-        '/devices/{deviceId}/publications', 'GET',
-        pathParams, queryParams, collectionQueryParams, headerParams, formParams, postBody,
-        authNames, contentTypes, accepts, returnType, callback
-      );
-    }
   };
+
+  /**
+   * Constructs a <code>Location</code> from a plain JavaScript object, optionally creating a new instance.
+   * Copies all relevant properties from <code>data</code> to <code>obj</code> if supplied or a new instance if not.
+   * @param {Object} data The plain JavaScript object bearing properties of interest.
+   * @param {module:model/Location} obj Optional instance to populate.
+   * @return {module:model/Location} The populated <code>Location</code> instance.
+   */
+  exports.constructFromObject = function(data, obj) {
+    if (data) {
+      obj = obj || new exports();
+
+      if (data.hasOwnProperty('createdAt')) {
+        obj['createdAt'] = ApiClient.convertToType(data['createdAt'], 'Number');
+      }
+      if (data.hasOwnProperty('latitude')) {
+        obj['latitude'] = ApiClient.convertToType(data['latitude'], 'Number');
+      }
+      if (data.hasOwnProperty('longitude')) {
+        obj['longitude'] = ApiClient.convertToType(data['longitude'], 'Number');
+      }
+      if (data.hasOwnProperty('altitude')) {
+        obj['altitude'] = ApiClient.convertToType(data['altitude'], 'Number');
+      }
+      if (data.hasOwnProperty('horizontalAccuracy')) {
+        obj['horizontalAccuracy'] = ApiClient.convertToType(data['horizontalAccuracy'], 'Number');
+      }
+      if (data.hasOwnProperty('verticalAccuracy')) {
+        obj['verticalAccuracy'] = ApiClient.convertToType(data['verticalAccuracy'], 'Number');
+      }
+    }
+    return obj;
+  }
+
+  /**
+   * The timestamp of the location creation in seconds since Jan 01 1970 (UTC). 
+   * @member {Number} createdAt
+   */
+  exports.prototype['createdAt'] = undefined;
+  /**
+   * The latitude of the device in degrees, for instance '46.5333' (Lausanne, Switzerland). 
+   * @member {Number} latitude
+   * @default 0.0
+   */
+  exports.prototype['latitude'] = 0.0;
+  /**
+   * The longitude of the device in degrees, for instance '6.6667' (Lausanne, Switzerland). 
+   * @member {Number} longitude
+   * @default 0.0
+   */
+  exports.prototype['longitude'] = 0.0;
+  /**
+   * The altitude of the device in meters, for instance '495.0' (Lausanne, Switzerland). 
+   * @member {Number} altitude
+   * @default 0.0
+   */
+  exports.prototype['altitude'] = 0.0;
+  /**
+   * The horizontal accuracy of the location, measured on a scale from '0.0' to '1.0', '1.0' being the most accurate. If this value is not specified then the default value of '1.0' is used. 
+   * @member {Number} horizontalAccuracy
+   * @default 1.0
+   */
+  exports.prototype['horizontalAccuracy'] = 1.0;
+  /**
+   * The vertical accuracy of the location, measured on a scale from '0.0' to '1.0', '1.0' being the most accurate. If this value is not specified then the default value of '1.0' is used. 
+   * @member {Number} verticalAccuracy
+   * @default 1.0
+   */
+  exports.prototype['verticalAccuracy'] = 1.0;
+
+
 
   return exports;
 }));
+
+

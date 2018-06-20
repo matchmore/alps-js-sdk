@@ -105,53 +105,39 @@ class Manager {
      * @param completion optional callback
      */
     createAnyDevice(device, completion) {
-        let p = new Promise((resolve, reject) => {
-            let api = this.defaultClient;
-            let callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while creating device '" +
-                        device.name +
-                        "' :" +
-                        error);
-                }
-                else {
-                    // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-                    resolve(JSON.parse(response.text));
-                }
-            };
-            api.createDevice(device);
-        });
-        return p.then((device) => {
-            let ddevice = this._persistenceManager.defaultDevice();
-            let isDefault = !ddevice;
-            this._persistenceManager.addDevice(device, isDefault);
-            if (completion)
-                completion(device);
-            return device;
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const _device = this.setDeviceType(device);
+                let api = new ScalpsCoreRestApi.DeviceApi();
+                const { response } = yield api.createDevice(_device);
+                const result = JSON.parse(response.text);
+                let ddevice = this._persistenceManager.defaultDevice();
+                let isDefault = !ddevice;
+                this._persistenceManager.addDevice(result, isDefault);
+                if (completion)
+                    completion(result);
+                return result;
+            }
+            catch (error) {
+                throw new Error(`An error has occured while creating device '${device.name}': ${error}`);
+            }
         });
     }
     deleteDevice(deviceId, completion) {
-        let p = new Promise((resolve, reject) => {
-            let api = this.defaultClient;
-            let callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while deleting device '" +
-                        deviceId +
-                        "' :" +
-                        error);
-                }
-                else {
-                    resolve();
-                }
-            };
-            api.deleteDevice(deviceId);
-        });
-        return p.then(() => {
-            let d = this._persistenceManager.devices().find(d => d.id == deviceId);
-            if (d)
-                this._persistenceManager.remove(d);
-            if (completion)
-                completion();
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                let api = new ScalpsCoreRestApi.DeviceApi();
+                yield api.deleteDevice(deviceId);
+                let d = this._persistenceManager.devices().find(d => d.id == deviceId);
+                if (d)
+                    this._persistenceManager.remove(d);
+                if (completion)
+                    completion();
+                return;
+            }
+            catch (error) {
+                throw new Error(`An error has occured while deleting device '${deviceId}': ${error}`);
+            }
         });
     }
     // private setDeviceType(device: Device): Device {
@@ -188,61 +174,46 @@ class Manager {
      * @param completion optional callback
      */
     createPublication(topic, range, duration, properties, deviceId, completion) {
-        return this.withDevice(deviceId)(deviceId => {
-            let p = new Promise((resolve, reject) => {
-                let api = this.defaultClient;
-                let callback = function (error, data, response) {
-                    if (error) {
-                        reject("An error has occured while creating publication '" +
-                            topic +
-                            "' :" +
-                            error);
-                    }
-                    else {
-                        // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-                        resolve(JSON.parse(response.text));
-                    }
-                };
-                let publication = new client_1.Publication({
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const deviceWithId = this.deviceWithId(deviceId);
+                let publication = {
                     worldId: this.token.sub,
                     topic: topic,
-                    deviceId: deviceId,
+                    deviceId: deviceWithId,
                     range: range,
                     duration: duration,
                     properties: properties
-                });
-                api.createPublication(deviceId, publication);
-            });
-            return p.then((publication) => {
-                this._persistenceManager.add(publication);
+                };
+                let api = new ScalpsCoreRestApi.DeviceApi();
+                const { response } = yield api.createPublication(deviceWithId, publication);
+                const result = JSON.parse(response.text);
+                this._persistenceManager.add(result);
                 if (completion)
-                    completion(publication);
-                return publication;
-            });
+                    completion(result);
+                return result;
+            }
+            catch (error) {
+                throw new Error(`An error has occured while creating publication '${topic}': ${error}`);
+            }
         });
     }
     deletePublication(deviceId, pubId, completion) {
-        let p = new Promise((resolve, reject) => {
-            let api = this.defaultClient;
-            let callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while deleting publication '" +
-                        pubId +
-                        "' :" +
-                        error);
-                }
-                else {
-                    resolve();
-                }
-            };
-            api.deletePublication(deviceId, pubId);
-        });
-        return p.then(() => {
-            let d = this._persistenceManager.publications().find(d => d.id == pubId);
-            if (d)
-                this._persistenceManager.remove(d);
-            if (completion)
-                completion();
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                let api = new ScalpsCoreRestApi.DeviceApi();
+                const { response } = yield api.deletePublication(deviceId, pubId);
+                const result = JSON.parse(response.text);
+                let d = this._persistenceManager.publications().find(d => d.id == pubId);
+                if (d)
+                    this._persistenceManager.remove(d);
+                if (completion)
+                    completion();
+                return result;
+            }
+            catch (error) {
+                throw new Error(`An error has occured while deleting publication '${pubId}' : ${error}`);
+            }
         });
     }
     /**
@@ -255,61 +226,46 @@ class Manager {
      * @param completion optional callback
      */
     createSubscription(topic, range, duration, selector, deviceId, completion) {
-        return this.withDevice(deviceId)(deviceId => {
-            let p = new Promise((resolve, reject) => {
-                let api = this.defaultClient;
-                let callback = function (error, data, response) {
-                    if (error) {
-                        reject("An error has occured while creating subscription '" +
-                            topic +
-                            "' :" +
-                            error);
-                    }
-                    else {
-                        // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-                        resolve(JSON.parse(response.text));
-                    }
-                };
-                let subscription = new client_1.Subscription({
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const deviceWithId = this.deviceWithId(deviceId);
+                let subscription = {
                     worldId: this.token.sub,
                     topic: topic,
-                    deviceId: deviceId,
+                    deviceId: deviceWithId,
                     range: range,
                     duration: duration,
                     selector: selector || ""
-                });
-                api.createSubscription(deviceId, subscription);
-            });
-            return p.then((subscription) => {
-                this._persistenceManager.add(subscription);
+                };
+                let api = new ScalpsCoreRestApi.DeviceApi();
+                const { response } = yield api.createSubscription(deviceWithId, subscription);
+                const result = JSON.parse(response.text);
+                this._persistenceManager.add(result);
                 if (completion)
-                    completion(subscription);
-                return subscription;
-            });
+                    completion(result);
+                return result;
+            }
+            catch (error) {
+                throw new Error(`An error has occurred while creating subscription '${topic}': ${error}`);
+            }
         });
     }
     deleteSubscription(deviceId, subId, completion) {
-        let p = new Promise((resolve, reject) => {
-            let api = this.defaultClient;
-            let callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while deleting Ssbscription '" +
-                        subId +
-                        "' :" +
-                        error);
-                }
-                else {
-                    resolve();
-                }
-            };
-            api.deleteSubscription(deviceId, subId);
-        });
-        return p.then(() => {
-            let d = this._persistenceManager.publications().find(d => d.id == subId);
-            if (d)
-                this._persistenceManager.remove(d);
-            if (completion)
-                completion();
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                let api = new ScalpsCoreRestApi.DeviceApi();
+                const { response } = yield api.deleteSubscription(deviceId, subId);
+                const result = JSON.parse(response.text);
+                let d = this._persistenceManager.publications().find(d => d.id == subId);
+                if (d)
+                    this._persistenceManager.remove(d);
+                if (completion)
+                    completion();
+                return result;
+            }
+            catch (error) {
+                throw new Error(`An error has occurred while deleting Subscription '${subId}': ${error}`);
+            }
         });
     }
     /**
@@ -319,27 +275,17 @@ class Manager {
      * @param completion optional callback
      */
     updateLocation(location, deviceId) {
-        return this.withDevice(deviceId)(deviceId => {
-            let p = new Promise((resolve, reject) => {
-                let api = this.defaultClient;
-                let callback = function (error, data, response) {
-                    if (error) {
-                        reject("An error has occured while creating location ['" +
-                            location.latitude +
-                            "','" +
-                            location.longitude +
-                            "']  :" +
-                            error);
-                    }
-                    else {
-                        // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-                        resolve();
-                    }
-                };
-                api.createLocation(deviceId, location);
-            });
-            return p.then(_ => {
-            });
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const deviceWithId = this.deviceWithId(deviceId);
+                let api = new ScalpsCoreRestApi.DeviceApi();
+                const { response } = yield api.createLocation(deviceWithId, location);
+                const result = JSON.parse(response.text);
+                return result;
+            }
+            catch (error) {
+                throw new Error(`An error has occurred while creating location ['${location.latitude}', '${location.longitude}'] ${error}`);
+            }
         });
     }
     /**
@@ -348,25 +294,19 @@ class Manager {
      * @param completion optional callback
      */
     getAllMatches(deviceId, completion) {
-        return this.withDevice(deviceId)(deviceId => {
-            let p = new Promise((resolve, reject) => {
-                let api = this.defaultClient;
-                let callback = function (error, data, response) {
-                    if (error) {
-                        reject("An error has occured while fetching matches: " + error);
-                    }
-                    else {
-                        // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-                        resolve(JSON.parse(response.text));
-                    }
-                };
-                api.getMatches(deviceId);
-            });
-            return p.then((matches) => {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const deviceWithId = this.deviceWithId(deviceId);
+                let api = new ScalpsCoreRestApi.DeviceApi();
+                const { response } = yield api.getMatches(deviceWithId);
+                const result = JSON.parse(response.text);
                 if (completion)
-                    completion(matches);
-                return matches;
-            });
+                    completion(result);
+                return result;
+            }
+            catch (error) {
+                throw new Error(`An error has occurred while fetching matches: ${error}`);
+            }
         });
     }
     /**
@@ -375,25 +315,19 @@ class Manager {
      * @param completion optional callback
      */
     getMatch(matchId, string, deviceId, completion) {
-        return this.withDevice(deviceId)(deviceId => {
-            let p = new Promise((resolve, reject) => {
-                let api = this.defaultClient;
-                let callback = function (error, data, response) {
-                    if (error) {
-                        reject("An error has occured while fetching matches: " + error);
-                    }
-                    else {
-                        // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-                        resolve(JSON.parse(response.text));
-                    }
-                };
-                api.getMatch(deviceId, matchId);
-            });
-            return p.then((matches) => {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const deviceWithId = this.deviceWithId(deviceId);
+                let api = new ScalpsCoreRestApi.DeviceApi();
+                const { response } = yield api.getMatch(deviceWithId, matchId);
+                const result = JSON.parse(response.text);
                 if (completion)
-                    completion(matches);
-                return matches;
-            });
+                    completion(result);
+                return result;
+            }
+            catch (error) {
+                throw new Error(`An error has occurred while fetching matches: ${error}`);
+            }
         });
     }
     /**
@@ -402,22 +336,29 @@ class Manager {
      * @param completion optional callback
      */
     getAllPublications(deviceId, completion) {
-        return this.withDevice(deviceId)(deviceId => {
-            let p = new Promise((resolve, reject) => {
-                let api = this.defaultClient;
-                let callback = function (error, data, response) {
-                    if (error) {
-                        reject("An error has occured while fetching publications: " + error);
-                    }
-                    else {
-                        // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-                        resolve(JSON.parse(response.text));
-                    }
-                };
-                api.getPublications(deviceId);
-            });
-            return p;
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const deviceWithId = this.deviceWithId(deviceId);
+                let api = new ScalpsCoreRestApi.DeviceApi();
+                const { response } = yield api.getPublications(deviceWithId);
+                const result = JSON.parse(response.text);
+                if (completion)
+                    completion(result);
+                return result;
+            }
+            catch (error) {
+                throw new Error("An error has occurred while fetching publications: " + error);
+            }
         });
+    }
+    deviceWithId(deviceId) {
+        if (!!deviceId) {
+            return deviceId;
+        }
+        if (!!this.defaultDevice && !!this.defaultDevice.id) {
+            return this.defaultDevice.id;
+        }
+        throw new Error("There is no default device available and no other device id was supplied,  please call createDevice before thi call or provide a device id");
     }
     withDevice(deviceId) {
         if (!!deviceId) {
@@ -436,21 +377,19 @@ class Manager {
      * @param completion optional callback
      */
     getAllSubscriptions(deviceId, completion) {
-        return this.withDevice(deviceId)(deviceId => {
-            let p = new Promise((resolve, reject) => {
-                let api = this.defaultClient;
-                let callback = function (error, data, response) {
-                    if (error) {
-                        reject("An error has occured while fetching subscriptions: " + error);
-                    }
-                    else {
-                        // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-                        resolve(JSON.parse(response.text));
-                    }
-                };
-                api.getSubscriptions(deviceId);
-            });
-            return p;
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const deviceWithId = this.deviceWithId(deviceId);
+                let api = new ScalpsCoreRestApi.DeviceApi();
+                const { response } = yield api.getSubscriptions(deviceWithId);
+                const result = JSON.parse(response.text);
+                if (completion)
+                    completion(result);
+                return result;
+            }
+            catch (error) {
+                throw new Error("An error has occurred while fetching subscriptions: " + error);
+            }
         });
     }
     /**
