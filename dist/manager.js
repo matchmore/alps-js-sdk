@@ -107,21 +107,16 @@ class Manager {
      */
     createAnyDevice(device, completion) {
         return __awaiter(this, void 0, void 0, function* () {
-            try {
-                const _device = this.setDeviceType(device);
-                let api = new ScalpsCoreRestApi.DeviceApi();
-                const { response } = yield api.createDevice(_device);
-                const result = JSON.parse(response.text);
-                let ddevice = this._persistenceManager.defaultDevice();
-                let isDefault = !ddevice;
-                this._persistenceManager.addDevice(result, isDefault);
-                if (completion)
-                    completion(result);
-                return result;
-            }
-            catch (error) {
-                throw new Error(`An error has occured while creating device '${device.name}': ${error}`);
-            }
+            const _device = this.setDeviceType(device);
+            let api = new ScalpsCoreRestApi.DeviceApi();
+            const { response } = yield api.createDevice(_device);
+            const result = JSON.parse(response.text);
+            let ddevice = this._persistenceManager.defaultDevice();
+            let isDefault = !ddevice;
+            this._persistenceManager.addDevice(result, isDefault);
+            if (completion)
+                completion(result);
+            return result;
         });
     }
     deleteDevice(deviceId, completion) {

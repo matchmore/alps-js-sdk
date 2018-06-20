@@ -1,4 +1,4 @@
-(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.matchmore = f()}})(function(){var define,module,exports;return (function(){function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s}return e})()({1:[function(require,module,exports){
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.matchmore = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 (function (Buffer){
 /**
  * MATCHMORE ALPS Core REST API
@@ -4368,8 +4368,10 @@ const LocalStoragePersistenceManager_1 = require("./persistences/LocalStoragePer
 exports.LocalStoragePersistenceManager = LocalStoragePersistenceManager_1.default;
 const platform_1 = require("./platform");
 exports.PlatformConfig = platform_1.default;
+const matchmonitor_1 = require("./matchmonitor");
+exports.MatchMonitorMode = matchmonitor_1.MatchMonitorMode;
 
-},{"./manager":28,"./persistences/InMemoryPersistenceManager":33,"./persistences/LocalStoragePersistenceManager":34,"./platform":35}],27:[function(require,module,exports){
+},{"./manager":28,"./matchmonitor":29,"./persistences/InMemoryPersistenceManager":33,"./persistences/LocalStoragePersistenceManager":34,"./platform":35}],27:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 class LocationManager {
@@ -4541,54 +4543,34 @@ class Manager {
      * @param completion optional callback
      */
     createAnyDevice(device, completion) {
-        device = this.setDeviceType(device);
-        let p = new Promise((resolve, reject) => {
+        return __awaiter(this, void 0, void 0, function* () {
+            const _device = this.setDeviceType(device);
             let api = new ScalpsCoreRestApi.DeviceApi();
-            let callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while creating device '" +
-                        device.name +
-                        "' :" +
-                        error);
-                }
-                else {
-                    // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-                    resolve(JSON.parse(response.text));
-                }
-            };
-            api.createDevice(device, callback);
-        });
-        return p.then((device) => {
+            const { response } = yield api.createDevice(_device);
+            const result = JSON.parse(response.text);
             let ddevice = this._persistenceManager.defaultDevice();
             let isDefault = !ddevice;
-            this._persistenceManager.addDevice(device, isDefault);
+            this._persistenceManager.addDevice(result, isDefault);
             if (completion)
-                completion(device);
-            return device;
+                completion(result);
+            return result;
         });
     }
     deleteDevice(deviceId, completion) {
-        let p = new Promise((resolve, reject) => {
-            let api = new ScalpsCoreRestApi.DeviceApi();
-            let callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while deleting device '" +
-                        deviceId +
-                        "' :" +
-                        error);
-                }
-                else {
-                    resolve();
-                }
-            };
-            api.deleteDevice(deviceId, callback);
-        });
-        return p.then(() => {
-            let d = this._persistenceManager.devices().find(d => d.id == deviceId);
-            if (d)
-                this._persistenceManager.remove(d);
-            if (completion)
-                completion();
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                let api = new ScalpsCoreRestApi.DeviceApi();
+                yield api.deleteDevice(deviceId);
+                let d = this._persistenceManager.devices().find(d => d.id == deviceId);
+                if (d)
+                    this._persistenceManager.remove(d);
+                if (completion)
+                    completion();
+                return;
+            }
+            catch (error) {
+                throw new Error(`An error has occured while deleting device '${deviceId}': ${error}`);
+            }
         });
     }
     setDeviceType(device) {
@@ -4625,61 +4607,46 @@ class Manager {
      * @param completion optional callback
      */
     createPublication(topic, range, duration, properties, deviceId, completion) {
-        return this.withDevice(deviceId)(deviceId => {
-            let p = new Promise((resolve, reject) => {
-                let api = new ScalpsCoreRestApi.PublicationApi();
-                let callback = function (error, data, response) {
-                    if (error) {
-                        reject("An error has occured while creating publication '" +
-                            topic +
-                            "' :" +
-                            error);
-                    }
-                    else {
-                        // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-                        resolve(JSON.parse(response.text));
-                    }
-                };
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const deviceWithId = this.deviceWithId(deviceId);
                 let publication = {
                     worldId: this.token.sub,
                     topic: topic,
-                    deviceId: deviceId,
+                    deviceId: deviceWithId,
                     range: range,
                     duration: duration,
                     properties: properties
                 };
-                api.createPublication(deviceId, publication, callback);
-            });
-            return p.then((publication) => {
-                this._persistenceManager.add(publication);
+                let api = new ScalpsCoreRestApi.DeviceApi();
+                const { response } = yield api.createPublication(deviceWithId, publication);
+                const result = JSON.parse(response.text);
+                this._persistenceManager.add(result);
                 if (completion)
-                    completion(publication);
-                return publication;
-            });
+                    completion(result);
+                return result;
+            }
+            catch (error) {
+                throw new Error(`An error has occured while creating publication '${topic}': ${error}`);
+            }
         });
     }
     deletePublication(deviceId, pubId, completion) {
-        let p = new Promise((resolve, reject) => {
-            let api = new ScalpsCoreRestApi.DeviceApi();
-            let callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while deleting publication '" +
-                        pubId +
-                        "' :" +
-                        error);
-                }
-                else {
-                    resolve();
-                }
-            };
-            api.deletePublication(deviceId, pubId, callback);
-        });
-        return p.then(() => {
-            let d = this._persistenceManager.publications().find(d => d.id == pubId);
-            if (d)
-                this._persistenceManager.remove(d);
-            if (completion)
-                completion();
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                let api = new ScalpsCoreRestApi.DeviceApi();
+                const { response } = yield api.deletePublication(deviceId, pubId);
+                const result = JSON.parse(response.text);
+                let d = this._persistenceManager.publications().find(d => d.id == pubId);
+                if (d)
+                    this._persistenceManager.remove(d);
+                if (completion)
+                    completion();
+                return result;
+            }
+            catch (error) {
+                throw new Error(`An error has occured while deleting publication '${pubId}' : ${error}`);
+            }
         });
     }
     /**
@@ -4692,61 +4659,46 @@ class Manager {
      * @param completion optional callback
      */
     createSubscription(topic, range, duration, selector, deviceId, completion) {
-        return this.withDevice(deviceId)(deviceId => {
-            let p = new Promise((resolve, reject) => {
-                let api = new ScalpsCoreRestApi.SubscriptionApi();
-                let callback = function (error, data, response) {
-                    if (error) {
-                        reject("An error has occured while creating subscription '" +
-                            topic +
-                            "' :" +
-                            error);
-                    }
-                    else {
-                        // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-                        resolve(JSON.parse(response.text));
-                    }
-                };
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const deviceWithId = this.deviceWithId(deviceId);
                 let subscription = {
                     worldId: this.token.sub,
                     topic: topic,
-                    deviceId: deviceId,
+                    deviceId: deviceWithId,
                     range: range,
                     duration: duration,
                     selector: selector || ""
                 };
-                api.createSubscription(deviceId, subscription, callback);
-            });
-            return p.then((subscription) => {
-                this._persistenceManager.add(subscription);
+                let api = new ScalpsCoreRestApi.DeviceApi();
+                const { response } = yield api.createSubscription(deviceWithId, subscription);
+                const result = JSON.parse(response.text);
+                this._persistenceManager.add(result);
                 if (completion)
-                    completion(subscription);
-                return subscription;
-            });
+                    completion(result);
+                return result;
+            }
+            catch (error) {
+                throw new Error(`An error has occurred while creating subscription '${topic}': ${error}`);
+            }
         });
     }
     deleteSubscription(deviceId, subId, completion) {
-        let p = new Promise((resolve, reject) => {
-            let api = new ScalpsCoreRestApi.DeviceApi();
-            let callback = function (error, data, response) {
-                if (error) {
-                    reject("An error has occured while deleting Ssbscription '" +
-                        subId +
-                        "' :" +
-                        error);
-                }
-                else {
-                    resolve();
-                }
-            };
-            api.deleteSubscription(deviceId, subId, callback);
-        });
-        return p.then(() => {
-            let d = this._persistenceManager.publications().find(d => d.id == subId);
-            if (d)
-                this._persistenceManager.remove(d);
-            if (completion)
-                completion();
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                let api = new ScalpsCoreRestApi.DeviceApi();
+                const { response } = yield api.deleteSubscription(deviceId, subId);
+                const result = JSON.parse(response.text);
+                let d = this._persistenceManager.publications().find(d => d.id == subId);
+                if (d)
+                    this._persistenceManager.remove(d);
+                if (completion)
+                    completion();
+                return result;
+            }
+            catch (error) {
+                throw new Error(`An error has occurred while deleting Subscription '${subId}': ${error}`);
+            }
         });
     }
     /**
@@ -4756,27 +4708,17 @@ class Manager {
      * @param completion optional callback
      */
     updateLocation(location, deviceId) {
-        return this.withDevice(deviceId)(deviceId => {
-            let p = new Promise((resolve, reject) => {
-                let api = new ScalpsCoreRestApi.LocationApi();
-                let callback = function (error, data, response) {
-                    if (error) {
-                        reject("An error has occured while creating location ['" +
-                            location.latitude +
-                            "','" +
-                            location.longitude +
-                            "']  :" +
-                            error);
-                    }
-                    else {
-                        // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-                        resolve();
-                    }
-                };
-                api.createLocation(deviceId, location, callback);
-            });
-            return p.then(_ => {
-            });
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const deviceWithId = this.deviceWithId(deviceId);
+                let api = new ScalpsCoreRestApi.DeviceApi();
+                const { response } = yield api.createLocation(deviceWithId, location);
+                const result = JSON.parse(response.text);
+                return result;
+            }
+            catch (error) {
+                throw new Error(`An error has occurred while creating location ['${location.latitude}', '${location.longitude}'] ${error}`);
+            }
         });
     }
     /**
@@ -4785,25 +4727,19 @@ class Manager {
      * @param completion optional callback
      */
     getAllMatches(deviceId, completion) {
-        return this.withDevice(deviceId)(deviceId => {
-            let p = new Promise((resolve, reject) => {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const deviceWithId = this.deviceWithId(deviceId);
                 let api = new ScalpsCoreRestApi.DeviceApi();
-                let callback = function (error, data, response) {
-                    if (error) {
-                        reject("An error has occured while fetching matches: " + error);
-                    }
-                    else {
-                        // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-                        resolve(JSON.parse(response.text));
-                    }
-                };
-                api.getMatches(deviceId, callback);
-            });
-            return p.then((matches) => {
+                const { response } = yield api.getMatches(deviceWithId);
+                const result = JSON.parse(response.text);
                 if (completion)
-                    completion(matches);
-                return matches;
-            });
+                    completion(result);
+                return result;
+            }
+            catch (error) {
+                throw new Error(`An error has occurred while fetching matches: ${error}`);
+            }
         });
     }
     /**
@@ -4812,25 +4748,19 @@ class Manager {
      * @param completion optional callback
      */
     getMatch(matchId, string, deviceId, completion) {
-        return this.withDevice(deviceId)(deviceId => {
-            let p = new Promise((resolve, reject) => {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const deviceWithId = this.deviceWithId(deviceId);
                 let api = new ScalpsCoreRestApi.DeviceApi();
-                let callback = function (error, data, response) {
-                    if (error) {
-                        reject("An error has occured while fetching matches: " + error);
-                    }
-                    else {
-                        // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-                        resolve(JSON.parse(response.text));
-                    }
-                };
-                api.getMatch(deviceId, matchId, callback);
-            });
-            return p.then((matches) => {
+                const { response } = yield api.getMatch(deviceWithId, matchId);
+                const result = JSON.parse(response.text);
                 if (completion)
-                    completion(matches);
-                return matches;
-            });
+                    completion(result);
+                return result;
+            }
+            catch (error) {
+                throw new Error(`An error has occurred while fetching matches: ${error}`);
+            }
         });
     }
     /**
@@ -4839,22 +4769,29 @@ class Manager {
      * @param completion optional callback
      */
     getAllPublications(deviceId, completion) {
-        return this.withDevice(deviceId)(deviceId => {
-            let p = new Promise((resolve, reject) => {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const deviceWithId = this.deviceWithId(deviceId);
                 let api = new ScalpsCoreRestApi.DeviceApi();
-                let callback = function (error, data, response) {
-                    if (error) {
-                        reject("An error has occured while fetching publications: " + error);
-                    }
-                    else {
-                        // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-                        resolve(JSON.parse(response.text));
-                    }
-                };
-                api.getPublications(deviceId, callback);
-            });
-            return p;
+                const { response } = yield api.getPublications(deviceWithId);
+                const result = JSON.parse(response.text);
+                if (completion)
+                    completion(result);
+                return result;
+            }
+            catch (error) {
+                throw new Error("An error has occurred while fetching publications: " + error);
+            }
         });
+    }
+    deviceWithId(deviceId) {
+        if (!!deviceId) {
+            return deviceId;
+        }
+        if (!!this.defaultDevice && !!this.defaultDevice.id) {
+            return this.defaultDevice.id;
+        }
+        throw new Error("There is no default device available and no other device id was supplied,  please call createDevice before thi call or provide a device id");
     }
     withDevice(deviceId) {
         if (!!deviceId) {
@@ -4873,21 +4810,19 @@ class Manager {
      * @param completion optional callback
      */
     getAllSubscriptions(deviceId, completion) {
-        return this.withDevice(deviceId)(deviceId => {
-            let p = new Promise((resolve, reject) => {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const deviceWithId = this.deviceWithId(deviceId);
                 let api = new ScalpsCoreRestApi.DeviceApi();
-                let callback = function (error, data, response) {
-                    if (error) {
-                        reject("An error has occured while fetching subscriptions: " + error);
-                    }
-                    else {
-                        // Ensure that the json response is sent as pure as possible, sometimes data != response.text. Swagger issue?
-                        resolve(JSON.parse(response.text));
-                    }
-                };
-                api.getSubscriptions(deviceId, callback);
-            });
-            return p;
+                const { response } = yield api.getSubscriptions(deviceWithId);
+                const result = JSON.parse(response.text);
+                if (completion)
+                    completion(result);
+                return result;
+            }
+            catch (error) {
+                throw new Error("An error has occurred while fetching subscriptions: " + error);
+            }
         });
     }
     /**
@@ -4943,7 +4878,7 @@ class MatchMonitor {
     startMonitoringMatches(mode) {
         if (!this.manager.defaultDevice)
             throw new Error("Default device not yet set!");
-        if (mode === undefined || mode == +MatchMonitorMode.polling) {
+        if (mode === undefined || mode == MatchMonitorMode.polling) {
             this.stopMonitoringMatches();
             let timer = setInterval(() => {
                 this.checkMatches();
@@ -5362,65 +5297,97 @@ for (var i = 0, len = code.length; i < len; ++i) {
 revLookup['-'.charCodeAt(0)] = 62
 revLookup['_'.charCodeAt(0)] = 63
 
-function placeHoldersCount (b64) {
+function getLens (b64) {
   var len = b64.length
+
   if (len % 4 > 0) {
     throw new Error('Invalid string. Length must be a multiple of 4')
   }
 
-  // the number of equal signs (place holders)
-  // if there are two placeholders, than the two characters before it
-  // represent one byte
-  // if there is only one, then the three characters before it represent 2 bytes
-  // this is just a cheap hack to not do indexOf twice
-  return b64[len - 2] === '=' ? 2 : b64[len - 1] === '=' ? 1 : 0
+  // Trim off extra bytes after placeholder bytes are found
+  // See: https://github.com/beatgammit/base64-js/issues/42
+  var validLen = b64.indexOf('=')
+  if (validLen === -1) validLen = len
+
+  var placeHoldersLen = validLen === len
+    ? 0
+    : 4 - (validLen % 4)
+
+  return [validLen, placeHoldersLen]
 }
 
+// base64 is 4/3 + up to two characters of the original data
 function byteLength (b64) {
-  // base64 is 4/3 + up to two characters of the original data
-  return (b64.length * 3 / 4) - placeHoldersCount(b64)
+  var lens = getLens(b64)
+  var validLen = lens[0]
+  var placeHoldersLen = lens[1]
+  return ((validLen + placeHoldersLen) * 3 / 4) - placeHoldersLen
+}
+
+function _byteLength (b64, validLen, placeHoldersLen) {
+  return ((validLen + placeHoldersLen) * 3 / 4) - placeHoldersLen
 }
 
 function toByteArray (b64) {
-  var i, l, tmp, placeHolders, arr
-  var len = b64.length
-  placeHolders = placeHoldersCount(b64)
+  var tmp
+  var lens = getLens(b64)
+  var validLen = lens[0]
+  var placeHoldersLen = lens[1]
 
-  arr = new Arr((len * 3 / 4) - placeHolders)
+  var arr = new Arr(_byteLength(b64, validLen, placeHoldersLen))
+
+  var curByte = 0
 
   // if there are placeholders, only get up to the last complete 4 chars
-  l = placeHolders > 0 ? len - 4 : len
+  var len = placeHoldersLen > 0
+    ? validLen - 4
+    : validLen
 
-  var L = 0
-
-  for (i = 0; i < l; i += 4) {
-    tmp = (revLookup[b64.charCodeAt(i)] << 18) | (revLookup[b64.charCodeAt(i + 1)] << 12) | (revLookup[b64.charCodeAt(i + 2)] << 6) | revLookup[b64.charCodeAt(i + 3)]
-    arr[L++] = (tmp >> 16) & 0xFF
-    arr[L++] = (tmp >> 8) & 0xFF
-    arr[L++] = tmp & 0xFF
+  for (var i = 0; i < len; i += 4) {
+    tmp =
+      (revLookup[b64.charCodeAt(i)] << 18) |
+      (revLookup[b64.charCodeAt(i + 1)] << 12) |
+      (revLookup[b64.charCodeAt(i + 2)] << 6) |
+      revLookup[b64.charCodeAt(i + 3)]
+    arr[curByte++] = (tmp >> 16) & 0xFF
+    arr[curByte++] = (tmp >> 8) & 0xFF
+    arr[curByte++] = tmp & 0xFF
   }
 
-  if (placeHolders === 2) {
-    tmp = (revLookup[b64.charCodeAt(i)] << 2) | (revLookup[b64.charCodeAt(i + 1)] >> 4)
-    arr[L++] = tmp & 0xFF
-  } else if (placeHolders === 1) {
-    tmp = (revLookup[b64.charCodeAt(i)] << 10) | (revLookup[b64.charCodeAt(i + 1)] << 4) | (revLookup[b64.charCodeAt(i + 2)] >> 2)
-    arr[L++] = (tmp >> 8) & 0xFF
-    arr[L++] = tmp & 0xFF
+  if (placeHoldersLen === 2) {
+    tmp =
+      (revLookup[b64.charCodeAt(i)] << 2) |
+      (revLookup[b64.charCodeAt(i + 1)] >> 4)
+    arr[curByte++] = tmp & 0xFF
+  }
+
+  if (placeHoldersLen === 1) {
+    tmp =
+      (revLookup[b64.charCodeAt(i)] << 10) |
+      (revLookup[b64.charCodeAt(i + 1)] << 4) |
+      (revLookup[b64.charCodeAt(i + 2)] >> 2)
+    arr[curByte++] = (tmp >> 8) & 0xFF
+    arr[curByte++] = tmp & 0xFF
   }
 
   return arr
 }
 
 function tripletToBase64 (num) {
-  return lookup[num >> 18 & 0x3F] + lookup[num >> 12 & 0x3F] + lookup[num >> 6 & 0x3F] + lookup[num & 0x3F]
+  return lookup[num >> 18 & 0x3F] +
+    lookup[num >> 12 & 0x3F] +
+    lookup[num >> 6 & 0x3F] +
+    lookup[num & 0x3F]
 }
 
 function encodeChunk (uint8, start, end) {
   var tmp
   var output = []
   for (var i = start; i < end; i += 3) {
-    tmp = ((uint8[i] << 16) & 0xFF0000) + ((uint8[i + 1] << 8) & 0xFF00) + (uint8[i + 2] & 0xFF)
+    tmp =
+      ((uint8[i] << 16) & 0xFF0000) +
+      ((uint8[i + 1] << 8) & 0xFF00) +
+      (uint8[i + 2] & 0xFF)
     output.push(tripletToBase64(tmp))
   }
   return output.join('')
@@ -5430,30 +5397,33 @@ function fromByteArray (uint8) {
   var tmp
   var len = uint8.length
   var extraBytes = len % 3 // if we have 1 byte left, pad 2 bytes
-  var output = ''
   var parts = []
   var maxChunkLength = 16383 // must be multiple of 3
 
   // go through the array every three bytes, we'll deal with trailing stuff later
   for (var i = 0, len2 = len - extraBytes; i < len2; i += maxChunkLength) {
-    parts.push(encodeChunk(uint8, i, (i + maxChunkLength) > len2 ? len2 : (i + maxChunkLength)))
+    parts.push(encodeChunk(
+      uint8, i, (i + maxChunkLength) > len2 ? len2 : (i + maxChunkLength)
+    ))
   }
 
   // pad the end with zeros, but make sure to not forget the extra bytes
   if (extraBytes === 1) {
     tmp = uint8[len - 1]
-    output += lookup[tmp >> 2]
-    output += lookup[(tmp << 4) & 0x3F]
-    output += '=='
+    parts.push(
+      lookup[tmp >> 2] +
+      lookup[(tmp << 4) & 0x3F] +
+      '=='
+    )
   } else if (extraBytes === 2) {
-    tmp = (uint8[len - 2] << 8) + (uint8[len - 1])
-    output += lookup[tmp >> 10]
-    output += lookup[(tmp >> 4) & 0x3F]
-    output += lookup[(tmp << 2) & 0x3F]
-    output += '='
+    tmp = (uint8[len - 2] << 8) + uint8[len - 1]
+    parts.push(
+      lookup[tmp >> 10] +
+      lookup[(tmp >> 4) & 0x3F] +
+      lookup[(tmp << 2) & 0x3F] +
+      '='
+    )
   }
-
-  parts.push(output)
 
   return parts.join('')
 }

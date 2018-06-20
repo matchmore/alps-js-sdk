@@ -4,7 +4,6 @@
   "description": "A  cloud service for creating highly dynamic, location-based applications",
   "license": "MIT",
   "main": "dist/index.js",
-  "browser": "dist/web/index.js",
   "homepage": "https://matchmore.io",
   "scripts": {
     "build": "tsc && cp -rf src/api dist/api",
@@ -17,7 +16,7 @@
     "@types/chai-as-promised": "^7.1.0",
     "@types/mocha": "^2.2.48",
     "babel-core": "^6.26.0",
-    "browserify": "^16.1.1",
+    "browserify": "^16.2.2",
     "chai": "^3.5.0",
     "chai-as-promised": "^6.0.0",
     "copyfiles": "^2.0.0",

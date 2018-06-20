@@ -8,3 +8,5 @@ const LocalStoragePersistenceManager_1 = require("./persistences/LocalStoragePer
 exports.LocalStoragePersistenceManager = LocalStoragePersistenceManager_1.default;
 const platform_1 = require("./platform");
 exports.PlatformConfig = platform_1.default;
+const matchmonitor_1 = require("./matchmonitor");
+exports.MatchMonitorMode = matchmonitor_1.MatchMonitorMode;

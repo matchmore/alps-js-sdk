@@ -3,8 +3,8 @@ import * as models from "./model/models";
 // import WebSocket = require("websocket");
 
 export enum MatchMonitorMode {
-  polling,
-  websocket
+  polling = 0,
+  websocket = 1 
 }
 
 export class MatchMonitor {
