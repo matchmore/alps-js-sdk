@@ -60,10 +60,22 @@ export class Manager {
   }
   
   get publications(): models.Publication[] {
+    const publications = this._persistenceManager.publications();
+    publications.map((publication) => {
+      if (publication.createdAt + publication.duration * 1000 < Date.now()) {
+        this._persistenceManager.remove(publication)
+      }
+    })
     return this._persistenceManager.publications();
   }
   
   get subscriptions(): models.Subscription[] {
+    const subscriptions = this._persistenceManager.subscriptions();
+    subscriptions.map((subscription) => {
+      if (subscription.createdAt + subscription.duration * 1000 < Date.now()) {
+        this._persistenceManager.remove(subscription);
+      }
+    });
     return this._persistenceManager.subscriptions();
   }
   
