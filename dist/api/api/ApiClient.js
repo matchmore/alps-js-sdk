@@ -525,7 +525,7 @@
       case 'Blob':
       	return data;
       default:
-        return data;
+       return data;
     }
   };
 
