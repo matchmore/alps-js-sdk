@@ -1,7 +1,7 @@
 import { Manager } from './manager';
 import { IPersistenceManager } from "./persistence";
-import * as ScalpsCoreRestApi from "./api";
+import { Client } from "./client";
 import InMemoryPersistenceManager from './persistences/InMemoryPersistenceManager';
 import LocalStoragePersistenceManager from './persistences/LocalStoragePersistenceManager';
 import PlatformConfig from './platform';
-export { Manager, IPersistenceManager, InMemoryPersistenceManager, LocalStoragePersistenceManager, ScalpsCoreRestApi, PlatformConfig };
+export { Manager, IPersistenceManager, InMemoryPersistenceManager, LocalStoragePersistenceManager, Client, PlatformConfig };

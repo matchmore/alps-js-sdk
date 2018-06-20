@@ -1,5 +1,5 @@
 import { Manager } from "./manager";
-import * as models from "./model/models";
+import * as models from "./client";
 export declare enum MatchMonitorMode {
     polling = 0,
     websocket = 1,

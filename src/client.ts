@@ -59,7 +59,7 @@ export class Client {
     if (response.headers && response.headers.forEach) {
       response.headers.forEach((v: any, k: any) => (_headers[k] = v));
     }
-    if (status === 201) {
+    if (status === 201 || status === 200) {
       return response.text().then(_responseText => {
         let result201: any = null;
         let resultData201 =
@@ -84,8 +84,8 @@ export class Client {
         let resultData =
           _responseText === ""
             ? null
-            : JSON.parse(_responseText, this.jsonParseReviver);
-        result = resultData ? APIError.fromJS(resultData) : <any>null;
+            : _responseText;
+        
         return throwException(
           "A server error occurred.",
           status,

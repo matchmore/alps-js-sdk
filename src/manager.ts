@@ -1,11 +1,21 @@
-import {Client, Subscription, Device, Publication, MobileDevice, IBeaconDevice, PinDevice, Location, Match} from "./client";
-import Base64 = require("Base64");
-import {MatchMonitor, MatchMonitorMode} from "./matchmonitor";
-import {LocationManager, GPSConfig} from "./locationmanager";
 import {
-  IPersistenceManager,
-  InMemoryPersistenceManager,
-} from "./index";
+  Client,
+  Subscription,
+  Device,
+  Publication,
+  MobileDevice,
+  IBeaconDevice,
+  PinDevice,
+  Location,
+  Match,
+  IPublication,
+  SwaggerException,
+  IMobileDevice
+} from "./client";
+import Base64 = require("Base64");
+import { MatchMonitor, MatchMonitorMode } from "./matchmonitor";
+import { LocationManager, GPSConfig } from "./locationmanager";
+import { IPersistenceManager, InMemoryPersistenceManager } from "./index";
 
 export interface Token {
   sub: string;
@@ -14,13 +24,13 @@ export interface Token {
 type Provider<T> = (deviceId: string) => T;
 
 export class Manager {
-  private defaultClient: Client;
-  
+  private api: Client;
+
   private _matchMonitor: MatchMonitor;
   private _locationManager: LocationManager;
   private _persistenceManager: IPersistenceManager;
   public token: Token;
-  
+
   constructor(
     public apiKey: string,
     public apiUrlOverride?: string,
@@ -30,49 +40,53 @@ export class Manager {
     if (!apiKey) throw new Error("Api key required");
     this._persistenceManager =
       persistenceManager || new InMemoryPersistenceManager();
-    
+
     this.token = JSON.parse(Base64.atob(this.apiKey.split(".")[1])); // as Token;
-    
+
     // this.defaultClient.authentications["api-key"].apiKey = this.apiKey;
     // Hack the api location (to use an overidden value if needed)
     var basePath = "https://api.matchmore.io/v5";
     if (this.apiUrlOverride) basePath = this.apiUrlOverride;
     else this.apiUrlOverride = basePath;
-    this.defaultClient = new Client(basePath, options => {
-      options.headers["Authorization"] = this.apiKey;
-      return Promise.resolve(options);
-    }, {
-      fetch
-    });
+    this.api = new Client(
+      basePath,
+      options => {
+        options.headers["api-key"] = this.apiKey;
+        return Promise.resolve(options);
+      },
+      {
+        fetch
+      }
+    );
 
     this._matchMonitor = new MatchMonitor(this);
     this._locationManager = new LocationManager(this, gpsConfig);
   }
-  
+
   async load(): Promise<Boolean> {
     return await this._persistenceManager.load();
   }
-  
+
   get apiUrl() {
     return this.apiUrlOverride;
   }
-  
+
   get defaultDevice(): Device | undefined {
     return this._persistenceManager.defaultDevice();
   }
-  
+
   get devices(): Device[] {
     return this._persistenceManager.devices();
   }
-  
+
   get publications(): Publication[] {
     return this._persistenceManager.publications();
   }
-  
+
   get subscriptions(): Subscription[] {
     return this._persistenceManager.subscriptions();
   }
-  
+
   /**
    * Creates a mobile device
    * @param name
@@ -83,19 +97,18 @@ export class Manager {
   public createMobileDevice(
     name: string,
     platform: string,
-    deviceToken: string,
-    completion?: (device: MobileDevice) => void
+    deviceToken: string
   ): Promise<MobileDevice> {
     return this.createAnyDevice(
-      <MobileDevice>{
+      new MobileDevice({
         name: name,
         platform: platform,
-        deviceToken: deviceToken
-      },
-      completion
+        deviceToken: deviceToken,
+        location: new Location({ latitude: 0, longitude: 0, altitude: 0 })
+      })
     );
   }
-  
+
   /**
    * Create a pin device
    * @param name
@@ -104,18 +117,16 @@ export class Manager {
    */
   public createPinDevice(
     name: string,
-    location: Location,
-    completion?: (device: PinDevice) => void
+    location: Location
   ): Promise<PinDevice> {
     return this.createAnyDevice(
       new PinDevice({
         name: name,
         location: location
-      }),
-      completion
+      })
     );
   }
-  
+
   /**
    * Creates an ibeacon device
    * @param name
@@ -130,8 +141,7 @@ export class Manager {
     proximityUUID: string,
     major: number,
     minor: number,
-    location: Location,
-    completion?: (device: IBeaconDevice) => void
+    location: Location
   ): Promise<IBeaconDevice> {
     return this.createAnyDevice(
       new IBeaconDevice({
@@ -139,86 +149,53 @@ export class Manager {
         proximityUUID: proximityUUID,
         major: major,
         minor: minor
-      }),
-      completion
+      })
     );
   }
-  
+
   /**
    * Create a device
    * @param device whole device object
    * @param completion optional callback
    */
-  public async createAnyDevice<T extends models.Device>(
-    device: models.Device,
-    completion?: (device: T) => void
+  public async createAnyDevice<T extends Device>(
+    device: Device
   ): Promise<T> {
     try {
-      const _device = this.setDeviceType(device);
-      let api = new ScalpsCoreRestApi.DeviceApi();
-      
-      const { response } = await api.createDevice(_device);
-      const result = JSON.parse(response.text);
-      
+      const result = await this.api.createDevice(device);
       let ddevice = this._persistenceManager.defaultDevice();
       let isDefault = !ddevice;
       this._persistenceManager.addDevice(result, isDefault);
-      
-      if (completion) completion(result);
-      return result;
-    }
-    catch (error) {
-      throw new Error(`An error has occured while creating device '${device.name}': ${error}`);
+
+      return result as T;
+    } catch (error) {
+      this.handleError(error, `create device '${device.name}'`);
     }
   }
 
-  public async deleteDevice(deviceId: string, completion?: () => void) {
+  private handleError(error: any, operation: string){
+    if (error instanceof SwaggerException) {
+      throw new Error(
+        `An error has occurred during '${operation}': ${error} ${error.status}, ${error.response}`
+      );
+    }
+
+    throw error;
+  }
+
+  public async deleteDevice(deviceId: string) {
     try {
-      let api = new ScalpsCoreRestApi.DeviceApi();
-      await api.deleteDevice(deviceId);
-      
-      let d = this._persistenceManager.devices().find(d=> d.id == deviceId);
-      if(d) this._persistenceManager.remove(d);
-  
-      if (completion) completion();
+      await this.api.deleteDevice(deviceId);
+
+      let d = this._persistenceManager.devices().find(d => d.id == deviceId);
+      if (d) this._persistenceManager.remove(d);
+
       return;
+    } catch (error) {
+      this.handleError(error, `delete device '${deviceId}'`);
     }
-    catch (error) {
-      throw new Error(`An error has occured while deleting device '${deviceId}': ${error}`);
-    }
   }
-  
-  // private setDeviceType(device: Device): Device {
-  //   if (this.isMobileDevice(device)) {
-  //     device.deviceType = DeviceType.MobileDevice;
-  //     return device;
-  //   }
-    
-  //   if (this.isBeaconDevice(device)) {
-  //     device.deviceType = DeviceType.IBeaconDevice;
-  //     return device;
-  //   }
-    
-  //   if (this.isPinDevice(device)) {
-  //     device.deviceType = DeviceType.PinDevice;
-  //     return device;
-  //   }
-    
-  //   throw new Error("Cannot determine device type");
-  // }
-  
-  private isMobileDevice(device: Device): device is MobileDevice {
-    return (<MobileDevice>device).platform !== undefined;
-  }
-  
-  private isPinDevice(device: Device): device is PinDevice {
-    return (<PinDevice>device).location !== undefined;
-  }
-  
-  private isBeaconDevice(device: models.Device): device is models.IBeaconDevice {
-    return (<models.IBeaconDevice>device).major !== undefined;
-  }
-  
+
   /**
    * Create a publication for a device
    * @param topic topic of the publication
@@ -234,52 +211,46 @@ export class Manager {
     duration: number,
     properties: Object,
     deviceId?: string,
-    completion?: (publication: models.Publication) => void
-  ): Promise<models.Publication> {
+  ): Promise<Publication> {
     try {
       const deviceWithId = this.deviceWithId(deviceId);
-      let publication: models.Publication = {
+      let publication = new Publication({
         worldId: this.token.sub,
         topic: topic,
         deviceId: deviceWithId,
         range: range,
         duration: duration,
         properties: properties
-      };
-      
-      let api = new ScalpsCoreRestApi.DeviceApi();
-    
-      const { response } = await api.createPublication(deviceWithId, publication);
-      const result = JSON.parse(response.text);
-  
+      });
+
+      const result = await this.api.createPublication(
+        deviceWithId,
+        publication
+      );
+
       this._persistenceManager.add(result);
-      if (completion) completion(result);
-      
+
       return result;
-    }
-    catch (error) {
-      throw new Error(`An error has occured while creating publication '${topic}': ${error}`);
+    } catch (error) {
+      this.handleError(error, `create publication for topic ${topic}`)
     }
   }
 
-  public async deletePublication(deviceId: string, pubId: string, completion?: () => void){
+  public async deletePublication(
+    deviceId: string,
+    pubId: string
+  ): Promise<void> {
     try {
-      let api = new ScalpsCoreRestApi.DeviceApi();
-    
-      const { response } = await api.deletePublication(deviceId, pubId);
-      const result = JSON.parse(response.text);
-      
-      let d = this._persistenceManager.publications().find(d=> d.id == pubId);
+      await this.api.deletePublication(deviceId, pubId);
+
+      let d = this._persistenceManager.publications().find(d => d.id == pubId);
       if (d) this._persistenceManager.remove(d);
-      
-      if (completion) completion();
-      return result;
-    }
-    catch (error) {
-      throw new Error(`An error has occured while deleting publication '${pubId}' : ${error}`);
+
+    } catch (error) {
+      this.handleError(error, `delete publication for device ${deviceId}, publication ${pubId}`);
     }
   }
-  
+
   /**
    * Create a subscription for a device
    * @param topic topic of the subscription
@@ -294,55 +265,47 @@ export class Manager {
     range: number,
     duration: number,
     selector?: string,
-    deviceId?: string,
-    completion?: (subscription: models.Subscription) => void
-  ): Promise<models.Subscription> {
-  
+    deviceId?: string
+  ): Promise<Subscription> {
     try {
       const deviceWithId = this.deviceWithId(deviceId);
-      let subscription: models.Subscription = {
+      let subscription = new Subscription({
         worldId: this.token.sub,
         topic: topic,
         deviceId: deviceWithId,
         range: range,
         duration: duration,
         selector: selector || ""
-      };
-      
-      let api = new ScalpsCoreRestApi.DeviceApi();
-    
-      const { response } = await api.createSubscription(deviceWithId, subscription);
-      const result = JSON.parse(response.text);
-  
+      });
+
+      const result = await this.api.createSubscription(
+        deviceWithId,
+        subscription
+      );
+
       this._persistenceManager.add(result);
-      if (completion) completion(result);
-      
+
       return result;
-    }
-    catch (error) {
-      throw new Error(`An error has occurred while creating subscription '${topic}': ${error}`);
+    } catch (error) {
+      this.handleError(error, `create subscription for topic ${topic}`)
     }
   }
 
-  public async deleteSubscription(deviceId: string, subId: string, completion?: () => void) {
+  public async deleteSubscription(
+    deviceId: string,
+    subId: string,
+  ) {
     try {
-      let api = new ScalpsCoreRestApi.DeviceApi();
-    
-      const { response } = await api.deleteSubscription(deviceId, subId);
-      const result = JSON.parse(response.text);
-  
-      let d = this._persistenceManager.publications().find(d=> d.id == subId);
-      if(d) this._persistenceManager.remove(d);
-      if (completion) completion();
+      const result = await this.api.deleteSubscription(deviceId, subId);
+
+      let d = this._persistenceManager.publications().find(d => d.id == subId);
+      if (d) this._persistenceManager.remove(d);
       return result;
-    }
-    catch (error) {
-      throw new Error(
-        `An error has occurred while deleting Subscription '${subId}': ${error}`
-      );
+    } catch (error) {
+      this.handleError(error, `delete subscription for device ${deviceId}, subscription ${subId}`);
     }
   }
-  
+
   /**
    * Updates the device location
    * @param location
@@ -350,96 +313,76 @@ export class Manager {
    * @param completion optional callback
    */
   public async updateLocation(
-    location: models.Location,
-    deviceId?: string,
+    location: Location,
+    deviceId?: string
   ): Promise<void> {
     try {
       const deviceWithId = this.deviceWithId(deviceId);
-      let api = new ScalpsCoreRestApi.DeviceApi();
-    
-      const { response } = await api.createLocation(deviceWithId, location);
-      const result = JSON.parse(response.text);
-      return result;
-    }
-    catch (error) {
-      throw new Error(`An error has occurred while creating location ['${location.latitude}', '${location.longitude}'] ${error}`);
+      await this.api.createLocation(deviceWithId, location);
+    } catch (error) {
+      this.handleError(error, `creating location ['${
+        location.latitude
+      }'`);
     }
   }
-  
+
   /**
    * Returns all current matches
    * @param deviceId optional, if not provided the default device will be used
    * @param completion optional callback
    */
   public async getAllMatches(
-    deviceId?: string,
-    completion?: (matches: models.Match[]) => void
-  ): Promise<models.Match[]> {
+    deviceId?: string
+  ): Promise<Match[]> {
     try {
       const deviceWithId = this.deviceWithId(deviceId);
-      let api = new ScalpsCoreRestApi.DeviceApi();
-    
-      const { response } = await api.getMatches(deviceWithId);
-      const result = JSON.parse(response.text);
-      
-      if (completion) completion(result);
+      const result = await this.api.getMatches(deviceWithId);
+
       return result;
-    }
-    catch (error) {
-      throw new Error(`An error has occurred while fetching matches: ${error}`);
+    } catch (error) {
+      this.handleError(error, `fetch matches`);
     }
   }
-  
+
   /**
    * Returns a specific match for device
    * @param deviceId optional, if not provided the default device will be used
    * @param completion optional callback
    */
   public async getMatch(
-    matchId,
-    string,
-    deviceId?: string,
-    completion?: (matches: models.Match) => void
-  ): Promise<models.Match> {
+    matchId: string,
+    deviceId?: string
+  ): Promise<Match> {
     try {
       const deviceWithId = this.deviceWithId(deviceId);
-      let api = new ScalpsCoreRestApi.DeviceApi();
-    
-      const { response } = await api.getMatch(deviceWithId, matchId);
-      const result = JSON.parse(response.text);
-    
-      if (completion) completion(result);
+
+      const result = await this.api.getMatch(deviceWithId, matchId);
+
       return result;
-    }
-    catch (error) {
-      throw new Error(`An error has occurred while fetching matches: ${error}`);
+    } catch (error) {
+      this.handleError(error, `fetch match ${matchId}`);
     }
   }
-  
+
   /**
    * Gets publications
    * @param deviceId optional, if not provided the default device will be used
    * @param completion optional callback
    */
   public async getAllPublications(
-    deviceId?: string,
-    completion?: (publications: models.Publication[]) => void
-  ): Promise<models.Publication[]> {
+    deviceId?: string
+  ): Promise<Publication[]> {
     try {
       const deviceWithId = this.deviceWithId(deviceId);
-      let api = new ScalpsCoreRestApi.DeviceApi();
-      
-      const { response } = await api.getPublications(deviceWithId);
-      const result = JSON.parse(response.text);
-      
-      if (completion) completion(result);
+
+      const result = await this.api.getPublications(deviceWithId);
+
       return result;
-    }
-    catch (error) {
-      throw new Error("An error has occurred while fetching publications: " + error);
+    } catch (error) {
+      this.handleError(error, `fetch publications`);
     }
   }
-  
+
   private deviceWithId(deviceId?: string): string {
     if (!!deviceId) {
       return deviceId;
@@ -447,51 +390,31 @@ export class Manager {
     if (!!this.defaultDevice && !!this.defaultDevice.id) {
       return this.defaultDevice.id;
     }
-  
+
     throw new Error(
       "There is no default device available and no other device id was supplied,  please call createDevice before thi call or provide a device id"
     );
   }
-  
-  private withDevice<T>(deviceId?: string): (p: Provider<T>) => T {
-    if (!!deviceId) {
-      return (p: Provider<T>) => p(deviceId)
-    }
-    ;
-    if (!!this.defaultDevice && !!this.defaultDevice.id) {
-      return (p: Provider<T>) => p(this.defaultDevice.id)
-    }
-    ;
-    
-    throw new Error(
-      "There is no default device available and no other device id was supplied,  please call createDevice before thi call or provide a device id"
-    );
-  }
-  
+
   /**
    * Gets subscriptions
    * @param deviceId optional, if not provided the default device will be used
    * @param completion optional callback
    */
   public async getAllSubscriptions(
-    deviceId?: string,
-    completion?: (subscriptions: models.Subscription[]) => void
-  ): Promise<models.Subscription[]> {
+    deviceId?: string
+  ): Promise<Subscription[]> {
     try {
       const deviceWithId = this.deviceWithId(deviceId);
-      let api = new ScalpsCoreRestApi.DeviceApi();
-    
-      const { response } = await api.getSubscriptions(deviceWithId);
-      const result = JSON.parse(response.text);
-    
-      if (completion) completion(result);
+
+      const result = await this.api.getSubscriptions(deviceWithId);
+
       return result;
-    }
-    catch (error) {
-      throw new Error("An error has occurred while fetching subscriptions: " + error);
+    } catch (error) {
+      this.handleError(error, `fetch subscriptions`);
     }
   }
-  
+
   /**
    * Registers a callback for matches
    * @param completion
@@ -499,7 +422,7 @@ export class Manager {
   set onMatch(completion: (match: Match) => void) {
     this._matchMonitor.onMatch = completion;
   }
-  
+
   /**
    * Register a callback for location updates
    * @param completion
@@ -507,19 +430,19 @@ export class Manager {
   set onLocationUpdate(completion: (location: Location) => void) {
     this._locationManager.onLocationUpdate = completion;
   }
-  
+
   public startMonitoringMatches(mode: MatchMonitorMode) {
     this._matchMonitor.startMonitoringMatches(mode);
   }
-  
+
   public stopMonitoringMatches() {
     this._matchMonitor.stopMonitoringMatches();
   }
-  
+
   public startUpdatingLocation() {
     this._locationManager.startUpdatingLocation();
   }
-  
+
   public stopUpdatingLocation() {
     this._locationManager.stopUpdatingLocation();
   }
