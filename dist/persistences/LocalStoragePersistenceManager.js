@@ -28,19 +28,19 @@ class LocalStoragePersistenceManager {
     }
     add(entity) {
         if (persistence_1.MatchmoreEntityDiscriminator.isDevice(entity)) {
-            let device = entity;
+            const device = entity;
             this._devices.push(device);
             this.save();
             return;
         }
         if (persistence_1.MatchmoreEntityDiscriminator.isPublication(entity)) {
-            let pub = entity;
+            const pub = entity;
             this._publications.push(pub);
             this.save();
             return;
         }
         if (persistence_1.MatchmoreEntityDiscriminator.isSubscription(entity)) {
-            let sub = entity;
+            const sub = entity;
             this._subscriptions.push(sub);
             this.save();
             return;
@@ -48,21 +48,21 @@ class LocalStoragePersistenceManager {
     }
     remove(entity) {
         if (persistence_1.MatchmoreEntityDiscriminator.isDevice(entity)) {
-            let device = entity;
+            const device = entity;
             if (device.id == this._defaultDevice.id)
-                throw new Error("Cannot delete default device");
+                throw new Error("Cannot deconste default device");
             this._devices = this._devices.filter(d => device.id != d.id);
             this.save();
             return;
         }
         if (persistence_1.MatchmoreEntityDiscriminator.isPublication(entity)) {
-            let pub = entity;
+            const pub = entity;
             this._publications = this._publications.filter(d => pub.id != d.id);
             this.save();
             return;
         }
         if (persistence_1.MatchmoreEntityDiscriminator.isSubscription(entity)) {
-            let sub = entity;
+            const sub = entity;
             this._subscriptions = this._subscriptions.filter(d => sub.id != d.id);
             this.save();
             return;

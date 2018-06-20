@@ -1,5 +1,5 @@
 import { IPersistenceManager } from "../persistence";
-import { Device, Publication, Subscription } from "../model/models";
+import { Device, Publication, Subscription } from "../client";
 export default class LocalStoragePersistenceManager implements IPersistenceManager {
     private _defaultDevice?;
     private _devices;

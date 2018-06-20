@@ -23,19 +23,19 @@ class MatchMonitor {
             throw new Error("Default device not yet set!");
         if (mode === undefined || mode == MatchMonitorMode.polling) {
             this.stopMonitoringMatches();
-            let timer = setInterval(() => {
+            const timer = setInterval(() => {
                 this.checkMatches();
             }, 1000);
             return;
         }
         if (mode == MatchMonitorMode.websocket) {
-            let socketUrl = this.manager.apiUrl
+            const socketUrl = this.manager.apiUrl
                 .replace("https://", "wss://")
                 .replace("http://", "ws://")
                 .replace("v5", "") +
                 "pusher/v5/ws/" +
                 this.manager.defaultDevice.id;
-            let ws = new WebSocket(socketUrl, ["api-key", this.manager.token.sub]);
+            const ws = new WebSocket(socketUrl, ["api-key", this.manager.token.sub]);
             ws.onopen = msg => console.log("opened");
             ws.onerror = msg => console.log(msg);
             ws.onmessage = msg => this.checkMatch(msg.data);
@@ -60,8 +60,8 @@ class MatchMonitor {
     }
     checkMatches() {
         this.manager.getAllMatches().then(matches => {
-            for (let idx in matches) {
-                let match = matches[idx];
+            for (const idx in matches) {
+                const match = matches[idx];
                 if (this.hasNotBeenDelivered(match)) {
                     this._deliveredMatches.push(match);
                     this._onMatch(match);
@@ -70,8 +70,8 @@ class MatchMonitor {
         });
     }
     hasNotBeenDelivered(match) {
-        for (let idx in this._deliveredMatches) {
-            let deliveredMatch = this._deliveredMatches[idx];
+        for (const idx in this._deliveredMatches) {
+            const deliveredMatch = this._deliveredMatches[idx];
             if (deliveredMatch.id == match.id)
                 return false;
         }

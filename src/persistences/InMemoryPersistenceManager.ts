@@ -2,7 +2,7 @@ import {
   IPersistenceManager,
   MatchmoreEntityDiscriminator
 } from "../persistence";
-import * as models from "../model/models";
+import * as models from "../client";
 
 export default class InMemoryPersistenceManager implements IPersistenceManager {
   private _defaultDevice?: models.Device;
@@ -29,19 +29,19 @@ export default class InMemoryPersistenceManager implements IPersistenceManager {
 
   add(entity: models.Device | models.Publication | models.Subscription) {
     if (MatchmoreEntityDiscriminator.isDevice(entity)) {
-      let device: models.Device = entity;
+      const device: models.Device = entity;
       this._devices.push(device);
       return;
     }
 
     if (MatchmoreEntityDiscriminator.isPublication(entity)) {
-      let pub: models.Publication = entity;
+      const pub: models.Publication = entity;
       this._publications.push(pub);
       return;
     }
 
     if (MatchmoreEntityDiscriminator.isSubscription(entity)) {
-      let sub: models.Subscription = entity;
+      const sub: models.Subscription = entity;
       this._subscriptions.push(sub);
       return;
     }
@@ -49,20 +49,20 @@ export default class InMemoryPersistenceManager implements IPersistenceManager {
 
   remove(entity: models.Device | models.Publication | models.Subscription) {
     if (MatchmoreEntityDiscriminator.isDevice(entity)) {
-      let device: models.Device = entity;
-      if (device.id == this._defaultDevice.id) throw new Error("Cannot delete default device");
+      const device: models.Device = entity;
+      if (device.id == this._defaultDevice.id) throw new Error("Cannot deconste default device");
       this._devices = this._devices.filter(d=> device.id != d.id);
       return;
     }
 
     if (MatchmoreEntityDiscriminator.isPublication(entity)) {
-      let pub: models.Publication = entity;
+      const pub: models.Publication = entity;
       this._publications = this._publications.filter(d=> pub.id != d.id);
       return;
     }
 
     if (MatchmoreEntityDiscriminator.isSubscription(entity)) {
-      let sub: models.Subscription = entity;
+      const sub: models.Subscription = entity;
       this._subscriptions = this._subscriptions.filter(d=> sub.id != d.id);
       return;
     }

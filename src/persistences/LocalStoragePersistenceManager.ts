@@ -3,7 +3,7 @@ import {
   Device,
   Publication,
   Subscription,
-} from "../model/models";
+} from "../client";
 import PlatformConfig from '../platform';
 const storageKey = '@matchmoreSdk:data';
 
@@ -28,21 +28,21 @@ export default class LocalStoragePersistenceManager implements IPersistenceManag
   
   add(entity: Device | Publication | Subscription) {
     if (MatchmoreEntityDiscriminator.isDevice(entity)) {
-      let device: Device = entity;
+      const device: Device = entity;
       this._devices.push(device);
       this.save();
       return;
     }
     
     if (MatchmoreEntityDiscriminator.isPublication(entity)) {
-      let pub: Publication = entity;
+      const pub: Publication = entity;
       this._publications.push(pub);
       this.save();
       return;
     }
     
     if (MatchmoreEntityDiscriminator.isSubscription(entity)) {
-      let sub: Subscription = entity;
+      const sub: Subscription = entity;
       this._subscriptions.push(sub);
       this.save();
       return;
@@ -51,22 +51,22 @@ export default class LocalStoragePersistenceManager implements IPersistenceManag
 
   remove(entity: Device | Publication | Subscription) {
     if (MatchmoreEntityDiscriminator.isDevice(entity)) {
-      let device: Device = entity;
-      if (device.id == this._defaultDevice.id) throw new Error("Cannot delete default device");
+      const device: Device = entity;
+      if (device.id == this._defaultDevice.id) throw new Error("Cannot deconste default device");
       this._devices = this._devices.filter(d=> device.id != d.id);
       this.save();
       return;
     }
 
     if (MatchmoreEntityDiscriminator.isPublication(entity)) {
-      let pub: Publication = entity;
+      const pub: Publication = entity;
       this._publications = this._publications.filter(d=> pub.id != d.id);
       this.save();
       return;
     }
 
     if (MatchmoreEntityDiscriminator.isSubscription(entity)) {
-      let sub: Subscription = entity;
+      const sub: Subscription = entity;
       this._subscriptions = this._subscriptions.filter(d=> sub.id != d.id);
       this.save();
       return;

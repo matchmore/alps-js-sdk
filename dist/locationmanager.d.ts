@@ -1,5 +1,5 @@
 import { Manager } from "./manager";
-import * as models from "./model/models";
+import { Location } from "./client";
 export interface GPSConfig {
     enableHighAccuracy: boolean;
     timeout: number;
@@ -13,7 +13,7 @@ export declare class LocationManager {
     constructor(manager: Manager, config?: GPSConfig);
     startUpdatingLocation(): void;
     stopUpdatingLocation(): void;
-    onLocationUpdate: (location: models.Location) => void;
+    onLocationUpdate: (location: Location) => void;
     private onLocationReceived;
     private onError(error);
 }

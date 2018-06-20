@@ -2,7 +2,7 @@
 // API key and apiEndpoint are stored in test/config.ts
 import { environment } from "./config";
 
-// let assert = require('assert');
+// const assert = require('assert');
 import chai = require("chai");
 import chaiAsPromised = require("chai-as-promised");
 import "mocha";
