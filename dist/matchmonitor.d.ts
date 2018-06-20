@@ -2,7 +2,7 @@ import { Manager } from "./manager";
 import * as models from "./model/models";
 export declare enum MatchMonitorMode {
     polling = 0,
-    websocket = 1
+    websocket = 1,
 }
 export declare class MatchMonitor {
     manager: Manager;
@@ -12,9 +12,9 @@ export declare class MatchMonitor {
     constructor(manager: Manager);
     onMatch: (match: models.Match) => void;
     readonly deliveredMatches: models.Match[];
-    startMonitoringMatches(mode: MatchMonitorMode): void;
+    startMonitoringMatches(mode?: MatchMonitorMode): void;
     stopMonitoringMatches(): void;
-    private checkMatch;
-    private checkMatches;
-    private hasNotBeenDelivered;
+    private checkMatch(matchId);
+    private checkMatches();
+    private hasNotBeenDelivered(match);
 }

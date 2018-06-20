@@ -506,7 +506,7 @@ export class Manager {
     this._locationManager.onLocationUpdate = completion;
   }
   
-  public startMonitoringMatches(mode: MatchMonitorMode) {
+  public startMonitoringMatches(mode?: MatchMonitorMode) {
     this._matchMonitor.startMonitoringMatches(mode);
   }
   

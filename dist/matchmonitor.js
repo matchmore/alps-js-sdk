@@ -21,7 +21,7 @@ class MatchMonitor {
     startMonitoringMatches(mode) {
         if (!this.manager.defaultDevice)
             throw new Error("Default device not yet set!");
-        if (mode === undefined || mode == +MatchMonitorMode.polling) {
+        if (mode === undefined || mode == MatchMonitorMode.polling) {
             this.stopMonitoringMatches();
             let timer = setInterval(() => {
                 this.checkMatches();

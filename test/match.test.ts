@@ -9,7 +9,13 @@ import "mocha";
 import { Manager } from "../src/manager";
 import * as models from "../src/model/models";
 import { MatchMonitorMode } from "../src/matchmonitor";
-import { sampleDevice, sampleSubscription, sampleLocation, samplePublication } from "./common";
+import {
+  sampleDevice,
+  sampleSubscription,
+  sampleLocation,
+  samplePublication
+} from "./common";
+import { Match } from "../src/model/models";
 
 chai.should();
 chai.use(chaiAsPromised);
@@ -26,124 +32,103 @@ function filter<T>(promise: Promise<T>, cb: (t: T) => boolean): Promise<T> {
   });
 }
 
-function setup(
+async function setup(
   mgr: Manager,
+  _subDevice?: models.Device,
   onDevice?: (device: models.Device) => void
-): Promise<{ pub: models.Publication; sub: models.Subscription }> {
-  let deviceWithSub = mgr
-    .createMobileDevice(
+): Promise<{
+  pub: models.Publication;
+  sub: models.Subscription;
+  pubDevice: models.Device;
+  subDevice: models.Device;
+}> {
+  let subDevice =
+    _subDevice ||
+    (await mgr.createMobileDevice(
       sampleDevice.name,
       sampleDevice.platform,
       sampleDevice.deviceToken
-    )
-    .then(device => {
-      if (onDevice) onDevice(device);
-      return mgr.createSubscription(
-        sampleSubscription.topic,
-        sampleSubscription.range,
-        sampleSubscription.duration,
-        sampleSubscription.selector
-      );
-    })
-    .then(sub => {
-      return mgr.updateLocation(sampleLocation, sub.deviceId).then(_ => sub);
-    });
+    ));
 
-  let deviceWithPub = mgr
-    .createMobileDevice(
-      sampleDevice.name,
-      sampleDevice.platform,
-      sampleDevice.deviceToken
-    )
-    .then(device => {
-      return mgr.createPublication(
-        samplePublication.topic,
-        samplePublication.range,
-        samplePublication.duration,
-        samplePublication.properties
-      );
-    })
-    .then(pub => {
-      return mgr.updateLocation(sampleLocation, pub.deviceId).then(_ => pub);
-    });
-  return Promise.all([deviceWithPub, deviceWithSub]).then(f => {
-    return { pub: f[0], sub: f[1] };
-  });
+  let sub = await mgr.createSubscription(
+    sampleSubscription.topic,
+    sampleSubscription.range,
+    sampleSubscription.duration,
+    sampleSubscription.selector,
+    subDevice.id
+  );
+
+  await mgr.updateLocation(sampleLocation, sub.deviceId);
+
+  let pubDevice = await mgr.createMobileDevice(
+    sampleDevice.name,
+    sampleDevice.platform,
+    sampleDevice.deviceToken
+  );
+
+  let pub = await mgr.createPublication(
+    samplePublication.topic,
+    samplePublication.range,
+    samplePublication.duration,
+    samplePublication.properties
+  );
+
+  await mgr.updateLocation(sampleLocation, pub.deviceId);
+  return { pub, sub, pubDevice, subDevice };
 }
 
 describe("Matches", function() {
-  it("should provide matches via single call", function() {
+  it("should provide matches via single call", async () => {
     let mgr = new Manager(apiKey, apiLocation);
+    let { pub, sub } = await setup(mgr);
+    let matches = await mgr.getAllMatches(sub.deviceId);
 
-    setup(mgr)
-      .then(f => {
-        return mgr.getAllMatches(f.sub.deviceId).then(matches => {
-          return { matches: matches, pubsub: f };
-        });
-      })
-      .then(m => {
-        let matches = m.matches;
-
-        matches.should.be.instanceof(Array);
-        matches.should.not.be.empty;
-        let pub = m.pubsub.pub;
-        let sub = m.pubsub.sub;
-        let match = matches.filter(
-          m => m.publication.id == pub.id && m.subscription.id == sub.id
-        )[0];
-        chai.assert.equal(match.publication.id, pub.id);
-        chai.assert.equal(match.subscription.id,sub.id);
-      });
+    matches.should.be.instanceof(Array);
+    matches.should.not.be.empty;
+    let match = matches.filter(
+      m => m.publication.id == pub.id && m.subscription.id == sub.id
+    )[0];
+    chai.assert.equal(match.publication.id, pub.id);
+    chai.assert.equal(match.subscription.id, sub.id);
   });
 
-  it("should provide matches via polling", function() {
+  it("should provide matches via polling", async () => {
     let mgr = new Manager(apiKey, apiLocation);
 
-    var p: Promise<models.Match>;
+    let subDevice = await mgr.createMobileDevice(
+      sampleDevice.name,
+      sampleDevice.platform,
+      sampleDevice.deviceToken
+    );
+    mgr.startMonitoringMatches(MatchMonitorMode.polling);
 
-    let onDevice = (device: models.Device) => {
-      mgr.startMonitoringMatches(MatchMonitorMode.polling);
-      p = new Promise<models.Match>(resolve => {
-        mgr.onMatch = resolve;
-      });
-    };
-
-    setup(mgr, onDevice).then(m => {
-      let pub = m.pub;
-      let sub = m.sub;
-      return filter(
-        p,
-        f => f.publication.id == pub.id || f.subscription.id == sub.id
-      ).then(match => {
-        chai.assert.equal(match.publication.id, pub.id);
-        chai.assert.equal(match.subscription.id,sub.id);
-      });
+    let p = new Promise<models.Match>(resolve => {
+      mgr.onMatch = resolve;
     });
-  });
 
-  it("should provide matches via websocket", function() {
-    this.timeout(20000);
+    let { pub, sub } = await setup(mgr, subDevice);
+    let match = await p;
+    chai.assert.equal(match.publication.id, pub.id);
+    chai.assert.equal(match.subscription.id, sub.id);
+  }).timeout(20000);
+
+  it("should provide matches via websocket", async () => {
     let mgr = new Manager(apiKey, apiLocation);
 
-    var p: Promise<models.Match>;
+    let subDevice = await mgr.createMobileDevice(
+      sampleDevice.name,
+      sampleDevice.platform,
+      sampleDevice.deviceToken
+    );
+    mgr.startMonitoringMatches(MatchMonitorMode.websocket);
 
-    let onDevice = (device: models.Device) => {
-      mgr.startMonitoringMatches(MatchMonitorMode.websocket);
-      p = new Promise<models.Match>(resolve => {
-        mgr.onMatch = resolve;
-      });
-    };
-
-    setup(mgr, onDevice).then(m => {
-      let pub = m.pub;
-      let sub = m.sub;
-      return filter(
-        p,
-        f => f.publication.id == pub.id || f.subscription.id == sub.id
-      ).then(match => {
-        chai.assert.equal(match.publication.id, pub.id);
-        chai.assert.equal(match.subscription.id,sub.id);
-      });
+    let p = new Promise<models.Match>(resolve => {
+      mgr.onMatch = resolve;
     });
-  });
+
+    let { pub, sub } = await setup(mgr, subDevice);
+    let match = await p;
+    chai.assert.equal(match.publication.id, pub.id);
+    chai.assert.equal(match.subscription.id, sub.id);
+  }).timeout(20000);
 });
