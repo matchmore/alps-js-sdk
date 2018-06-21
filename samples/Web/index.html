@@ -27,7 +27,7 @@
               localStoragePersistenceManager
             );
             manager.createMobileDevice("me", "browser", "").then(device => {
-                manager.startMonitoringMatches();
+                manager.startMonitoringMatches(matchmore.MatchMonitorMode.websocket);
                 manager.onMatch = (match) => {
                     writeToScreen(match.publication.properties.name + " matched!");
                 };

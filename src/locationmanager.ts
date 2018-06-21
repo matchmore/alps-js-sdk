@@ -1,7 +1,6 @@
 import { Manager } from "./manager";
 import { Location } from "./client";
 
-
 export interface GPSConfig {
   enableHighAccuracy: boolean;
   timeout: number;
@@ -12,14 +11,15 @@ export class LocationManager {
   private _onLocationUpdate: (location: Location) => void;
   private _geoId;
   private _gpsConfig: GPSConfig;
-
+  private _defaultConfig: GPSConfig = {
+    enableHighAccuracy: false,
+    timeout: 60000,
+    maximumAge: 60000
+  }
+  
   constructor(public manager: Manager, config?: GPSConfig) {
-    this._gpsConfig = config || {
-      enableHighAccuracy: false,
-      timeout: 60000,
-      maximumAge: 60000
-    };
-    this._onLocationUpdate = loc => {};
+    this._gpsConfig = config || this._defaultConfig;
+    this._onLocationUpdate = _ => {};
   }
 
   public startUpdatingLocation() {
@@ -51,21 +51,20 @@ export class LocationManager {
     this._onLocationUpdate = onLocationUpdate;
   }
 
-  private onLocationReceived = (loc) => {
-    loc.coords.horizontalAccuracy = 1.0;
-    loc.coords.verticalAccuracy = 1.0;
+  private onLocationReceived = async (loc: Position) => {
+    const location = new Location({
+      latitude: loc.coords.latitude,
+      longitude: loc.coords.longitude,
+      altitude: loc.coords.altitude || 0,
+      horizontalAccuracy: loc.coords.accuracy,
+      verticalAccuracy: loc.coords.accuracy
+    });
 
+    await this.manager.updateLocation(location);
     if (this._onLocationUpdate) {
-      this._onLocationUpdate(loc);
+      this._onLocationUpdate(location);
     }
-    const { latitude, longitude, altitude } = loc.coords;
-    const coords = {
-      latitude,
-      longitude,
-      altitude: altitude || 0,
-    }
-    this.manager.updateLocation(new Location());
-  }
+  };
 
   private onError(error) {
     throw new Error(error.message);

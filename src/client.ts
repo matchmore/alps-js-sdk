@@ -483,8 +483,8 @@ export class Client {
         let resultData404 =
           _responseText === ""
             ? null
-            : JSON.parse(_responseText, this.jsonParseReviver);
-        result404 = resultData404 ? Match.fromJS(resultData404) : new Match();
+            : _responseText;
+        
         return throwException(
           "A server error occurred.",
           status,
@@ -1603,7 +1603,7 @@ the time of publication. Negative values are not allowed.
  */
   duration: number;
   /** The dictionary of key, value pairs. Allowed values are number, boolean, string and array of afformentioned types */
-  properties: { [key: string]: Anonymous };
+  properties: { [key: string]: any };
 
   constructor(data?: IPublication) {
     if (data) {
@@ -1634,7 +1634,7 @@ the time of publication. Negative values are not allowed.
         for (let key in data["properties"]) {
           if (data["properties"].hasOwnProperty(key))
             this.properties[key] = data["properties"][key]
-              ? Anonymous.fromJS(data["properties"][key])
+              ?  data["properties"][key]
               : <any>undefined;
         }
       }
@@ -1677,9 +1677,9 @@ export interface IPublication {
    */
   createdAt?: number;
   /** The id (UUID) of the world that contains device to attach a publication to. */
-  worldId: string;
+  worldId?: string;
   /** The id (UUID) of the device to attach a publication to. */
-  deviceId: string;
+  deviceId?: string;
   /** The topic of the publication. This will act as a first match filter.
 For a subscription to be able to match a publication they must have
 the exact same topic.
@@ -1809,9 +1809,9 @@ export interface ISubscription {
    */
   createdAt?: number;
   /** The id (UUID) of the world that contains device to attach a subscription to. */
-  worldId: string;
+  worldId?: string;
   /** The id (UUID) of the device to attach a subscription to. */
-  deviceId: string;
+  deviceId?: string;
   /** The topic of the subscription. This will act as a first match filter.
 For a subscription to be able to match a publication they must have
 the exact same topic.
@@ -2045,7 +2045,9 @@ export class PinDevice extends Device implements IPinDevice {
   }
 
   toJSON(data?: any) {
+    
     data = typeof data === "object" ? data : {};
+  
     data["location"] = this.location ? this.location.toJSON() : <any>undefined;
     super.toJSON(data);
     return data;
@@ -2186,36 +2188,6 @@ based upon the CLProximity.
  */
   distance: number;
 }
-
-export class Anonymous implements IAnonymous {
-  constructor(data?: IAnonymous) {
-    if (data) {
-      for (var property in data) {
-        if (data.hasOwnProperty(property))
-          (<any>this)[property] = (<any>data)[property];
-      }
-    }
-  }
-
-  init(data?: any) {
-    if (data) {
-    }
-  }
-
-  static fromJS(data: any): Anonymous {
-    data = typeof data === "object" ? data : {};
-    let result = new Anonymous();
-    result.init(data);
-    return result;
-  }
-
-  toJSON(data?: any) {
-    data = typeof data === "object" ? data : {};
-    return data;
-  }
-}
-
-export interface IAnonymous {}
 
 export class SwaggerException extends Error {
   message: string;
