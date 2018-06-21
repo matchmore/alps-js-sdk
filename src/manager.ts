@@ -21,7 +21,13 @@ export interface Token {
   sub: string;
 }
 
-type Provider<T> = (deviceId: string) => T;
+export type LocationLike = Location | SimpleLocation;
+
+export interface SimpleLocation {
+  latitude: number;
+  longitude: number;
+  altitude?: number;
+}
 
 export class Manager {
   private api: Client;
@@ -92,7 +98,6 @@ export class Manager {
    * @param name
    * @param platform
    * @param deviceToken platform token for push notifications for example apns://apns-token or fcm://fcm-token
-   * @param completion optional callback
    */
   public createMobileDevice(
     name: string,
@@ -113,16 +118,17 @@ export class Manager {
    * Create a pin device
    * @param name
    * @param location
-   * @param completion optional callback
    */
   public createPinDevice(
     name: string,
-    location: Location
+    location: LocationLike
   ): Promise<PinDevice> {
+
+
     return this.createAnyDevice(
       new PinDevice({
         name: name,
-        location: location
+        location: this.resolveLocationType(location)
       })
     );
   }
@@ -133,15 +139,12 @@ export class Manager {
    * @param proximityUUID
    * @param major
    * @param minor
-   * @param location
-   * @param completion optional callback
    */
   public createIBeaconDevice(
     name: string,
     proximityUUID: string,
     major: number,
-    minor: number,
-    location: Location
+    minor: number
   ): Promise<IBeaconDevice> {
     return this.createAnyDevice(
       new IBeaconDevice({
@@ -156,11 +159,8 @@ export class Manager {
   /**
    * Create a device
    * @param device whole device object
-   * @param completion optional callback
    */
-  public async createAnyDevice<T extends Device>(
-    device: Device
-  ): Promise<T> {
+  public async createAnyDevice<T extends Device>(device: Device): Promise<T> {
     try {
       const result = await this.api.createDevice(device);
       const ddevice = this._persistenceManager.defaultDevice();
@@ -173,16 +173,22 @@ export class Manager {
     }
   }
 
-  private handleError(error: any, operation: string){
+  private handleError(error: any, operation: string) {
     if (error instanceof SwaggerException) {
       throw new Error(
-        `An error has occurred during '${operation}': ${error} ${error.status}, ${error.response}`
+        `An error has occurred during '${operation}': ${error} ${
+          error.status
+        }, ${error.response}`
       );
     }
 
     throw error;
   }
 
+  /**
+   * Deletes device
+   * @param deviceId
+   */
   public async deleteDevice(deviceId: string) {
     try {
       await this.api.deleteDevice(deviceId);
@@ -203,14 +209,13 @@ export class Manager {
    * @param duration time in seconds
    * @param properties properties on which the sub selector can filter on
    * @param deviceId optional, if not provided the default device will be used
-   * @param completion optional callback
    */
   public async createPublication(
     topic: string,
     range: number,
     duration: number,
     properties: Object,
-    deviceId?: string,
+    deviceId?: string
   ): Promise<Publication> {
     try {
       const deviceWithId = this.deviceWithId(deviceId);
@@ -232,10 +237,15 @@ export class Manager {
 
       return result;
     } catch (error) {
-      this.handleError(error, `create publication for topic ${topic}`)
+      this.handleError(error, `create publication for topic ${topic}`);
     }
   }
 
+  /**
+   * Delete a publication for specified device
+   * @param deviceId
+   * @param pubId
+   */
   public async deletePublication(
     deviceId: string,
     pubId: string
@@ -243,11 +253,15 @@ export class Manager {
     try {
       await this.api.deletePublication(deviceId, pubId);
 
-      const d = this._persistenceManager.publications().find(d => d.id == pubId);
+      const d = this._persistenceManager
+        .publications()
+        .find(d => d.id == pubId);
       if (d) this._persistenceManager.remove(d);
-
     } catch (error) {
-      this.handleError(error, `delete publication for device ${deviceId}, publication ${pubId}`);
+      this.handleError(
+        error,
+        `delete publication for device ${deviceId}, publication ${pubId}`
+      );
     }
   }
 
@@ -258,7 +272,6 @@ export class Manager {
    * @param duration time in seconds
    * @param selector selector which is used for filtering publications
    * @param deviceId optional, if not provided the default device will be used
-   * @param completion optional callback
    */
   public async createSubscription(
     topic: string,
@@ -287,22 +300,24 @@ export class Manager {
 
       return result;
     } catch (error) {
-      this.handleError(error, `create subscription for topic ${topic}`)
+      this.handleError(error, `create subscription for topic ${topic}`);
     }
   }
 
-  public async deleteSubscription(
-    deviceId: string,
-    subId: string,
-  ) {
+  public async deleteSubscription(deviceId: string, subId: string) {
     try {
       const result = await this.api.deleteSubscription(deviceId, subId);
 
-      const d = this._persistenceManager.publications().find(d => d.id == subId);
+      const d = this._persistenceManager
+        .publications()
+        .find(d => d.id == subId);
       if (d) this._persistenceManager.remove(d);
       return result;
     } catch (error) {
-      this.handleError(error, `delete subscription for device ${deviceId}, subscription ${subId}`);
+      this.handleError(
+        error,
+        `delete subscription for device ${deviceId}, subscription ${subId}`
+      );
     }
   }
 
@@ -310,30 +325,52 @@ export class Manager {
    * Updates the device location
    * @param location
    * @param deviceId optional, if not provided the default device will be used
-   * @param completion optional callback
    */
   public async updateLocation(
-    location: Location,
+    location: LocationLike,
     deviceId?: string
   ): Promise<void> {
     try {
       const deviceWithId = this.deviceWithId(deviceId);
-      await this.api.createLocation(deviceWithId, location);
+      await this.api.createLocation(
+        deviceWithId,
+        this.resolveLocationType(location)
+      );
     } catch (error) {
-      this.handleError(error, `creating location ['${
-        location.latitude
-      }'`);
+      this.handleError(error, `creating location ['${location.latitude}'`);
     }
+  }
+
+  private resolveLocationType(location: LocationLike): Location {
+    if (!this.isLocation(location)) this.badLocation(location);
+    return new Location({
+      altitude: location.altitude || 0,
+      latitude: location.latitude,
+      longitude: location.longitude
+    });
+  }
+
+  private badLocation(location: LocationLike) {
+    let str: string = "";
+    try {
+      str = JSON.stringify(location);
+    } catch {}
+
+    throw new Error(`Location ${str} was invalid`);
+  }
+
+  private isLocation(obj: any): obj is Location {
+    return (
+      obj.longitude !== undefined &&
+      obj.latitude !== undefined
+    );
   }
 
   /**
    * Returns all current matches
    * @param deviceId optional, if not provided the default device will be used
-   * @param completion optional callback
    */
-  public async getAllMatches(
-    deviceId?: string
-  ): Promise<Match[]> {
+  public async getAllMatches(deviceId?: string): Promise<Match[]> {
     try {
       const deviceWithId = this.deviceWithId(deviceId);
       const result = await this.api.getMatches(deviceWithId);
@@ -347,12 +384,8 @@ export class Manager {
   /**
    * Returns a specific match for device
    * @param deviceId optional, if not provided the default device will be used
-   * @param completion optional callback
    */
-  public async getMatch(
-    matchId: string,
-    deviceId?: string
-  ): Promise<Match> {
+  public async getMatch(matchId: string, deviceId?: string): Promise<Match> {
     try {
       const deviceWithId = this.deviceWithId(deviceId);
 
@@ -367,11 +400,8 @@ export class Manager {
   /**
    * Gets publications
    * @param deviceId optional, if not provided the default device will be used
-   * @param completion optional callback
    */
-  public async getAllPublications(
-    deviceId?: string
-  ): Promise<Publication[]> {
+  public async getAllPublications(deviceId?: string): Promise<Publication[]> {
     try {
       const deviceWithId = this.deviceWithId(deviceId);
 
@@ -399,11 +429,8 @@ export class Manager {
   /**
    * Gets subscriptions
    * @param deviceId optional, if not provided the default device will be used
-   * @param completion optional callback
    */
-  public async getAllSubscriptions(
-    deviceId?: string
-  ): Promise<Subscription[]> {
+  public async getAllSubscriptions(deviceId?: string): Promise<Subscription[]> {
     try {
       const deviceWithId = this.deviceWithId(deviceId);
 
@@ -430,7 +457,7 @@ export class Manager {
   set onLocationUpdate(completion: (location: Location) => void) {
     this._locationManager.onLocationUpdate = completion;
   }
-  
+
   public startMonitoringMatches(mode?: MatchMonitorMode) {
     this._matchMonitor.startMonitoringMatches(mode);
   }

@@ -1,10 +1,10 @@
 import { Manager } from "./manager";
 import * as models from "./client";
-// import WebSocket = require("websocket");
+import WebSocket = require("universal-websocket-client");
 
 export enum MatchMonitorMode {
   polling = 0,
-  websocket = 1 
+  websocket = 1
 }
 
 export class MatchMonitor {
@@ -45,9 +45,8 @@ export class MatchMonitor {
         "pusher/v5/ws/" +
         this.manager.defaultDevice.id;
       const ws = new WebSocket(socketUrl, ["api-key", this.manager.token.sub]);
-      ws.onopen = msg => console.log("opened");
-      ws.onerror = msg => console.log(msg);
-      ws.onmessage = msg => this.checkMatch(msg.data);
+
+      ws.onmessage = async msg => await this.checkMatch(msg.data);
     }
   }
 
@@ -57,15 +56,20 @@ export class MatchMonitor {
     }
   }
 
-  private checkMatch(matchId: string) {
+  private async checkMatch(matchId: string) {
+    if (matchId == "ping" || matchId == "pong") return;
     if (!this.manager.defaultDevice) return;
     if (this.hasNotBeenDelivered({ id: matchId })) {
-      this.manager
-        .getMatch(matchId, this.manager.defaultDevice.id)
-        .then(match => {
-          this._deliveredMatches.push(match);
-          this._onMatch(match);
-        });
+      try {
+        const match = await this.manager.getMatch(
+          matchId,
+          this.manager.defaultDevice.id
+        );
+        this._deliveredMatches.push(match);
+        this._onMatch(match);
+      } catch (error) {
+        console.log(error);
+      }
     }
   }
 

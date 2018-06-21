@@ -6,7 +6,7 @@ import chai = require("chai");
 import chaiAsPromised = require("chai-as-promised");
 import "mocha";
 import { Manager } from "../src/manager";
-import * as models from "../src/model/models";
+import * as models from "../src/client";
 import { MatchMonitorMode } from "../src/matchmonitor";
 import {
   sampleDevice,
@@ -53,17 +53,7 @@ describe("Manager", function() {
       mgr.should.have.property("defaultDevice");
       chai.assert.equal(mgr.defaultDevice, device);
     });
-    it("should allow to be used as a promise", async () => {
-      const mgr = new Manager(apiKey, apiLocation);
-      const device = await mgr.createMobileDevice(
-        sampleDevice.name,
-        sampleDevice.platform,
-        sampleDevice.deviceToken
-      );
-      device.should.have.property("name");
-      device.should.have.property("id");
-      device.should.have.property("location");
-    });
+
     it("should add the newly created device to devices", async () => {
       const mgr = new Manager(apiKey, apiLocation);
       const device = await mgr.createMobileDevice(
@@ -75,6 +65,72 @@ describe("Manager", function() {
       mgr.devices.should.include(device);
     });
   });
+
+  describe("createPinDevice()", function() {
+    it("should create and send a device back", async () => {
+      const mgr = new Manager(apiKey, apiLocation);
+      const device = await mgr.createPinDevice(
+        sampleDevice.name,
+        sampleDevice.location
+      );
+
+      chai.expect(device).to.have.property("name");
+      chai.expect(device).to.have.property("id");
+      chai.expect(device).to.have.property("location");
+    });
+
+    it("should use simplified location object", async () => {
+      const mgr = new Manager(apiKey, apiLocation);
+      const device = await mgr.createPinDevice(
+        sampleDevice.name,
+        {
+          latitude: 54.350115,
+          longitude: 18.558819,
+        }        
+      );
+      mgr.should.have.property("devices");
+      mgr.devices.should.include(device);
+    });
+
+    it("should add the newly created device to devices", async () => {
+      const mgr = new Manager(apiKey, apiLocation);
+      const device = await mgr.createPinDevice(
+        sampleDevice.name,
+        sampleDevice.location
+      );
+      mgr.should.have.property("devices");
+      mgr.devices.should.include(device);
+    });
+  });
+
+  describe("createIBeaconDevice()", function() {
+    it("should create and send a device back", async () => {
+      const mgr = new Manager(apiKey, apiLocation);
+      const device = await mgr.createIBeaconDevice(
+        sampleDevice.name,
+        "123e4567-e89b-12d3-a456-426655440000",
+        1,
+        1
+      );
+
+      chai.expect(device).to.have.property("name");
+      chai.expect(device).to.have.property("proximityUUID");
+      chai.expect(device).to.have.property("id");
+    });
+
+    it("should add the newly created device to devices", async () => {
+      const mgr = new Manager(apiKey, apiLocation);
+      const device = await mgr.createIBeaconDevice(
+        sampleDevice.name,
+        "123e4567-e89b-12d3-a456-426655440000",
+        1,
+        1
+      );
+      mgr.should.have.property("devices");
+      mgr.devices.should.include(device);
+    });
+  });
+
   describe("createPublication()", function() {
     it("should create and send a publication back", async () => {
       const mgr = new Manager(apiKey, apiLocation);
@@ -279,5 +335,26 @@ describe("Manager", function() {
       subscriptions.should.be.instanceof(Array);
       subscriptions.should.contain(subscription);
     });
+  });
+
+  describe("location monitoring", function() {
+    
+    it("should run location monitoring", async () => {
+      const mgr = new Manager(apiKey, apiLocation);
+      const device = await mgr.createMobileDevice(
+        sampleDevice.name,
+        sampleDevice.platform,
+        sampleDevice.deviceToken
+      );
+      mgr.startUpdatingLocation();
+    
+      let p = new Promise<models.Location>(resolve => {
+        mgr.onLocationUpdate = resolve;
+      });
+      const location = await p; 
+      
+
+    }).timeout(10000);
+
   });
 });

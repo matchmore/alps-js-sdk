@@ -1,4 +1,4 @@
-(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.matchmore = f()}})(function(){var define,module,exports;return (function(){function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s}return e})()({1:[function(require,module,exports){
+(function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.matchmore = f()}})(function(){var define,module,exports;return (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
 "use strict";
 /* tslint:disable */
 //----------------------
@@ -393,8 +393,7 @@ class Client {
                 let result404 = null;
                 let resultData404 = _responseText === ""
                     ? null
-                    : JSON.parse(_responseText, this.jsonParseReviver);
-                result404 = resultData404 ? Match.fromJS(resultData404) : new Match();
+                    : _responseText;
                 return throwException("A server error occurred.", status, _responseText, _headers, result404);
             });
         }
@@ -1199,7 +1198,7 @@ class Publication {
                 for (let key in data["properties"]) {
                     if (data["properties"].hasOwnProperty(key))
                         this.properties[key] = data["properties"][key]
-                            ? Anonymous.fromJS(data["properties"][key])
+                            ? data["properties"][key]
                             : undefined;
                 }
             }
@@ -1495,31 +1494,6 @@ class ProximityEvent {
     }
 }
 exports.ProximityEvent = ProximityEvent;
-class Anonymous {
-    constructor(data) {
-        if (data) {
-            for (var property in data) {
-                if (data.hasOwnProperty(property))
-                    this[property] = data[property];
-            }
-        }
-    }
-    init(data) {
-        if (data) {
-        }
-    }
-    static fromJS(data) {
-        data = typeof data === "object" ? data : {};
-        let result = new Anonymous();
-        result.init(data);
-        return result;
-    }
-    toJSON(data) {
-        data = typeof data === "object" ? data : {};
-        return data;
-    }
-}
-exports.Anonymous = Anonymous;
 class SwaggerException extends Error {
     constructor(message, status, response, headers, result) {
         super();
@@ -1560,31 +1534,39 @@ exports.MatchMonitorMode = matchmonitor_1.MatchMonitorMode;
 
 },{"./client":1,"./manager":4,"./matchmonitor":5,"./persistences/InMemoryPersistenceManager":7,"./persistences/LocalStoragePersistenceManager":8,"./platform":9}],3:[function(require,module,exports){
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const client_1 = require("./client");
 class LocationManager {
     constructor(manager, config) {
         this.manager = manager;
-        this.onLocationReceived = (loc) => {
-            loc.coords.horizontalAccuracy = 1.0;
-            loc.coords.verticalAccuracy = 1.0;
-            if (this._onLocationUpdate) {
-                this._onLocationUpdate(loc);
-            }
-            const { latitude, longitude, altitude } = loc.coords;
-            const coords = {
-                latitude,
-                longitude,
-                altitude: altitude || 0,
-            };
-            this.manager.updateLocation(new client_1.Location());
-        };
-        this._gpsConfig = config || {
+        this._defaultConfig = {
             enableHighAccuracy: false,
             timeout: 60000,
             maximumAge: 60000
         };
-        this._onLocationUpdate = loc => { };
+        this.onLocationReceived = (loc) => __awaiter(this, void 0, void 0, function* () {
+            const location = new client_1.Location({
+                latitude: loc.coords.latitude,
+                longitude: loc.coords.longitude,
+                altitude: loc.coords.altitude || 0,
+                horizontalAccuracy: loc.coords.accuracy,
+                verticalAccuracy: loc.coords.accuracy
+            });
+            yield this.manager.updateLocation(location);
+            if (this._onLocationUpdate) {
+                this._onLocationUpdate(location);
+            }
+        });
+        this._gpsConfig = config || this._defaultConfig;
+        this._onLocationUpdate = _ => { };
     }
     startUpdatingLocation() {
         if (navigator.geolocation) {
@@ -1688,7 +1670,6 @@ class Manager {
      * @param name
      * @param platform
      * @param deviceToken platform token for push notifications for example apns://apns-token or fcm://fcm-token
-     * @param completion optional callback
      */
     createMobileDevice(name, platform, deviceToken) {
         return this.createAnyDevice(new client_1.MobileDevice({
@@ -1702,12 +1683,11 @@ class Manager {
      * Create a pin device
      * @param name
      * @param location
-     * @param completion optional callback
      */
     createPinDevice(name, location) {
         return this.createAnyDevice(new client_1.PinDevice({
             name: name,
-            location: location
+            location: this.resolveLocationType(location)
         }));
     }
     /**
@@ -1716,10 +1696,8 @@ class Manager {
      * @param proximityUUID
      * @param major
      * @param minor
-     * @param location
-     * @param completion optional callback
      */
-    createIBeaconDevice(name, proximityUUID, major, minor, location) {
+    createIBeaconDevice(name, proximityUUID, major, minor) {
         return this.createAnyDevice(new client_1.IBeaconDevice({
             name: name,
             proximityUUID: proximityUUID,
@@ -1730,7 +1708,6 @@ class Manager {
     /**
      * Create a device
      * @param device whole device object
-     * @param completion optional callback
      */
     createAnyDevice(device) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -1752,6 +1729,10 @@ class Manager {
         }
         throw error;
     }
+    /**
+     * Deletes device
+     * @param deviceId
+     */
     deleteDevice(deviceId) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
@@ -1773,7 +1754,6 @@ class Manager {
      * @param duration time in seconds
      * @param properties properties on which the sub selector can filter on
      * @param deviceId optional, if not provided the default device will be used
-     * @param completion optional callback
      */
     createPublication(topic, range, duration, properties, deviceId) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -1796,11 +1776,18 @@ class Manager {
             }
         });
     }
+    /**
+     * Delete a publication for specified device
+     * @param deviceId
+     * @param pubId
+     */
     deletePublication(deviceId, pubId) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 yield this.api.deletePublication(deviceId, pubId);
-                const d = this._persistenceManager.publications().find(d => d.id == pubId);
+                const d = this._persistenceManager
+                    .publications()
+                    .find(d => d.id == pubId);
                 if (d)
                     this._persistenceManager.remove(d);
             }
@@ -1816,7 +1803,6 @@ class Manager {
      * @param duration time in seconds
      * @param selector selector which is used for filtering publications
      * @param deviceId optional, if not provided the default device will be used
-     * @param completion optional callback
      */
     createSubscription(topic, range, duration, selector, deviceId) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -1843,7 +1829,9 @@ class Manager {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const result = yield this.api.deleteSubscription(deviceId, subId);
-                const d = this._persistenceManager.publications().find(d => d.id == subId);
+                const d = this._persistenceManager
+                    .publications()
+                    .find(d => d.id == subId);
                 if (d)
                     this._persistenceManager.remove(d);
                 return result;
@@ -1857,23 +1845,42 @@ class Manager {
      * Updates the device location
      * @param location
      * @param deviceId optional, if not provided the default device will be used
-     * @param completion optional callback
      */
     updateLocation(location, deviceId) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const deviceWithId = this.deviceWithId(deviceId);
-                yield this.api.createLocation(deviceWithId, location);
+                yield this.api.createLocation(deviceWithId, this.resolveLocationType(location));
             }
             catch (error) {
                 this.handleError(error, `creating location ['${location.latitude}'`);
             }
         });
     }
+    resolveLocationType(location) {
+        if (!this.isLocation(location))
+            this.badLocation(location);
+        return new client_1.Location({
+            altitude: location.altitude || 0,
+            latitude: location.latitude,
+            longitude: location.longitude
+        });
+    }
+    badLocation(location) {
+        let str = "";
+        try {
+            str = JSON.stringify(location);
+        }
+        catch (_a) { }
+        throw new Error(`Location ${str} was invalid`);
+    }
+    isLocation(obj) {
+        return (obj.longitude !== undefined &&
+            obj.latitude !== undefined);
+    }
     /**
      * Returns all current matches
      * @param deviceId optional, if not provided the default device will be used
-     * @param completion optional callback
      */
     getAllMatches(deviceId) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -1890,7 +1897,6 @@ class Manager {
     /**
      * Returns a specific match for device
      * @param deviceId optional, if not provided the default device will be used
-     * @param completion optional callback
      */
     getMatch(matchId, deviceId) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -1907,7 +1913,6 @@ class Manager {
     /**
      * Gets publications
      * @param deviceId optional, if not provided the default device will be used
-     * @param completion optional callback
      */
     getAllPublications(deviceId) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -1933,7 +1938,6 @@ class Manager {
     /**
      * Gets subscriptions
      * @param deviceId optional, if not provided the default device will be used
-     * @param completion optional callback
      */
     getAllSubscriptions(deviceId) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -1978,8 +1982,16 @@ exports.Manager = Manager;
 
 },{"./client":1,"./index":2,"./locationmanager":3,"./matchmonitor":5,"Base64":10}],5:[function(require,module,exports){
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-// import WebSocket = require("websocket");
+const WebSocket = require("universal-websocket-client");
 var MatchMonitorMode;
 (function (MatchMonitorMode) {
     MatchMonitorMode[MatchMonitorMode["polling"] = 0] = "polling";
@@ -2015,9 +2027,7 @@ class MatchMonitor {
                 "pusher/v5/ws/" +
                 this.manager.defaultDevice.id;
             const ws = new WebSocket(socketUrl, ["api-key", this.manager.token.sub]);
-            ws.onopen = msg => console.log("opened");
-            ws.onerror = msg => console.log(msg);
-            ws.onmessage = msg => this.checkMatch(msg.data);
+            ws.onmessage = (msg) => __awaiter(this, void 0, void 0, function* () { return yield this.checkMatch(msg.data); });
         }
     }
     stopMonitoringMatches() {
@@ -2026,16 +2036,22 @@ class MatchMonitor {
         }
     }
     checkMatch(matchId) {
-        if (!this.manager.defaultDevice)
-            return;
-        if (this.hasNotBeenDelivered({ id: matchId })) {
-            this.manager
-                .getMatch(matchId, this.manager.defaultDevice.id)
-                .then(match => {
-                this._deliveredMatches.push(match);
-                this._onMatch(match);
-            });
-        }
+        return __awaiter(this, void 0, void 0, function* () {
+            if (matchId == "ping" || matchId == "pong")
+                return;
+            if (!this.manager.defaultDevice)
+                return;
+            if (this.hasNotBeenDelivered({ id: matchId })) {
+                try {
+                    const match = yield this.manager.getMatch(matchId, this.manager.defaultDevice.id);
+                    this._deliveredMatches.push(match);
+                    this._onMatch(match);
+                }
+                catch (error) {
+                    console.log(error);
+                }
+            }
+        });
     }
     checkMatches() {
         this.manager.getAllMatches().then(matches => {
@@ -2059,7 +2075,7 @@ class MatchMonitor {
 }
 exports.MatchMonitor = MatchMonitor;
 
-},{}],6:[function(require,module,exports){
+},{"universal-websocket-client":11}],6:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 class MatchmoreEntityDiscriminator {
@@ -2361,6 +2377,11 @@ exports.default = instance;
   });
 
 }());
+
+},{}],11:[function(require,module,exports){
+'use strict';
+
+module.exports = WebSocket;
 
 },{}]},{},[2])(2)
 });

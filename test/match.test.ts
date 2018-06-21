@@ -7,7 +7,7 @@ import chai = require("chai");
 import chaiAsPromised = require("chai-as-promised");
 import "mocha";
 import { Manager } from "../src/manager";
-import * as models from "../src/model/models";
+import * as models from "../src/client";
 import { MatchMonitorMode } from "../src/matchmonitor";
 import {
   sampleDevice,
@@ -15,22 +15,12 @@ import {
   sampleLocation,
   samplePublication
 } from "./common";
-import { Match } from "../src/model/models";
 
 chai.should();
 chai.use(chaiAsPromised);
 
 const apiKey = environment.apiKey;
 const apiLocation = environment.apiLocation;
-
-function filter<T>(promise: Promise<T>, cb: (t: T) => boolean): Promise<T> {
-  return promise.then(v => {
-    return new Promise<T>(resolve => {
-      if (cb(v)) resolve(v);
-      else return filter(promise, cb);
-    });
-  });
-}
 
 async function setup(
   mgr: Manager,
@@ -110,7 +100,7 @@ describe("Matches", function() {
     let match = await p;
     chai.assert.equal(match.publication.id, pub.id);
     chai.assert.equal(match.subscription.id, sub.id);
-  }).timeout(20000);
+  }).timeout(10000);
 
   it("should provide matches via websocket", async () => {
     let mgr = new Manager(apiKey, apiLocation);
@@ -130,5 +120,5 @@ describe("Matches", function() {
     let match = await p;
     chai.assert.equal(match.publication.id, pub.id);
     chai.assert.equal(match.subscription.id, sub.id);
-  }).timeout(20000);
+  }).timeout(10000);
 });
