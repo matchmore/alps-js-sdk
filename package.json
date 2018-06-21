@@ -30,6 +30,7 @@
     "Base64": "^1.0.1",
     "querystring": "^0.2.0",
     "superagent": "^3.8.3",
+    "universal-websocket-client": "^1.0.2",
     "websocket": "^1.0.25"
   }
 }

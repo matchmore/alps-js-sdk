@@ -356,11 +356,12 @@ export class Manager {
       str = JSON.stringify(location);
     } catch {}
 
-    throw new Error(`Location ${str} was invalid`);
+    throw new Error(`Location '${str}' was invalid`);
   }
 
   private isLocation(obj: any): obj is Location {
     return (
+      obj !== undefined &&
       obj.longitude !== undefined &&
       obj.latitude !== undefined
     );

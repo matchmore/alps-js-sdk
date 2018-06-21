@@ -1875,7 +1875,8 @@ class Manager {
         throw new Error(`Location ${str} was invalid`);
     }
     isLocation(obj) {
-        return (obj.longitude !== undefined &&
+        return (obj !== undefined &&
+            obj.longitude !== undefined &&
             obj.latitude !== undefined);
     }
     /**
